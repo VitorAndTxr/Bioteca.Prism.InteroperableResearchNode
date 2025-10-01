@@ -1,0 +1,6 @@
+@Bioteca.Prism.InteroperableResearchNode_HostAddress = http://localhost:5050
+
+GET {{Bioteca.Prism.InteroperableResearchNode_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

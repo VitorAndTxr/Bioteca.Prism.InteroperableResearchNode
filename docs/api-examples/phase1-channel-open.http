@@ -1,0 +1,101 @@
+### Phase 1: Open Encrypted Channel
+# This example demonstrates opening an encrypted channel using ephemeral ECDH keys
+
+POST https://localhost:5001/api/channel/open
+Content-Type: application/json
+
+{
+  "protocolVersion": "1.0",
+  "ephemeralPublicKey": "MHYwEAYHKoZIzj0CAQYFK4EEACIDYgAEqF7VzFzKnQxPb8QRZJ5S7HX8dF0J2pN5WjU8xV9kZwQ7LmPqN3R8fG5tA4E6W7zJ8nF3xV5Y2qK9R4H8tU3wP6vN2J9L5K1M7Q8R3E5F2G9H6T7W4Y5X1Z8A3B7C6D1E4",
+  "keyExchangeAlgorithm": "ECDH-P384",
+  "supportedCiphers": ["AES-256-GCM", "ChaCha20-Poly1305"],
+  "timestamp": "2025-10-01T12:00:00Z",
+  "nonce": "cmFuZG9tLW5vbmNlLTEyMw=="
+}
+
+###
+
+### Expected Success Response (200 OK)
+# Response includes server's ephemeral public key and selected cipher
+# X-Channel-Id header contains the channel identifier for subsequent requests
+
+# {
+#   "protocolVersion": "1.0",
+#   "ephemeralPublicKey": "MHYwEAYHKoZIzj0CAQYFK4EEACIDYgAE...",
+#   "keyExchangeAlgorithm": "ECDH-P384",
+#   "selectedCipher": "AES-256-GCM",
+#   "timestamp": "2025-10-01T12:00:01Z",
+#   "nonce": "c2VydmVyLW5vbmNlLTQ1Ng=="
+# }
+#
+# Headers:
+#   X-Channel-Id: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+
+###
+
+### Error Example: Invalid Ephemeral Key (400 Bad Request)
+POST https://localhost:5001/api/channel/open
+Content-Type: application/json
+
+{
+  "protocolVersion": "1.0",
+  "ephemeralPublicKey": "invalid-key",
+  "keyExchangeAlgorithm": "ECDH-P384",
+  "supportedCiphers": ["AES-256-GCM"],
+  "timestamp": "2025-10-01T12:00:00Z",
+  "nonce": "cmFuZG9tLW5vbmNlLTEyMw=="
+}
+
+# Expected Response:
+# {
+#   "error": {
+#     "code": "ERR_INVALID_EPHEMERAL_KEY",
+#     "message": "Ephemeral public key is invalid or malformed",
+#     "details": {
+#       "reason": "invalid_curve_point"
+#     },
+#     "retryable": true
+#   }
+# }
+
+###
+
+### Error Example: Incompatible Cipher (400 Bad Request)
+POST https://localhost:5001/api/channel/open
+Content-Type: application/json
+
+{
+  "protocolVersion": "1.0",
+  "ephemeralPublicKey": "MHYwEAYHKoZIzj0CAQYFK4EEACIDYgAE...",
+  "keyExchangeAlgorithm": "ECDH-P384",
+  "supportedCiphers": ["DES-CBC"],
+  "timestamp": "2025-10-01T12:00:00Z",
+  "nonce": "cmFuZG9tLW5vbmNlLTEyMw=="
+}
+
+# Expected Response:
+# {
+#   "error": {
+#     "code": "ERR_CHANNEL_FAILED",
+#     "message": "No compatible cipher found",
+#     "details": {
+#       "clientCiphers": ["DES-CBC"],
+#       "serverCiphers": ["AES-256-GCM", "ChaCha20-Poly1305"]
+#     },
+#     "retryable": false
+#   }
+# }
+
+###
+
+### Get Channel Info (for testing)
+GET https://localhost:5001/api/channel/3fa85f64-5717-4562-b3fc-2c963f66afa6
+
+# Expected Response:
+# {
+#   "channelId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+#   "cipher": "AES-256-GCM",
+#   "createdAt": "2025-10-01T12:00:01Z",
+#   "expiresAt": "2025-10-01T12:30:01Z",
+#   "isExpired": false
+# }
