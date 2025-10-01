@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+
+#  node-a:
+#    build:
+#      context: .
+#      dockerfile: ./Bioteca.Prism.InteroperableResearchNode/Dockerfile
+#    container_name: irn-node-a
+#    environment:
+#      - ASPNETCORE_ENVIRONMENT=NodeA
+#      - ASPNETCORE_URLS=http://+:8080
+#    ports:
+#      - "5000:8080"
+#    networks:
+#      - irn-network
+#    healthcheck:
+#      test: ["CMD", "curl", "-f", "http://localhost:8080/api/channel/health"]
+#      interval: 10s
+#      timeout: 5s
+#      retries: 3
+#      start_period: 10s
+
+  node-b:
+    build:
+      context: .
+      dockerfile: ./Bioteca.Prism.InteroperableResearchNode/Dockerfile
+    container_name: irn-node-b
+    environment:
+      - ASPNETCORE_ENVIRONMENT=NodeB
+      - ASPNETCORE_URLS=http://+:8080
+    ports:
+      - "5001:8080"
+    networks:
+      - irn-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/channel/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+networks:
+  irn-network:
+    driver: bridge

@@ -225,6 +225,16 @@ public class ChannelController : ControllerBase
         return NotFound();
     }
 
+    /// <summary>
+    /// Health check endpoint
+    /// </summary>
+    [HttpGet("health")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public IActionResult HealthCheck()
+    {
+        return Ok(new { status = "healthy", timestamp = DateTime.UtcNow });
+    }
+
     private HandshakeError? ValidateChannelOpenRequest(ChannelOpenRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.ProtocolVersion))

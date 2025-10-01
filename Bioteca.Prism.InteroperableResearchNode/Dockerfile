@@ -1,29 +1,38 @@
-# See https://aka.ms/customizecontainer to learn how to customize your debug container and how Visual Studio uses this Dockerfile to build your images for faster debugging.
+# Multi-stage Dockerfile for IRN Node
+# Supports both NodeA and NodeB configurations via ASPNETCORE_ENVIRONMENT
 
-# This stage is used when running from VS in fast mode (Default for Debug configuration)
+# Runtime stage
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
-USER $APP_UID
 WORKDIR /app
 EXPOSE 8080
-EXPOSE 8081
 
-
-# This stage is used to build the service project
+# Build stage
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
-ARG BUILD_CONFIGURATION=Release
+ARG BUILD_CONFIGURATION=Debug
 WORKDIR /src
-COPY ["Bioteca.Prism.InteroperableResearchNode.csproj", "."]
-RUN dotnet restore "./Bioteca.Prism.InteroperableResearchNode.csproj"
+
+# Copy all project files (to handle dependencies)
+COPY ["Bioteca.Prism.InteroperableResearchNode/Bioteca.Prism.InteroperableResearchNode.csproj", "Bioteca.Prism.InteroperableResearchNode/"]
+COPY ["Bioteca.Prism.Service/Bioteca.Prism.Service.csproj", "Bioteca.Prism.Service/"]
+COPY ["Bioteca.Prism.Domain/Bioteca.Prism.Domain.csproj", "Bioteca.Prism.Domain/"]
+COPY ["Bioteca.DotNet/Bioteca.DotNet.csproj", "Bioteca.DotNet/"]
+
+# Restore dependencies
+RUN dotnet restore "Bioteca.Prism.InteroperableResearchNode/Bioteca.Prism.InteroperableResearchNode.csproj"
+
+# Copy all source files
 COPY . .
-WORKDIR "/src/."
-RUN dotnet build "./Bioteca.Prism.InteroperableResearchNode.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
-# This stage is used to publish the service project to be copied to the final stage
+# Build the project
+WORKDIR "/src/Bioteca.Prism.InteroperableResearchNode"
+RUN dotnet build "Bioteca.Prism.InteroperableResearchNode.csproj" -c $BUILD_CONFIGURATION -o /app/build
+
+# Publish stage
 FROM build AS publish
-ARG BUILD_CONFIGURATION=Release
-RUN dotnet publish "./Bioteca.Prism.InteroperableResearchNode.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
+ARG BUILD_CONFIGURATION=Debug
+RUN dotnet publish "Bioteca.Prism.InteroperableResearchNode.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
 
-# This stage is used in production or when running from VS in regular mode (Default when not using the Debug configuration)
+# Final stage
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .

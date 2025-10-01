@@ -19,13 +19,20 @@ builder.Services.AddSingleton<INodeChannelClient, NodeChannelClient>();
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+// Enable Swagger in Development, NodeA, and NodeB environments
+if (app.Environment.IsDevelopment() ||
+    app.Environment.EnvironmentName == "NodeA" ||
+    app.Environment.EnvironmentName == "NodeB")
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+// Only use HTTPS redirection in Production
+if (app.Environment.IsProduction())
+{
+    app.UseHttpsRedirection();
+}
 
 app.UseAuthorization();
 

@@ -1,0 +1,88 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug Node A",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/Bioteca.Prism.InteroperableResearchNode/bin/Debug/net8.0/Bioteca.Prism.InteroperableResearchNode.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/Bioteca.Prism.InteroperableResearchNode",
+      "stopAtEntry": false,
+      "serverReadyAction": {
+        "action": "openExternally",
+        "pattern": "\\bNow listening on:\\s+(https?://\\S+)",
+        "uriFormat": "%s/swagger"
+      },
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "NodeA",
+        "ASPNETCORE_URLS": "http://localhost:5000"
+      },
+      "sourceFileMap": {
+        "/Views": "${workspaceFolder}/Views"
+      }
+    },
+    {
+      "name": "Debug Node B",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/Bioteca.Prism.InteroperableResearchNode/bin/Debug/net8.0/Bioteca.Prism.InteroperableResearchNode.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/Bioteca.Prism.InteroperableResearchNode",
+      "stopAtEntry": false,
+      "serverReadyAction": {
+        "action": "openExternally",
+        "pattern": "\\bNow listening on:\\s+(https?://\\S+)",
+        "uriFormat": "%s/swagger"
+      },
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "NodeB",
+        "ASPNETCORE_URLS": "http://localhost:5001"
+      },
+      "sourceFileMap": {
+        "/Views": "${workspaceFolder}/Views"
+      }
+    },
+    {
+      "name": "Attach to Node A (Docker)",
+      "type": "coreclr",
+      "request": "attach",
+      "processId": "${command:pickRemoteProcess}",
+      "pipeTransport": {
+        "pipeCwd": "${workspaceRoot}",
+        "pipeProgram": "docker",
+        "pipeArgs": ["exec", "-i", "irn-node-a"],
+        "debuggerPath": "/vsdbg/vsdbg",
+        "quoteArgs": false
+      },
+      "sourceFileMap": {
+        "/src/Bioteca.Prism.InteroperableResearchNode": "${workspaceFolder}/Bioteca.Prism.InteroperableResearchNode"
+      }
+    },
+    {
+      "name": "Attach to Node B (Docker)",
+      "type": "coreclr",
+      "request": "attach",
+      "processId": "${command:pickRemoteProcess}",
+      "pipeTransport": {
+        "pipeCwd": "${workspaceRoot}",
+        "pipeProgram": "docker",
+        "pipeArgs": ["exec", "-i", "irn-node-b"],
+        "debuggerPath": "/vsdbg/vsdbg",
+        "quoteArgs": false
+      },
+      "sourceFileMap": {
+        "/src/Bioteca.Prism.InteroperableResearchNode": "${workspaceFolder}/Bioteca.Prism.InteroperableResearchNode"
+      }
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Debug Both Nodes",
+      "configurations": ["Debug Node A", "Debug Node B"],
+      "stopAll": true
+    }
+  ]
+}
