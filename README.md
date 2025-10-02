@@ -33,6 +33,7 @@ The Interoperable Research Node (IRN) is the cornerstone of this model. It acts 
   - Perfect Forward Secrecy (PFS)
   - HKDF-SHA256 key derivation
   - AES-256-GCM encryption
+  - ⚠️ **Nota**: Atualmente, as Fases 2-4 não estão criptografadas dentro do canal. Veja [plano de implementação](docs/development/channel-encryption-plan.md)
 
 - **🆔 Node Identification & Authorization**
   - X.509 certificate-based identification

@@ -67,7 +67,24 @@ Nó A (Iniciador)                    Nó B (Receptor)
 - As **chaves efêmeras são descartadas** ao final da sessão
 - Isto proporciona **Perfect Forward Secrecy (PFS)**: mesmo que chaves privadas permanentes sejam comprometidas no futuro, sessões passadas permanecem seguras
 
-**Importante**: A partir deste ponto, **todas as mensagens** subsequentes devem ser criptografadas usando as chaves simétricas derivadas do canal.
+**⚠️ REQUISITO CRÍTICO DE SEGURANÇA**: A partir deste ponto, **TODAS as mensagens** subsequentes (Fases 2, 3 e 4) **DEVEM ser criptografadas** usando as chaves simétricas derivadas do canal estabelecido na Fase 1.
+
+**Implementação Obrigatória**:
+- O `ChannelId` retornado no header `X-Channel-Id` da resposta `CHANNEL_READY` deve ser incluído em **todas** as requisições subsequentes
+- Cada requisição deve incluir no header: `X-Channel-Id: {channelId}`
+- O payload de todas as mensagens das Fases 2-4 deve ser criptografado com AES-256-GCM usando a chave simétrica derivada
+- O servidor deve validar que o `ChannelId` existe e não está expirado antes de processar qualquer requisição
+- O servidor deve descriptografar o payload usando a chave simétrica associada ao canal
+- Respostas devem ser igualmente criptografadas antes de serem enviadas
+
+**Formato do Payload Criptografado**:
+```json
+{
+  "encryptedData": "base64-encoded-encrypted-payload",
+  "iv": "base64-encoded-initialization-vector",
+  "authTag": "base64-encoded-authentication-tag"
+}
+```
 
 ### Fase 2: Identificação e Autorização
 
@@ -84,7 +101,15 @@ Nó A (Iniciador)                    Nó B (Receptor)
 
 **Objetivo**: Verificar se o nó requisitante é conhecido e autorizado na rede.
 
-**Payload NODE_IDENTIFY (criptografado):**
+**⚠️ REQUISITO**: Esta requisição **DEVE** ser enviada dentro do canal criptografado estabelecido na Fase 1. O header `X-Channel-Id` é obrigatório.
+
+**Headers Obrigatórios**:
+```
+X-Channel-Id: {channelId-obtido-na-fase-1}
+Content-Type: application/json
+```
+
+**Payload NODE_IDENTIFY (criptografado com chave do canal):**
 ```json
 {
   "nodeId": "uuid-do-no-a",
@@ -137,6 +162,8 @@ Nó A (Iniciador)                    Nó B (Receptor)
 ### Fase 3: Autenticação Mútua
 
 **Pré-requisito**: Esta fase só ocorre se o Nó B retornou `status: "known"` na Fase 2.
+
+**⚠️ REQUISITO**: Todas as mensagens desta fase **DEVEM** ser criptografadas usando o canal estabelecido na Fase 1. O header `X-Channel-Id` é obrigatório em todas as requisições.
 
 ```
 Nó A (Iniciador)                    Nó B (Receptor)
@@ -197,6 +224,8 @@ Nó A (Iniciador)                    Nó B (Receptor)
 ### Fase 4: Estabelecimento de Sessão
 
 **Pré-requisito**: Esta fase só ocorre após autenticação mútua bem-sucedida (Fase 3).
+
+**⚠️ REQUISITO**: Todas as mensagens desta fase **DEVEM** ser criptografadas usando o canal estabelecido na Fase 1. O header `X-Channel-Id` é obrigatório em todas as requisições.
 
 ```
 Nó A (Iniciador)                    Nó B (Receptor)
