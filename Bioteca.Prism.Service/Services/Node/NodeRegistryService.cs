@@ -92,12 +92,12 @@ public class NodeRegistryService : INodeRegistryService
                 // Check if node already exists
                 if (_nodes.ContainsKey(request.NodeId))
                 {
-                    return Task.FromResult(new NodeRegistrationResponse
-                    {
-                        Success = false,
-                        Status = RegistrationStatus.Rejected,
-                        Message = "Node ID already registered"
-                    });
+                return Task.FromResult(new NodeRegistrationResponse
+                {
+                    Success = false,
+                    Status = AuthorizationStatus.Revoked,
+                    Message = "Node ID already registered"
+                });
                 }
 
                 // Calculate certificate fingerprint
@@ -107,12 +107,12 @@ public class NodeRegistryService : INodeRegistryService
                 // Check if certificate is already registered
                 if (_nodesByCertificate.ContainsKey(fingerprint))
                 {
-                    return Task.FromResult(new NodeRegistrationResponse
-                    {
-                        Success = false,
-                        Status = RegistrationStatus.Rejected,
-                        Message = "Certificate already registered with another node"
-                    });
+                return Task.FromResult(new NodeRegistrationResponse
+                {
+                    Success = false,
+                    Status = AuthorizationStatus.Revoked,
+                    Message = "Certificate already registered with another node"
+                });
                 }
 
                 // Create new registered node (pending approval)
@@ -142,7 +142,7 @@ public class NodeRegistryService : INodeRegistryService
                 {
                     Success = true,
                     RegistrationId = registrationId,
-                    Status = RegistrationStatus.Pending,
+                    Status = AuthorizationStatus.Pending,
                     Message = "Registration received. Pending administrator approval.",
                     EstimatedApprovalTime = TimeSpan.FromHours(24)
                 });
@@ -153,7 +153,7 @@ public class NodeRegistryService : INodeRegistryService
                 return Task.FromResult(new NodeRegistrationResponse
                 {
                     Success = false,
-                    Status = RegistrationStatus.Rejected,
+                    Status = AuthorizationStatus.Revoked,
                     Message = $"Registration failed: {ex.Message}"
                 });
             }

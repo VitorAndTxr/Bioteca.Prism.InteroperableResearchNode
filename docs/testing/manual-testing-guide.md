@@ -1,6 +1,28 @@
 # Guia de Testes Manuais e Discovery - Fases 1 e 2
 
+**Versão**: 0.3.0 (com criptografia de canal)
+**Última atualização**: 2025-10-02
+
 Este guia fornece um roteiro passo a passo para testar e entender manualmente o funcionamento das Fases 1 e 2 do protocolo de handshake, ideal para debugging e aprendizado.
+
+## ⚠️ IMPORTANTE: Criptografia de Canal
+
+**A partir da versão 0.3.0**, todas as comunicações após o estabelecimento do canal (Fase 1) **DEVEM ser criptografadas** usando a chave simétrica derivada do canal.
+
+- ✅ **Fase 1** (`/api/channel/open`, `/api/channel/initiate`) - Sem criptografia (estabelece o canal)
+- 🔒 **Fase 2** (`/api/channel/identify`, `/api/node/register`) - **Payload criptografado obrigatório**
+- 🔒 **Fases 3-4** - **Payload criptografado obrigatório**
+
+**Formato do payload criptografado**:
+```json
+{
+  "encryptedData": "base64-encoded-ciphertext",
+  "iv": "base64-encoded-initialization-vector",
+  "authTag": "base64-encoded-authentication-tag"
+}
+```
+
+**Header obrigatório para Fase 2+**: `X-Channel-Id: {channelId}`
 
 ## 📋 Pré-requisitos
 
@@ -275,7 +297,30 @@ Identificar e autorizar nós usando certificados X.509 e assinaturas digitais.
 - `ChannelController.cs` - Endpoint `/identify` (Fase 2)
 - `TestingController.cs` - Endpoints de geração de certificados
 
-### Passo 3.2: Gerar Certificado Auto-Assinado
+### Passo 3.2: Estabelecer Canal (Pré-requisito)
+
+⚠️ **IMPORTANTE**: Antes de registrar ou identificar, você **DEVE** estabelecer um canal criptografado.
+
+```powershell
+# Estabelecer canal entre Node A e Node B
+$channelResult = Invoke-RestMethod -Uri "http://localhost:5000/api/channel/initiate" `
+  -Method Post `
+  -ContentType "application/json" `
+  -Body '{"remoteNodeUrl": "http://node-b:8080"}'
+
+$channelId = $channelResult.channelId
+$symmetricKey = $channelResult.symmetricKey
+
+Write-Host "Channel ID: $channelId"
+Write-Host "Symmetric Key (base64): $symmetricKey"
+```
+
+**Por que isso é necessário?**
+- O `channelId` será usado no header `X-Channel-Id`
+- A `symmetricKey` será usada para criptografar/descriptografar payloads
+- Sem canal válido, endpoints de Fase 2+ retornam erro `ERR_MISSING_CHANNEL_ID`
+
+### Passo 3.3: Gerar Certificado Auto-Assinado
 
 **Endpoint de teste:**
 ```powershell
@@ -414,11 +459,39 @@ var signature = rsa.SignData(dataBytes, HashAlgorithmName.SHA256, RSASignaturePa
 // - Será convertida para Base64
 ```
 
-### Passo 3.6: Registrar Nó Desconhecido
+### Passo 3.6: Registrar Nó Desconhecido (COM CRIPTOGRAFIA)
 
-**Registre o Node A no Node B:**
+⚠️ **BREAKING CHANGE (v0.3.0)**: Endpoint agora requer payload criptografado!
+
+**Opção 1: Usando NodeChannelClient (C#) - RECOMENDADO**
+
+```csharp
+// Em código C# (teste de integração)
+var registrationRequest = new NodeRegistrationRequest
+{
+    NodeId = "node-a-test-001",
+    NodeName = "Interoperable Research Node A - Test",
+    Certificate = identity.Certificate,
+    ContactInfo = "admin@node-a.test",
+    InstitutionDetails = "Test Institution A",
+    NodeUrl = "http://node-a:8080",
+    RequestedCapabilities = new[] { "search", "retrieve" }
+};
+
+var regResult = await _nodeChannelClient.RegisterNodeAsync(channelId, registrationRequest);
+```
+
+**Opção 2: PowerShell (limitado - requer helpers C#)**
+
+⚠️ PowerShell não pode facilmente criptografar payloads AES-GCM. Você precisaria:
+
+1. Criar helper C# que aceita JSON e retorna EncryptedPayload
+2. Chamar via `Invoke-RestMethod` com headers apropriados
+
+**Exemplo conceitual** (não funcional sem helpers):
 ```powershell
-$registrationBody = @{
+# Payload em texto claro
+$registrationPayload = @{
     nodeId = "node-a-test-001"
     nodeName = "Interoperable Research Node A - Test"
     certificate = $identity.certificate
@@ -426,14 +499,22 @@ $registrationBody = @{
     institutionDetails = "Test Institution A"
     nodeUrl = "http://node-a:8080"
     requestedCapabilities = @("search", "retrieve")
-} | ConvertTo-Json
+}
 
-$regResult = Invoke-RestMethod -Uri "http://localhost:5001/api/node/register" `
-  -Method Post `
-  -ContentType "application/json" `
-  -Body $registrationBody
+# TODO: Criptografar payload (requer helper)
+# $encryptedPayload = Encrypt-PayloadHelper -Payload $registrationPayload -Key $symmetricKey
 
-$regResult
+# Enviar com header X-Channel-Id
+# $regResult = Invoke-RestMethod -Uri "http://localhost:5001/api/node/register" `
+#   -Method Post `
+#   -ContentType "application/json" `
+#   -Headers @{"X-Channel-Id" = $channelId} `
+#   -Body ($encryptedPayload | ConvertTo-Json)
+```
+
+**Para testes PowerShell completos**, use o script atualizado:
+```powershell
+.\test-phase2-encrypted.ps1
 ```
 
 **Resultado esperado:**
@@ -447,9 +528,31 @@ $regResult
 }
 ```
 
-### Passo 3.7: Debugging - Registro de Nó
+### Passo 3.7: Debugging - Registro de Nó (COM DESCRIPTOGRAFIA)
 
-**Configure breakpoint em:**
+**Configure breakpoints em:**
+
+**`ChannelController.cs:357`** - Método `RegisterNode` (novo - com criptografia)
+```csharp
+public async Task<IActionResult> RegisterNode([FromBody] EncryptedPayload encryptedRequest)
+```
+
+**Inspecione:**
+```csharp
+// Validar header X-Channel-Id
+if (!Request.Headers.TryGetValue("X-Channel-Id", out var channelIdHeader))
+// 🔍 VERIFICAR: Header deve estar presente
+
+var channelContext = _channelStore.GetChannel(channelId);
+// 🔍 INSPECIONAR: channelContext
+// - ChannelId deve existir
+// - SymmetricKey não pode estar vazio
+
+// Descriptografar request
+request = _encryptionService.DecryptPayload<NodeRegistrationRequest>(encryptedRequest, channelContext.SymmetricKey);
+// 🔍 INSPECIONAR: request (após descriptografia)
+// - NodeId, NodeName, Certificate devem estar presentes
+```
 
 **`NodeRegistryService.cs:82`** - Método `RegisterNodeAsync`
 ```csharp
@@ -477,18 +580,28 @@ var registeredNode = new RegisteredNode { ... };
 // - CertificateFingerprint: calculado
 ```
 
-### Passo 3.8: Identificar Nó (Status Pending)
+### Passo 3.8: Identificar Nó (Status Pending) - COM CRIPTOGRAFIA
 
-**Tente identificar o nó antes de aprovar:**
+⚠️ **BREAKING CHANGE (v0.3.0)**: Endpoint agora requer payload criptografado!
+
+**Usando NodeChannelClient (C#) - RECOMENDADO:**
+
+```csharp
+var identifyRequest = new NodeIdentifyRequest
+{
+    NodeId = "node-a-test-001",
+    Certificate = identity.Certificate,
+    Signature = identity.IdentificationRequest.Signature,
+    SignedData = identity.IdentificationRequest.SignedData
+};
+
+var statusResponse = await _nodeChannelClient.IdentifyNodeAsync(channelId, identifyRequest);
+```
+
+**PowerShell (conceitual - requer helpers)**:
 ```powershell
-$identifyBody = $identity.identificationRequest | ConvertTo-Json
-
-$identifyResult = Invoke-RestMethod -Uri "http://localhost:5001/api/channel/identify" `
-  -Method Post `
-  -ContentType "application/json" `
-  -Body $identifyBody
-
-$identifyResult
+# TODO: Implementar com helper de criptografia
+# Ver test-phase2-encrypted.ps1 para detalhes
 ```
 
 **Resultado esperado:**
@@ -510,14 +623,32 @@ $identifyResult
 - Mas ainda está **pendente** (`status: 2`)
 - **Não pode** prosseguir para Fase 3 (`nextPhase: null`)
 
-### Passo 3.9: Debugging - Identificação de Nó
+### Passo 3.9: Debugging - Identificação de Nó (COM DESCRIPTOGRAFIA)
 
-**Configure breakpoint em:**
+**Configure breakpoints em:**
 
-**`ChannelController.cs:239`** - Método `IdentifyNode`
+**`ChannelController.cs:225`** - Método `IdentifyNode` (novo - com criptografia)
 ```csharp
-public async Task<IActionResult> IdentifyNode([FromBody] NodeIdentifyRequest request)
+public async Task<IActionResult> IdentifyNode([FromBody] EncryptedPayload encryptedRequest)
 ```
+
+**Inspecione:**
+```csharp
+// Validar header X-Channel-Id
+if (!Request.Headers.TryGetValue("X-Channel-Id", out var channelIdHeader))
+// 🔍 VERIFICAR: Header deve estar presente
+
+var channelContext = _channelStore.GetChannel(channelId);
+// 🔍 INSPECIONAR: channelContext
+// - ChannelId, SymmetricKey devem existir
+
+// Descriptografar request
+request = _encryptionService.DecryptPayload<NodeIdentifyRequest>(encryptedRequest, channelContext.SymmetricKey);
+// 🔍 INSPECIONAR: request (após descriptografia)
+// - NodeId, Certificate, Signature devem estar presentes
+```
+
+**No método original (após descriptografia):**
 
 **Inspecione:**
 ```csharp
@@ -612,42 +743,39 @@ node.UpdatedAt = DateTime.UtcNow;
 // - UpdatedAt: atualizado
 ```
 
-### Passo 3.12: Identificar Nó (Status Authorized)
+### Passo 3.12: Identificar Nó (Status Authorized) - COM CRIPTOGRAFIA
 
-**Agora identifique novamente (precisa gerar nova assinatura com timestamp atualizado):**
+**Usando NodeChannelClient (C#) - RECOMENDADO:**
 
+```csharp
+// Gerar nova assinatura com timestamp atualizado
+var newTimestamp = DateTime.UtcNow;
+var dataToSign = $"{channelId}{identity.NodeId}{newTimestamp:O}";
+
+// Assinar dados
+var signature = CertificateHelper.SignData(dataToSign, certificateWithPrivateKey);
+
+// Criar request
+var identifyRequest = new NodeIdentifyRequest
+{
+    NodeId = identity.NodeId,
+    Certificate = identity.Certificate,
+    Signature = signature,
+    SignedData = dataToSign
+};
+
+// Identificar (payload será criptografado automaticamente)
+var statusResponse = await _nodeChannelClient.IdentifyNodeAsync(channelId, identifyRequest);
+
+Console.WriteLine($"IsKnown: {statusResponse.IsKnown}");
+Console.WriteLine($"Status: {statusResponse.Status}"); // Should be "Authorized"
+Console.WriteLine($"NextPhase: {statusResponse.NextPhase}"); // Should be "phase3_authenticate"
+```
+
+**PowerShell (conceitual)**:
 ```powershell
-# Gerar nova assinatura
-$newTimestamp = (Get-Date).ToUniversalTime().ToString("o")
-$dataToSign = "$channelId$($identity.nodeId)$newTimestamp"
-
-$signBody = @{
-    data = $dataToSign
-    certificateWithPrivateKey = $identity.certificateWithPrivateKey
-    password = "test123"
-} | ConvertTo-Json
-
-$signResult = Invoke-RestMethod -Uri "http://localhost:5000/api/testing/sign-data" `
-  -Method Post `
-  -ContentType "application/json" `
-  -Body $signBody
-
-# Identificar com nova assinatura
-$identifyBody2 = @{
-    channelId = $channelId
-    nodeId = $identity.nodeId
-    nodeName = $identity.nodeName
-    certificate = $identity.certificate
-    timestamp = $newTimestamp
-    signature = $signResult.signature
-} | ConvertTo-Json
-
-$identifyResult2 = Invoke-RestMethod -Uri "http://localhost:5001/api/channel/identify" `
-  -Method Post `
-  -ContentType "application/json" `
-  -Body $identifyBody2
-
-$identifyResult2
+# Requer helpers C# para criptografia
+# Ver test-phase2-encrypted.ps1
 ```
 
 **Resultado esperado:**
@@ -747,26 +875,26 @@ $unknownResult
 - `registeredNode` será `null`
 - Sistema retorna URL de registro
 
-### Cenário 4.2: Assinatura Inválida
+### Cenário 4.2: Assinatura Inválida (COM CRIPTOGRAFIA)
 
 **Tentar identificar com assinatura incorreta:**
-```powershell
-$invalidIdentifyBody = @{
-    channelId = $channelId
-    nodeId = "node-a-test-001"
-    nodeName = "Test Node"
-    certificate = $identity.certificate
-    timestamp = (Get-Date).ToUniversalTime().ToString("o")
-    signature = "INVALID_SIGNATURE_BASE64"
-} | ConvertTo-Json
+```csharp
+var invalidRequest = new NodeIdentifyRequest
+{
+    NodeId = "node-a-test-001",
+    Certificate = identity.Certificate,
+    Signature = "INVALID_SIGNATURE_BASE64",
+    SignedData = "some-data"
+};
 
-try {
-    Invoke-RestMethod -Uri "http://localhost:5001/api/channel/identify" `
-      -Method Post `
-      -ContentType "application/json" `
-      -Body $invalidIdentifyBody
-} catch {
-    $_.Exception.Response
+try
+{
+    var result = await _nodeChannelClient.IdentifyNodeAsync(channelId, invalidRequest);
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"Error: {ex.Message}");
+    // Expected: "Identification failed: Node signature verification failed"
 }
 ```
 
@@ -785,26 +913,52 @@ try {
 - Breakpoint em `NodeRegistryService.cs:56` (verificação de assinatura)
 - `isValid` será `false`
 
-### Cenário 4.3: Canal Inválido
+### Cenário 4.3: Header X-Channel-Id Ausente
+
+**Novo erro (v0.3.0)**: Requisições sem header `X-Channel-Id` são rejeitadas.
+
+```csharp
+// Tentar enviar sem header (via HTTP direto, não usando NodeChannelClient)
+var httpClient = new HttpClient();
+var encryptedPayload = new { encryptedData = "...", iv = "...", authTag = "..." };
+
+var response = await httpClient.PostAsJsonAsync(
+    "http://localhost:5001/api/channel/identify",
+    encryptedPayload
+);
+// NO HEADER X-Channel-Id!
+
+// Response: 400 Bad Request
+```
+
+**Resultado esperado:**
+```json
+{
+  "error": {
+    "code": "ERR_MISSING_CHANNEL_ID",
+    "message": "X-Channel-Id header is required",
+    "retryable": false
+  }
+}
+```
+
+**Debugging:**
+- Breakpoint em `ChannelController.cs:230` (validação de header)
+
+### Cenário 4.4: Canal Inválido ou Expirado
 
 **Tentar identificar com channelId inexistente:**
-```powershell
-$invalidChannelBody = @{
-    channelId = "00000000-0000-0000-0000-000000000000"  # Canal inexistente
-    nodeId = "node-a-test-001"
-    nodeName = "Test Node"
-    certificate = $identity.certificate
-    timestamp = (Get-Date).ToUniversalTime().ToString("o")
-    signature = $signResult.signature
-} | ConvertTo-Json
+```csharp
+var invalidChannelId = "00000000-0000-0000-0000-000000000000";
 
-try {
-    Invoke-RestMethod -Uri "http://localhost:5001/api/channel/identify" `
-      -Method Post `
-      -ContentType "application/json" `
-      -Body $invalidChannelBody
-} catch {
-    $_.Exception.Response
+try
+{
+    var result = await _nodeChannelClient.IdentifyNodeAsync(invalidChannelId, identifyRequest);
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"Error: {ex.Message}");
+    // Expected: "Channel not found or expired"
 }
 ```
 
@@ -820,8 +974,8 @@ try {
 ```
 
 **Debugging:**
-- Breakpoint em `ChannelController.cs:246` (validação de canal)
-- `_activeChannels.ContainsKey(request.ChannelId)` será `false`
+- Breakpoint em `ChannelController.cs:242` (validação de canal)
+- `_channelStore.GetChannel(channelId)` retorna `null`
 
 ---
 
@@ -888,27 +1042,52 @@ try {
        │<────────┘ Assina: channelId+nodeId+timestamp    │
        │                                                  │
        │  5. POST /api/node/register                     │
-       │     {nodeId, certificate, contactInfo...}       │
+       │     Headers: X-Channel-Id: abc-123              │
+       │     Body: EncryptedPayload {                    │
+       │       encryptedData: "...",  ← CRIPTOGRAFADO!   │
+       │       iv: "...",                                │
+       │       authTag: "..."                            │
+       │     }                                            │
        ├────────────────────────────────────────────────>│
+       │                                                  │
+       │                       Valida X-Channel-Id        │
+       │                       Busca symmetricKey         │
+       │                       Descriptografa payload     │
        │                                                  │
        │                       Armazena RegisteredNode    │
        │                       Status: Pending            │
+       │                       Criptografa resposta       │
        │                                                  │
-       │  6. RegistrationResponse                        │
-       │     {success: true, status: Pending}            │
+       │  6. EncryptedPayload (RegistrationResponse)     │
+       │     {encryptedData, iv, authTag}                │
        │<────────────────────────────────────────────────┤
        │                                                  │
+       │  Descriptografa resposta                        │
+       │  {success: true, status: Pending}               │
+       │                                                  │
        │  7. POST /api/channel/identify                  │
-       │     {channelId, certificate, signature}         │
+       │     Headers: X-Channel-Id: abc-123              │
+       │     Body: EncryptedPayload {                    │
+       │       encryptedData: "...",  ← CRIPTOGRAFADO!   │
+       │       iv: "...",                                │
+       │       authTag: "..."                            │
+       │     }                                            │
        ├────────────────────────────────────────────────>│
        │                                                  │
+       │                       Valida X-Channel-Id        │
+       │                       Descriptografa payload     │
        │                       Verifica assinatura        │
        │                       Busca nó registrado        │
        │                       Status: Pending            │
+       │                       Criptografa resposta       │
        │                                                  │
-       │  8. NodeStatusResponse                          │
-       │     {isKnown: true, status: Pending, nextPhase: null}
+       │  8. EncryptedPayload (NodeStatusResponse)       │
+       │     {encryptedData, iv, authTag}                │
        │<────────────────────────────────────────────────┤
+       │                                                  │
+       │  Descriptografa resposta                        │
+       │  {isKnown: true, status: Pending, nextPhase: null}
+       │                                                  │
        │                                                  │
        │         [ADMIN aprova o nó]                     │
        │                                                  │
@@ -987,19 +1166,26 @@ try {
 - [ ] Symmetric key derivado (32 bytes)
 - [ ] Mesmo channelId em ambos os nós
 - [ ] Roles corretos (client/server)
+- [ ] ChannelStore armazena canal
 - [ ] Logs mostram informações esperadas
 
-### Fase 2
+### Fase 2 (COM CRIPTOGRAFIA - v0.3.0)
 - [ ] Certificado auto-assinado gerado
 - [ ] Assinatura RSA-SHA256 criada
-- [ ] Nó desconhecido pode se registrar
+- [ ] **Header X-Channel-Id obrigatório**
+- [ ] **Payload criptografado com AES-256-GCM**
+- [ ] **Descriptografia bem-sucedida no servidor**
+- [ ] **Resposta criptografada retornada**
+- [ ] Nó desconhecido pode se registrar (com criptografia)
 - [ ] Status inicial é Pending
 - [ ] Identificação com Pending bloqueia progresso
 - [ ] Admin pode aprovar nós
 - [ ] Identificação com Authorized permite Fase 3
 - [ ] Nó desconhecido recebe URL de registro
 - [ ] Assinatura inválida é rejeitada
-- [ ] Canal inválido é rejeitado
+- [ ] Canal inválido é rejeitado (ERR_INVALID_CHANNEL)
+- [ ] **Header ausente é rejeitado (ERR_MISSING_CHANNEL_ID)**
+- [ ] **Payload não criptografado é rejeitado (ERR_DECRYPTION_FAILED)**
 - [ ] Listagem de nós funciona
 
 ---
@@ -1048,6 +1234,54 @@ docker exec -it irn-node-a /bin/bash
 
 ---
 
+## 🔄 Migração para v0.3.0
+
+### Breaking Changes
+
+Se você estava usando a **versão 0.2.0** (sem criptografia de canal):
+
+**ANTES (v0.2.0)**:
+```powershell
+# Payloads em texto claro
+$identifyBody = @{
+    channelId = $channelId
+    nodeId = "node-a-001"
+    certificate = $cert
+    signature = $sig
+} | ConvertTo-Json
+
+Invoke-RestMethod -Uri "http://localhost:5001/api/channel/identify" `
+  -Method Post `
+  -Body $identifyBody
+```
+
+**AGORA (v0.3.0+)**:
+```csharp
+// Usar NodeChannelClient (C#) - payloads criptografados automaticamente
+var identifyRequest = new NodeIdentifyRequest
+{
+    NodeId = "node-a-001",
+    Certificate = cert,
+    Signature = sig
+};
+
+var result = await _nodeChannelClient.IdentifyNodeAsync(channelId, identifyRequest);
+```
+
+### Scripts de Teste Atualizados
+
+**Para testes automatizados**, use:
+```powershell
+# Fase 1 apenas
+.\test-docker.ps1
+
+# Fase 2 com criptografia (limitado - requer helpers C#)
+.\test-phase2-encrypted.ps1
+
+# Fase 2 COMPLETO (via código C# - RECOMENDADO)
+# Criar teste de integração usando NodeChannelClient
+```
+
 ## 📚 Próximos Passos
 
 Após completar este guia:
@@ -1056,9 +1290,10 @@ Após completar este guia:
    - Diferentes algoritmos de curva
    - Múltiplos canais simultâneos
    - Registro de múltiplos nós
+   - Testar expiração de canais (30 min)
 
 2. **Implementar Fase 3**
-   - Autenticação mútua
+   - Autenticação mútua COM criptografia
    - Desafio/resposta
    - Proteção contra replay attacks
 
@@ -1067,3 +1302,10 @@ Após completar este guia:
    - Certificados reais (Let's Encrypt, etc.)
    - Rate limiting
    - Auditoria de eventos
+   - Middleware para validação global de canal
+
+## 📖 Documentação Adicional
+
+- [Implementação de Criptografia de Canal](../development/channel-encryption-implementation.md) - Detalhes da implementação v0.3.0
+- [Plano de Criptografia de Canal](../development/channel-encryption-plan.md) - Planejamento completo
+- [Protocolo de Handshake](../architecture/handshake-protocol.md) - Especificação atualizada

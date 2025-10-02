@@ -18,7 +18,7 @@ public class NodeRegistrationResponse
     /// <summary>
     /// Current status of the registration
     /// </summary>
-    public RegistrationStatus Status { get; set; }
+    public AuthorizationStatus Status { get; set; }
 
     /// <summary>
     /// Message to the requester
@@ -39,25 +39,3 @@ public class NodeRegistrationResponse
 /// <summary>
 /// Status of a registration request
 /// </summary>
-public enum RegistrationStatus
-{
-    /// <summary>
-    /// Registration received and pending approval
-    /// </summary>
-    Pending = 0,
-
-    /// <summary>
-    /// Registration approved
-    /// </summary>
-    Approved = 1,
-
-    /// <summary>
-    /// Registration rejected
-    /// </summary>
-    Rejected = 2,
-
-    /// <summary>
-    /// Registration requires additional information
-    /// </summary>
-    RequiresMoreInfo = 3
-}

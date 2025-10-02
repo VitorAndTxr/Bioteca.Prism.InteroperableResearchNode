@@ -3,7 +3,10 @@
     "allow": [
       "Bash(curl:*)",
       "Bash(docker logs:*)",
-      "Bash(docker exec:*)"
+      "Bash(docker exec:*)",
+      "Bash(docker-compose:*)",
+      "Bash(timeout 10 bash -c 'until docker logs irn-node-a 2>&1 | grep -q \"\"\"\"Now listening on\"\"\"\"; do sleep 1; done')",
+      "Bash(python:*)"
     ],
     "deny": [],
     "ask": []

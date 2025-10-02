@@ -1,6 +1,8 @@
+using Bioteca.Prism.Service.Interfaces.Node;
 using Bioteca.Prism.Service.Services.Node;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Cryptography.X509Certificates;
+using System.Text.Json;
 
 namespace Bioteca.Prism.InteroperableResearchNode.Controllers;
 
@@ -14,13 +16,19 @@ public class TestingController : ControllerBase
 {
     private readonly ILogger<TestingController> _logger;
     private readonly IConfiguration _configuration;
+    private readonly IChannelStore _channelStore;
+    private readonly IChannelEncryptionService _channelEncryptionService;
 
     public TestingController(
         ILogger<TestingController> logger,
-        IConfiguration _configuration)
+        IConfiguration configuration,
+        IChannelStore channelStore,
+        IChannelEncryptionService channelEncryptionService)
     {
         this._logger = logger;
-        this._configuration = _configuration;
+        this._configuration = configuration;
+        this._channelStore = channelStore;
+        this._channelEncryptionService = channelEncryptionService;
     }
 
     /// <summary>
@@ -217,6 +225,184 @@ public class TestingController : ControllerBase
             });
         }
     }
+
+    /// <summary>
+    /// Encrypt a payload using an active channel's symmetric key
+    /// This endpoint is useful for testing encrypted communication
+    /// </summary>
+    /// <param name="request">Request with channel ID and payload to encrypt</param>
+    /// <returns>Encrypted payload with IV and auth tag</returns>
+    [HttpPost("encrypt-payload")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public IActionResult EncryptPayload([FromBody] EncryptPayloadRequest request)
+    {
+        try
+        {
+            _logger.LogInformation("Encrypting payload for channel {ChannelId}", request.ChannelId);
+
+            // 1. Get channel from store
+            var channel = _channelStore.GetChannel(request.ChannelId);
+            if (channel == null)
+            {
+                _logger.LogWarning("Channel {ChannelId} not found or expired", request.ChannelId);
+                return NotFound(new
+                {
+                    error = "Channel not found",
+                    message = $"Channel {request.ChannelId} does not exist or has expired",
+                    hint = "Use POST /api/channel/open to create a new channel first"
+                });
+            }
+           
+
+            // 3. Encrypt the payload
+            var encryptedPayload = _channelEncryptionService.EncryptPayload(request.Payload, channel.SymmetricKey);
+
+            _logger.LogInformation("Successfully encrypted payload for channel {ChannelId}", request.ChannelId);
+
+            return Ok(new
+            {
+                channelId = request.ChannelId,
+                encryptedPayload = encryptedPayload,
+                channelInfo = new
+                {
+                    cipher = channel.SelectedCipher,
+                    role = channel.Role,
+                    createdAt = channel.CreatedAt,
+                    expiresAt = channel.ExpiresAt
+                },
+                usage = "Use this encrypted payload in requests to /api/channel/send-message or similar encrypted endpoints"
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to encrypt payload for channel {ChannelId}", request.ChannelId);
+            return StatusCode(StatusCodes.Status500InternalServerError, new
+            {
+                error = "Failed to encrypt payload",
+                message = ex.Message
+            });
+        }
+    }
+
+    /// <summary>
+    /// Decrypt a payload using an active channel's symmetric key
+    /// This endpoint is useful for testing and debugging encrypted communication
+    /// </summary>
+    /// <param name="request">Request with channel ID and encrypted payload</param>
+    /// <returns>Decrypted payload as JSON</returns>
+    [HttpPost("decrypt-payload")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public IActionResult DecryptPayload([FromBody] DecryptPayloadRequest request)
+    {
+        try
+        {
+            _logger.LogInformation("Decrypting payload for channel {ChannelId}", request.ChannelId);
+
+            // 1. Get channel from store
+            var channel = _channelStore.GetChannel(request.ChannelId);
+            if (channel == null)
+            {
+                _logger.LogWarning("Channel {ChannelId} not found or expired", request.ChannelId);
+                return NotFound(new
+                {
+                    error = "Channel not found",
+                    message = $"Channel {request.ChannelId} does not exist or has expired"
+                });
+            }
+
+            // 2. Decrypt the payload
+            var decryptedPayload = _channelEncryptionService.DecryptPayload<JsonElement>(
+                request.EncryptedPayload, 
+                channel.SymmetricKey);
+
+            _logger.LogInformation("Successfully decrypted payload for channel {ChannelId}", request.ChannelId);
+
+            return Ok(new
+            {
+                channelId = request.ChannelId,
+                decryptedPayload = decryptedPayload,
+                channelInfo = new
+                {
+                    cipher = channel.SelectedCipher,
+                    role = channel.Role,
+                    createdAt = channel.CreatedAt,
+                    expiresAt = channel.ExpiresAt
+                }
+            });
+        }
+        catch (System.Security.Cryptography.CryptographicException ex)
+        {
+            _logger.LogError(ex, "Failed to decrypt payload - authentication failed");
+            return BadRequest(new
+            {
+                error = "Decryption failed",
+                message = "Authentication failed. The payload may have been tampered with or the wrong key was used.",
+                details = ex.Message
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to decrypt payload for channel {ChannelId}", request.ChannelId);
+            return StatusCode(StatusCodes.Status500InternalServerError, new
+            {
+                error = "Failed to decrypt payload",
+                message = ex.Message
+            });
+        }
+    }
+
+    /// <summary>
+    /// Get information about an active channel
+    /// </summary>
+    /// <param name="channelId">Channel ID</param>
+    /// <returns>Channel information (without sensitive keys)</returns>
+    [HttpGet("channel-info/{channelId}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public IActionResult GetChannelInfo(string channelId)
+    {
+        try
+        {
+            _logger.LogInformation("Getting channel info for {ChannelId}", channelId);
+
+            var channel = _channelStore.GetChannel(channelId);
+            if (channel == null)
+            {
+                return NotFound(new
+                {
+                    error = "Channel not found",
+                    message = $"Channel {channelId} does not exist or has expired"
+                });
+            }
+
+            return Ok(new
+            {
+                channelId = channel.ChannelId,
+                cipher = channel.SelectedCipher,
+                role = channel.Role,
+                createdAt = channel.CreatedAt,
+                expiresAt = channel.ExpiresAt,
+                isExpired = channel.ExpiresAt <= DateTime.UtcNow,
+                remoteNodeUrl = channel.RemoteNodeUrl,
+                clientNonce = channel.ClientNonce,
+                serverNonce = channel.ServerNonce,
+                symmetricKeyLength = channel.SymmetricKey.Length
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get channel info for {ChannelId}", channelId);
+            return StatusCode(StatusCodes.Status500InternalServerError, new
+            {
+                error = "Failed to get channel info",
+                message = ex.Message
+            });
+        }
+    }
 }
 
 public class GenerateCertificateRequest
@@ -247,4 +433,30 @@ public class GenerateNodeIdentityRequest
     public string ChannelId { get; set; } = string.Empty;
     public int ValidityYears { get; set; } = 2;
     public string? Password { get; set; } = "test123";
+}
+
+public class EncryptPayloadRequest
+{
+    /// <summary>
+    /// Channel ID to use for encryption
+    /// </summary>
+    public string ChannelId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Payload to encrypt (can be any JSON object)
+    /// </summary>
+    public object Payload { get; set; }
+}
+
+public class DecryptPayloadRequest
+{
+    /// <summary>
+    /// Channel ID to use for decryption
+    /// </summary>
+    public string ChannelId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Encrypted payload to decrypt
+    /// </summary>
+    public EncryptedPayload EncryptedPayload { get; set; } = new();
 }

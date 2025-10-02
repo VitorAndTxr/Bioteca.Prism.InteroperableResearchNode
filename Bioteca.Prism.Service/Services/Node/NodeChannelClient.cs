@@ -21,21 +21,22 @@ public class NodeChannelClient : INodeChannelClient
     private readonly IChannelEncryptionService _encryptionService;
     private readonly IConfiguration _configuration;
 
-    // In-memory storage for active channels (in production, use distributed cache)
-    private static readonly ConcurrentDictionary<string, ClientChannelContext> _activeChannels = new();
+    private readonly IChannelStore _channelStore;
 
     public NodeChannelClient(
         ILogger<NodeChannelClient> logger,
         IHttpClientFactory httpClientFactory,
         IEphemeralKeyService ephemeralKeyService,
         IChannelEncryptionService encryptionService,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        IChannelStore channelStore)
     {
         _logger = logger;
         _httpClientFactory = httpClientFactory;
         _ephemeralKeyService = ephemeralKeyService;
         _encryptionService = encryptionService;
         _configuration = configuration;
+        _channelStore = channelStore;
     }
 
     /// <inheritdoc/>
@@ -137,17 +138,20 @@ public class NodeChannelClient : INodeChannelClient
             Array.Clear(sharedSecret, 0, sharedSecret.Length);
 
             // Store channel context
-            var channelContext = new ClientChannelContext
+            var channelContext = new Interfaces.Node.ChannelContext
             {
                 ChannelId = channelId,
                 SymmetricKey = symmetricKey,
                 SelectedCipher = channelReady.SelectedCipher,
                 RemoteNodeUrl = remoteNodeUrl,
                 CreatedAt = DateTime.UtcNow,
-                ExpiresAt = DateTime.UtcNow.AddMinutes(30)
+                ExpiresAt = DateTime.UtcNow.AddMinutes(30),
+                ClientNonce = clientNonce,
+                ServerNonce = channelReady.Nonce,
+                Role = "client"
             };
 
-            _activeChannels.TryAdd(channelId, channelContext);
+            _channelStore.AddChannel(channelId, channelContext);
 
             _logger.LogInformation("Channel {ChannelId} established successfully with {RemoteNodeUrl}",
                 channelId, remoteNodeUrl);
@@ -186,20 +190,76 @@ public class NodeChannelClient : INodeChannelClient
     /// <inheritdoc/>
     public Task CloseChannelAsync(string channelId)
     {
-        if (_activeChannels.TryRemove(channelId, out var context))
-        {
-            // Clear sensitive data
-            Array.Clear(context.SymmetricKey, 0, context.SymmetricKey.Length);
-            _logger.LogInformation("Channel {ChannelId} closed", channelId);
-        }
-
+        _channelStore.RemoveChannel(channelId);
         return Task.CompletedTask;
     }
 
     /// <inheritdoc/>
-    public ClientChannelContext? GetChannel(string channelId)
+    public async Task<NodeStatusResponse> IdentifyNodeAsync(string channelId, NodeIdentifyRequest request)
     {
-        return _activeChannels.TryGetValue(channelId, out var context) ? context : null;
+        var channelContext = _channelStore.GetChannel(channelId);
+        if (channelContext == null)
+        {
+            throw new InvalidOperationException($"Channel {channelId} not found or expired");
+        }
+
+        // Encrypt payload
+        var encryptedPayload = _encryptionService.EncryptPayload(request, channelContext.SymmetricKey);
+
+        // Send request
+        var httpClient = _httpClientFactory.CreateClient();
+        httpClient.DefaultRequestHeaders.Add("X-Channel-Id", channelId);
+
+        var response = await httpClient.PostAsJsonAsync($"{channelContext.RemoteNodeUrl}/api/channel/identify", encryptedPayload);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var error = await response.Content.ReadFromJsonAsync<HandshakeError>();
+            throw new Exception($"Identification failed: {error?.Error?.Message}");
+        }
+
+        // Decrypt response
+        var encryptedResponse = await response.Content.ReadFromJsonAsync<EncryptedPayload>();
+        if (encryptedResponse == null)
+        {
+            throw new Exception("Failed to deserialize encrypted response");
+        }
+
+        return _encryptionService.DecryptPayload<NodeStatusResponse>(encryptedResponse, channelContext.SymmetricKey);
+    }
+
+    /// <inheritdoc/>
+    public async Task<NodeRegistrationResponse> RegisterNodeAsync(string channelId, NodeRegistrationRequest request)
+    {
+        var channelContext = _channelStore.GetChannel(channelId);
+        if (channelContext == null)
+        {
+            throw new InvalidOperationException($"Channel {channelId} not found or expired");
+        }
+
+        // Encrypt payload
+        var encryptedPayload = _encryptionService.EncryptPayload(request, channelContext.SymmetricKey);
+
+        // Send request
+        var httpClient = _httpClientFactory.CreateClient();
+        httpClient.DefaultRequestHeaders.Add("X-Channel-Id", channelId);
+
+        var response = await httpClient.PostAsJsonAsync($"{channelContext.RemoteNodeUrl}/api/node/register", encryptedPayload);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var error = await response.Content.ReadFromJsonAsync<HandshakeError>();
+            throw new Exception($"Registration failed: {error?.Error?.Message}");
+        }
+
+        // Decrypt response
+        var encryptedResponse = await response.Content.ReadFromJsonAsync<EncryptedPayload>();
+        if (encryptedResponse == null)
+        {
+            throw new Exception("Failed to deserialize encrypted response");
+        }
+
+        return _encryptionService.DecryptPayload<NodeRegistrationResponse>(encryptedResponse, channelContext.SymmetricKey);
     }
 
     private string ExtractCurveFromAlgorithm(string algorithm)

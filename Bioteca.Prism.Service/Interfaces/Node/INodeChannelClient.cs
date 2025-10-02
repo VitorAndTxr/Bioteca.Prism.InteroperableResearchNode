@@ -1,4 +1,6 @@
 using Bioteca.Prism.Domain.Errors.Node;
+using Bioteca.Prism.Domain.Requests.Node;
+using Bioteca.Prism.Domain.Responses.Node;
 
 namespace Bioteca.Prism.Service.Interfaces.Node;
 
@@ -21,11 +23,20 @@ public interface INodeChannelClient
     Task CloseChannelAsync(string channelId);
 
     /// <summary>
-    /// Get information about an active channel
+    /// Phase 2: Identify node over encrypted channel
     /// </summary>
     /// <param name="channelId">Channel identifier</param>
-    /// <returns>Channel context or null if not found</returns>
-    ClientChannelContext? GetChannel(string channelId);
+    /// <param name="request">Node identification request</param>
+    /// <returns>Node status response</returns>
+    Task<NodeStatusResponse> IdentifyNodeAsync(string channelId, NodeIdentifyRequest request);
+
+    /// <summary>
+    /// Phase 2: Register node over encrypted channel
+    /// </summary>
+    /// <param name="channelId">Channel identifier</param>
+    /// <param name="request">Node registration request</param>
+    /// <returns>Registration response</returns>
+    Task<NodeRegistrationResponse> RegisterNodeAsync(string channelId, NodeRegistrationRequest request);
 }
 
 /// <summary>

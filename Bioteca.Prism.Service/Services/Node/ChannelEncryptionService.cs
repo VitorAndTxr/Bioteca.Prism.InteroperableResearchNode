@@ -1,6 +1,8 @@
 using Bioteca.Prism.Service.Interfaces.Node;
 using Microsoft.Extensions.Logging;
 using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
 
 namespace Bioteca.Prism.Service.Services.Node;
 
@@ -12,6 +14,15 @@ public class ChannelEncryptionService : IChannelEncryptionService
     private readonly ILogger<ChannelEncryptionService> _logger;
     private const int NonceSize = 12; // 96 bits for AES-GCM
     private const int TagSize = 16; // 128 bits for AES-GCM
+
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        WriteIndented = false,
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        PropertyNameCaseInsensitive = true,
+        AllowTrailingCommas = true
+    };
 
     public ChannelEncryptionService(ILogger<ChannelEncryptionService> logger)
     {
@@ -104,6 +115,82 @@ public class ChannelEncryptionService : IChannelEncryptionService
         _logger.LogDebug("Generated {Length}-byte nonce", length);
 
         return nonce;
+    }
+
+    /// <inheritdoc/>
+    public EncryptedPayload EncryptPayload(object payload, byte[] symmetricKey)
+    {
+        try
+        {
+            // 1. Serialize payload to JSON with relaxed escaping
+            var jsonPayload = JsonSerializer.Serialize(payload, JsonOptions);
+            var plaintextBytes = Encoding.UTF8.GetBytes(jsonPayload);
+
+            _logger.LogDebug("Serialized payload to JSON ({Length} bytes)", plaintextBytes.Length);
+
+            // 2. Encrypt with AES-256-GCM
+            var encryptedData = Encrypt(plaintextBytes, symmetricKey);
+
+            // 3. Return base64-encoded payload
+            return new EncryptedPayload
+            {
+                EncryptedData = Convert.ToBase64String(encryptedData.Ciphertext),
+                Iv = Convert.ToBase64String(encryptedData.Nonce),
+                AuthTag = Convert.ToBase64String(encryptedData.Tag)
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to encrypt payload");
+            throw;
+        }
+    }
+
+    /// <inheritdoc/>
+    public T DecryptPayload<T>(EncryptedPayload encryptedPayload, byte[] symmetricKey)
+    {
+        try
+        {
+            // 1. Decode base64
+            var ciphertext = Convert.FromBase64String(encryptedPayload.EncryptedData);
+            var nonce = Convert.FromBase64String(encryptedPayload.Iv);
+            var tag = Convert.FromBase64String(encryptedPayload.AuthTag);
+
+            _logger.LogDebug("Decoded encrypted payload from base64");
+
+            // 2. Decrypt with AES-256-GCM
+            var encryptedData = new EncryptedData
+            {
+                Ciphertext = ciphertext,
+                Nonce = nonce,
+                Tag = tag
+            };
+
+            var plaintextBytes = Decrypt(encryptedData, symmetricKey);
+
+            // 3. Deserialize JSON with relaxed options
+            var jsonPayload = Encoding.UTF8.GetString(plaintextBytes);
+            var result = JsonSerializer.Deserialize<T>(jsonPayload, JsonOptions);
+
+            if (result == null)
+            {
+                throw new InvalidOperationException("Deserialization returned null");
+            }
+
+            _logger.LogDebug("Successfully decrypted and deserialized payload to {Type}", typeof(T).Name);
+
+            return result;
+        }
+        catch (CryptographicException ex)
+        {
+            _logger.LogError(ex, "Failed to decrypt payload - authentication failed or wrong key");
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to decrypt payload");
+            throw;
+        }
     }
 }
 

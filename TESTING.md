@@ -4,7 +4,40 @@ Este documento fornece um guia rápido para testar o sistema IRN.
 
 ## 🚀 Início Rápido
 
-### 1. Subir o Ambiente
+### Opção 1: Testes de Integração C# (Recomendado) ⭐
+
+Os testes foram **migrados completamente** para C# usando xUnit. Esta é a forma recomendada de executar os testes.
+
+```powershell
+# Executar todos os testes
+dotnet test
+
+# Executar testes específicos
+dotnet test --filter "FullyQualifiedName~Phase1"
+dotnet test --filter "FullyQualifiedName~Phase2"
+dotnet test --filter "FullyQualifiedName~Security"
+
+# Com cobertura de código
+dotnet test --collect:"XPlat Code Coverage"
+```
+
+**Vantagens:**
+- ✅ Execução automática em CI/CD
+- ✅ Debugging completo com breakpoints
+- ✅ Cobertura de código detalhada
+- ✅ Execução paralela (mais rápido)
+- ✅ Isolamento completo entre testes
+- ✅ Type safety e IntelliSense
+
+**Documentação completa:** [Bioteca.Prism.InteroperableResearchNode.Test/README.md](Bioteca.Prism.InteroperableResearchNode.Test/README.md)
+
+---
+
+### Opção 2: Scripts PowerShell (Legacy)
+
+Os scripts PowerShell ainda estão disponíveis para testes manuais e validação rápida.
+
+#### 1. Subir o Ambiente
 
 ```powershell
 # Subir containers Docker
@@ -18,7 +51,7 @@ curl http://localhost:5000/api/channel/health
 curl http://localhost:5001/api/channel/health
 ```
 
-### 2. Executar Testes Automatizados
+#### 2. Executar Testes Automatizados
 
 ```powershell
 # Teste completo (Fases 1 + 2)
@@ -39,7 +72,40 @@ curl http://localhost:5001/api/channel/health
 Fase 2 COMPLETA! Pronto para implementar Fase 3.
 ```
 
-## 📝 Scripts de Teste Disponíveis
+## 🧪 Testes de Integração C# (Migrados)
+
+### Status da Migração: ✅ COMPLETO
+
+Todos os testes dos scripts PowerShell foram migrados para C# e **expandidos** com cenários adicionais de segurança e edge cases.
+
+| Categoria | Arquivo C# | Testes | Status |
+|-----------|-----------|--------|--------|
+| Fase 1 - Canal | `Phase1ChannelEstablishmentTests.cs` | 7 | ✅ |
+| Fase 2 - Identificação | `Phase2NodeIdentificationTests.cs` | 8 | ✅ |
+| Integração Completa | `EncryptedChannelIntegrationTests.cs` | 3 | ✅ |
+| Segurança & Edge Cases | `SecurityAndEdgeCaseTests.cs` | 13 | ✅ |
+| Certificados | `CertificateAndSignatureTests.cs` | 13 | ✅ |
+| Cliente | `NodeChannelClientTests.cs` | 7 | ✅ |
+| **TOTAL** | **6 arquivos** | **51 testes** | ✅ |
+
+### Mapeamento PowerShell → C#
+
+| Script PowerShell | Arquivo C# | Cobertura |
+|-------------------|------------|-----------|
+| `test-docker.ps1` | `Phase1ChannelEstablishmentTests.cs` | 100% |
+| `test-phase2.ps1` | `Phase2NodeIdentificationTests.cs` | 100% |
+| `test-phase2-full.ps1` | `Phase2NodeIdentificationTests.cs` + `NodeChannelClientTests.cs` | 100% |
+| `test-phase2-encrypted.ps1` | `EncryptedChannelIntegrationTests.cs` | 100% |
+| Endpoints `/api/testing/*` | `CertificateAndSignatureTests.cs` | 100% |
+| Cenários não cobertos | `SecurityAndEdgeCaseTests.cs` | ~30 novos testes |
+
+**📖 Documentação completa dos testes:** [Bioteca.Prism.InteroperableResearchNode.Test/README.md](Bioteca.Prism.InteroperableResearchNode.Test/README.md)
+
+---
+
+## 📝 Scripts PowerShell (Legacy)
+
+> **Nota:** Os scripts PowerShell foram mantidos para testes manuais rápidos e validação visual, mas os testes C# são a forma recomendada de teste automatizado.
 
 ### `test-docker.ps1` - Teste da Fase 1
 
@@ -139,6 +205,56 @@ Invoke-RestMethod -Uri "http://localhost:5000/api/channel/initiate" `
 # Substitua {channelId} pelo ID retornado
 curl http://localhost:5000/api/channel/{channelId}
 ```
+
+---
+
+### Testes de Criptografia (Novos Endpoints) 🔐
+
+#### Obter Informações de Canal
+```powershell
+# Verifica se um canal está ativo e obtém suas informações
+Invoke-RestMethod -Uri "http://localhost:5000/api/testing/channel-info/{channelId}" -Method Get
+```
+
+#### Criptografar Payload
+```powershell
+# Criptografa qualquer payload JSON usando a chave simétrica do canal
+Invoke-RestMethod -Uri "http://localhost:5000/api/testing/encrypt-payload" `
+  -Method Post `
+  -ContentType "application/json" `
+  -Body @"
+{
+  "channelId": "SEU_CHANNEL_ID",
+  "payload": {
+    "message": "Hello, World!",
+    "data": {
+      "temperature": 36.5,
+      "heartRate": 72
+    }
+  }
+}
+"@
+```
+
+#### Descriptografar Payload
+```powershell
+# Descriptografa um payload criptografado para validação
+Invoke-RestMethod -Uri "http://localhost:5000/api/testing/decrypt-payload" `
+  -Method Post `
+  -ContentType "application/json" `
+  -Body @"
+{
+  "channelId": "SEU_CHANNEL_ID",
+  "encryptedPayload": {
+    "encryptedData": "BASE64_ENCRYPTED_DATA",
+    "iv": "BASE64_IV",
+    "authTag": "BASE64_AUTH_TAG"
+  }
+}
+"@
+```
+
+**📖 Exemplos completos:** [docs/api-examples/testing-encryption.http](docs/api-examples/testing-encryption.http)
 
 ---
 
@@ -344,9 +460,15 @@ $channelId = $result.channelId
 
 ## 📚 Documentação Adicional
 
+### Testes C#
+- **[Test Suite README](Bioteca.Prism.InteroperableResearchNode.Test/README.md)** - Documentação completa dos testes C#
+- **[Manual Testing Guide](docs/testing/manual-testing-guide.md)** - Guia completo com debugging
+
+### Planos de Teste
 - **[Phase 1 Test Plan](docs/testing/phase1-test-plan.md)** - Plano detalhado de testes da Fase 1
 - **[Phase 2 Test Plan](docs/testing/phase2-test-plan.md)** - Plano detalhado de testes da Fase 2
-- **[Manual Testing Guide](docs/testing/manual-testing-guide.md)** - Guia completo com debugging
+
+### Status do Projeto
 - **[Project Status](docs/PROJECT_STATUS.md)** - Status completo do projeto
 
 ---

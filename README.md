@@ -28,18 +28,24 @@ The Interoperable Research Node (IRN) is the cornerstone of this model. It acts 
 ### Key Features (Implemented & Planned)
 
 #### ✅ Implemented
-- **🔐 Secure Channel Establishment**
+- **🔐 Secure Channel Establishment (Phase 1)**
   - ECDH P-384 ephemeral key exchange
   - Perfect Forward Secrecy (PFS)
   - HKDF-SHA256 key derivation
   - AES-256-GCM encryption
-  - ⚠️ **Nota**: Atualmente, as Fases 2-4 não estão criptografadas dentro do canal. Veja [plano de implementação](docs/development/channel-encryption-plan.md)
 
-- **🆔 Node Identification & Authorization**
+- **🔒 End-to-End Encrypted Communication (Phase 2+)**
+  - **ALL** payloads after channel establishment are encrypted
+  - Mandatory `X-Channel-Id` header for channel validation
+  - AES-256-GCM payload encryption/decryption
+  - JSON serialization with camelCase compatibility
+
+- **🆔 Node Identification & Authorization (Phase 2)**
   - X.509 certificate-based identification
   - RSA-2048 digital signatures
   - Node registry with approval workflow
   - Multiple authorization states (Unknown, Pending, Authorized, Revoked)
+  - **Fully encrypted** registration and identification endpoints
 
 - **🐳 Docker Deployment**
   - Multi-container orchestration
@@ -85,17 +91,45 @@ curl http://localhost:5001/api/channel/health  # Node B
 
 ### Running Tests
 
-```powershell
-# Automated test (Phases 1 + 2)
-.\test-phase2-full.ps1
+#### **Option 1: Automated Test (Recommended)**
 
-# Expected output:
-# ✅ Canal criptografado estabelecido (Fase 1)
-# ✅ Certificados auto-assinados gerados
-# ✅ Nó desconhecido pode se registrar
-# ✅ Identificação com status Pending funciona
-# ✅ Aprovação de nós funciona
-# ✅ Identificação com status Authorized funciona
+```powershell
+# Complete Phase 2 test with encrypted channel
+.\test-fase2-manual.ps1
+```
+
+**What it tests:**
+- ✅ Encrypted channel establishment (Phase 1)
+- ✅ X.509 certificate generation
+- ✅ RSA signature creation
+- ✅ AES-256-GCM payload encryption
+- ✅ Node identification (unknown → pending → authorized flow)
+- ✅ Node registration with encrypted payloads
+- ✅ Administrative approval workflow
+
+#### **Option 2: Manual Testing via Swagger**
+
+**Step-by-step guide**: [docs/testing/TESTE-MANUAL-FASE2-CRIPTOGRAFADA.md](docs/testing/TESTE-MANUAL-FASE2-CRIPTOGRAFADA.md)
+
+Quick walkthrough:
+1. Open Swagger UI: http://localhost:5000/swagger
+2. Establish channel: `POST /api/channel/initiate`
+3. Generate certificate: `POST /api/testing/generate-certificate`
+4. Sign data: `POST /api/testing/sign-data`
+5. Encrypt payload: `POST /api/testing/encrypt-payload`
+6. Identify node: `POST /api/node/identify` (with `X-Channel-Id` header)
+7. Register node: `POST /api/node/register`
+8. Approve node: `PUT /api/node/{nodeId}/status`
+9. Re-identify to get `nextPhase: "phase3_authenticate"`
+
+#### **Option 3: Integration Tests (C# xUnit)**
+
+```powershell
+# Run all integration tests
+dotnet test Bioteca.Prism.InteroperableResearchNode.Test
+
+# Run specific test suite
+dotnet test --filter FullyQualifiedName~Phase2NodeIdentificationTests
 ```
 
 ### Manual Testing & Debugging

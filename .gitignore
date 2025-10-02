@@ -15,3 +15,5 @@
 /nul
 /Bioteca.Prism.Domain/bin/Debug/net8.0
 /Bioteca.Prism.Domain/obj
+/Bioteca.Prism.InteroperableResearchNode.Test/obj
+/Bioteca.Prism.InteroperableResearchNode.Test/bin

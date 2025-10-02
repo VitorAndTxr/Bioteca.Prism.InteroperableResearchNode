@@ -1,0 +1,237 @@
+### Testing Encryption Endpoints
+### These endpoints help you encrypt and decrypt payloads using active channels
+
+### Prerequisites:
+### 1. First, establish a channel using POST /api/channel/open
+### 2. Note the channelId from the response
+### 3. Use that channelId in the requests below
+
+### Variables
+@baseUrl = http://localhost:5001
+@channelId = your-channel-id-here
+
+### ============================================
+### 1. Get Channel Information
+### Retrieves information about an active channel (useful to verify it exists)
+### ============================================
+
+GET {{baseUrl}}/api/testing/channel-info/{{channelId}}
+Content-Type: application/json
+
+### ============================================
+### 2. Encrypt a Simple Payload
+### Encrypts any JSON payload using the channel's symmetric key
+### ============================================
+
+POST {{baseUrl}}/api/testing/encrypt-payload
+Content-Type: application/json
+
+{
+  "channelId": "{{channelId}}",
+  "payload": {
+    "message": "Hello from Node A!",
+    "timestamp": "2025-10-02T10:30:00Z",
+    "data": {
+      "temperature": 36.5,
+      "heartRate": 72
+    }
+  }
+}
+
+### ============================================
+### 3. Encrypt a Biosignal Payload
+### Example with biomedical data
+### ============================================
+
+POST {{baseUrl}}/api/testing/encrypt-payload
+Content-Type: application/json
+
+{
+  "channelId": "{{channelId}}",
+  "payload": {
+    "biosignalType": "ECG",
+    "patientId": "PATIENT-123",
+    "timestamp": "2025-10-02T10:30:00Z",
+    "samplingRate": 500,
+    "values": [0.5, 0.6, 0.7, 0.8, 1.0, 1.2, 1.0, 0.8, 0.6, 0.5],
+    "metadata": {
+      "leadType": "Lead II",
+      "deviceId": "ECG-DEVICE-001",
+      "location": "Lab A"
+    }
+  }
+}
+
+### ============================================
+### 4. Encrypt a Complex Nested Payload
+### Example with deeply nested JSON structure
+### ============================================
+
+POST {{baseUrl}}/api/testing/encrypt-payload
+Content-Type: application/json
+
+{
+  "channelId": "{{channelId}}",
+  "payload": {
+    "requestType": "DATA_QUERY",
+    "query": {
+      "filters": {
+        "dateRange": {
+          "start": "2025-01-01T00:00:00Z",
+          "end": "2025-12-31T23:59:59Z"
+        },
+        "biosignalTypes": ["ECG", "EEG", "EMG"],
+        "institutions": ["Hospital A", "Lab B"]
+      },
+      "pagination": {
+        "page": 1,
+        "pageSize": 50
+      }
+    },
+    "requestMetadata": {
+      "requestId": "REQ-12345",
+      "priority": "HIGH",
+      "requester": {
+        "nodeId": "node-a",
+        "userId": "researcher-001"
+      }
+    }
+  }
+}
+
+### ============================================
+### 5. Decrypt a Payload
+### Decrypts an encrypted payload using the channel's symmetric key
+### Note: Replace the encryptedPayload with the actual output from encrypt-payload
+### ============================================
+
+POST {{baseUrl}}/api/testing/decrypt-payload
+Content-Type: application/json
+
+{
+  "channelId": "{{channelId}}",
+  "encryptedPayload": {
+    "encryptedData": "BASE64_ENCRYPTED_DATA_HERE",
+    "iv": "BASE64_IV_HERE",
+    "authTag": "BASE64_AUTH_TAG_HERE"
+  }
+}
+
+### ============================================
+### Example Response from Encrypt-Payload
+### ============================================
+
+# HTTP/1.1 200 OK
+# Content-Type: application/json
+# 
+# {
+#   "channelId": "channel-12345",
+#   "encryptedPayload": {
+#     "encryptedData": "SGVsbG8gV29ybGQhCg==",
+#     "iv": "MTIzNDU2Nzg5MDEyMzQ1Ng==",
+#     "authTag": "YWJjZGVmZ2hpamtsbW5vcA=="
+#   },
+#   "channelInfo": {
+#     "cipher": "AES-256-GCM",
+#     "role": "client",
+#     "createdAt": "2025-10-02T10:00:00Z",
+#     "expiresAt": "2025-10-02T11:00:00Z"
+#   },
+#   "usage": "Use this encrypted payload in requests to /api/channel/send-message or similar encrypted endpoints"
+# }
+
+### ============================================
+### Example Response from Decrypt-Payload
+### ============================================
+
+# HTTP/1.1 200 OK
+# Content-Type: application/json
+# 
+# {
+#   "channelId": "channel-12345",
+#   "decryptedPayload": {
+#     "message": "Hello from Node A!",
+#     "timestamp": "2025-10-02T10:30:00Z",
+#     "data": {
+#       "temperature": 36.5,
+#       "heartRate": 72
+#     }
+#   },
+#   "channelInfo": {
+#     "cipher": "AES-256-GCM",
+#     "role": "client",
+#     "createdAt": "2025-10-02T10:00:00Z",
+#     "expiresAt": "2025-10-02T11:00:00Z"
+#   }
+# }
+
+### ============================================
+### Complete Workflow Example
+### ============================================
+
+### Step 1: Open a channel (from phase1-channel-open.http)
+# POST http://localhost:5001/api/channel/open
+# (save the channelId from the response)
+
+### Step 2: Get channel info to verify it's active
+# GET http://localhost:5001/api/testing/channel-info/{{channelId}}
+
+### Step 3: Encrypt your payload
+# POST http://localhost:5001/api/testing/encrypt-payload
+# (copy the encryptedPayload from the response)
+
+### Step 4: Use the encrypted payload in an actual request
+# POST http://localhost:5002/api/channel/send-message
+# (send the encryptedPayload to the remote node)
+
+### Step 5: (Optional) Decrypt the payload for testing/debugging
+# POST http://localhost:5001/api/testing/decrypt-payload
+# (paste the encryptedPayload to verify it can be decrypted)
+
+### ============================================
+### Error Scenarios
+### ============================================
+
+### Invalid Channel ID
+POST {{baseUrl}}/api/testing/encrypt-payload
+Content-Type: application/json
+
+{
+  "channelId": "non-existent-channel",
+  "payload": {
+    "message": "This will fail"
+  }
+}
+
+### Expected Response:
+# HTTP/1.1 404 Not Found
+# {
+#   "error": "Channel not found",
+#   "message": "Channel non-existent-channel does not exist or has expired",
+#   "hint": "Use POST /api/channel/open to create a new channel first"
+# }
+
+### ============================================
+### Wrong Decryption Key (Tampered Payload)
+### ============================================
+
+POST {{baseUrl}}/api/testing/decrypt-payload
+Content-Type: application/json
+
+{
+  "channelId": "{{channelId}}",
+  "encryptedPayload": {
+    "encryptedData": "SGVsbG8gV29ybGQhCg==",
+    "iv": "MTIzNDU2Nzg5MDEyMzQ1Ng==",
+    "authTag": "TAMPERED_AUTH_TAG_HERE"
+  }
+}
+
+### Expected Response:
+# HTTP/1.1 400 Bad Request
+# {
+#   "error": "Decryption failed",
+#   "message": "Authentication failed. The payload may have been tampered with or the wrong key was used.",
+#   "details": "..."
+# }
+

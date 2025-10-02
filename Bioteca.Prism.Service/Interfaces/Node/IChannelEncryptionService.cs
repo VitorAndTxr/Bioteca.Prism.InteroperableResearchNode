@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Bioteca.Prism.Service.Interfaces.Node;
 
 /// <summary>
@@ -39,6 +41,23 @@ public interface IChannelEncryptionService
     /// <param name="length">Nonce length in bytes (default: 16)</param>
     /// <returns>Random nonce</returns>
     string GenerateNonce(int length = 16);
+
+    /// <summary>
+    /// Encrypt a payload object to JSON and encrypt it
+    /// </summary>
+    /// <param name="payload">Object to encrypt</param>
+    /// <param name="symmetricKey">Symmetric key from channel</param>
+    /// <returns>Encrypted payload with base64-encoded data</returns>
+    EncryptedPayload EncryptPayload(object payload, byte[] symmetricKey);
+
+    /// <summary>
+    /// Decrypt an encrypted payload and deserialize to object
+    /// </summary>
+    /// <typeparam name="T">Type to deserialize to</typeparam>
+    /// <param name="encryptedPayload">Encrypted payload</param>
+    /// <param name="symmetricKey">Symmetric key from channel</param>
+    /// <returns>Decrypted and deserialized object</returns>
+    T DecryptPayload<T>(EncryptedPayload encryptedPayload, byte[] symmetricKey);
 }
 
 /// <summary>
@@ -60,4 +79,28 @@ public class EncryptedData
     /// Authentication tag for GCM mode
     /// </summary>
     public byte[] Tag { get; set; } = Array.Empty<byte>();
+}
+
+/// <summary>
+/// Encrypted payload with base64-encoded data for JSON serialization
+/// </summary>
+public class EncryptedPayload
+{
+    /// <summary>
+    /// Base64-encoded encrypted data
+    /// </summary>
+    [JsonPropertyName("encryptedData")]
+    public string EncryptedData { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Base64-encoded initialization vector
+    /// </summary>
+    [JsonPropertyName("iv")]
+    public string Iv { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Base64-encoded authentication tag
+    /// </summary>
+    [JsonPropertyName("authTag")]
+    public string AuthTag { get; set; } = string.Empty;
 }
