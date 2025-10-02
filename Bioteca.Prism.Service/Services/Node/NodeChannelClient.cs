@@ -210,7 +210,7 @@ public class NodeChannelClient : INodeChannelClient
         var httpClient = _httpClientFactory.CreateClient();
         httpClient.DefaultRequestHeaders.Add("X-Channel-Id", channelId);
 
-        var response = await httpClient.PostAsJsonAsync($"{channelContext.RemoteNodeUrl}/api/channel/identify", encryptedPayload);
+        var response = await httpClient.PostAsJsonAsync($"{channelContext.RemoteNodeUrl}/api/node/identify", encryptedPayload);
 
         if (!response.IsSuccessStatusCode)
         {

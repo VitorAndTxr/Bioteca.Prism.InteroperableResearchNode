@@ -30,8 +30,9 @@ public class Phase1ChannelEstablishmentTests : IClassFixture<TestWebApplicationF
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        var health = await response.Content.ReadFromJsonAsync<dynamic>();
-        health.Should().NotBeNull();
+        var content = await response.Content.ReadAsStringAsync();
+        content.Should().NotBeNullOrEmpty();
+        content.Should().Contain("healthy");
     }
 
     [Fact]
@@ -164,8 +165,9 @@ public class Phase1ChannelEstablishmentTests : IClassFixture<TestWebApplicationF
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        var channelInfo = await response.Content.ReadFromJsonAsync<dynamic>();
-        channelInfo.Should().NotBeNull();
+        var content = await response.Content.ReadAsStringAsync();
+        content.Should().NotBeNullOrEmpty();
+        content.Should().Contain("channelId");
 
         clientEcdh.Dispose();
     }

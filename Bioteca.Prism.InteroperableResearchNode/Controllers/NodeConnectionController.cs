@@ -87,6 +87,9 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
 
                 _logger.LogInformation("Received encrypted node identification for NodeId: {NodeId}", request.NodeId);
 
+                // Inject ChannelId from header into request for signature verification
+                request.ChannelId = channelId;
+
                 // Verify signature
                 var signatureValid = await _nodeRegistry.VerifyNodeSignatureAsync(request);
                 if (!signatureValid)
@@ -106,7 +109,7 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
                     // Unknown node - return registration information
                     _logger.LogWarning("Unknown node attempted to connect: {NodeId}", request.NodeId);
 
-                    return Ok(new NodeStatusResponse
+                    var unknownResponse = new NodeStatusResponse
                     {
                         IsKnown = false,
                         Status = AuthorizationStatus.Unknown,
@@ -115,7 +118,11 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
                         RegistrationUrl = $"{Request.Scheme}://{Request.Host}/api/node/register",
                         Message = "Node is not registered. Please register using the provided URL.",
                         NextPhase = null
-                    });
+                    };
+
+                    // Encrypt response
+                    var encryptedUnknownResponse = _encryptionService.EncryptPayload(unknownResponse, channelContext.SymmetricKey);
+                    return Ok(encryptedUnknownResponse);
                 }
 
                 // Known node - check authorization status

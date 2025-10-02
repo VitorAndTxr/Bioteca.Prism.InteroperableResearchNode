@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Security.Cryptography.X509Certificates;
 using Bioteca.Prism.Domain.Requests.Node;
 using Bioteca.Prism.Domain.Responses.Node;
 using Bioteca.Prism.Service.Interfaces.Node;
@@ -31,7 +32,8 @@ public class Phase2NodeIdentificationTests : IClassFixture<TestWebApplicationFac
         var encryptionService = _factory.Services.GetRequiredService<IChannelEncryptionService>();
 
         // Generate certificate for test node
-        var certificate = GenerateTestCertificate("test-node-001");
+        var cert = Service.Services.Node.CertificateHelper.GenerateSelfSignedCertificate("test-node-001", 1);
+        var certificate = Service.Services.Node.CertificateHelper.ExportCertificateToBase64(cert);
 
         var registrationRequest = new NodeRegistrationRequest
         {
@@ -76,14 +78,16 @@ public class Phase2NodeIdentificationTests : IClassFixture<TestWebApplicationFac
         var encryptionService = _factory.Services.GetRequiredService<IChannelEncryptionService>();
 
         // Generate certificate and signature
-        var certificate = GenerateTestCertificate("unknown-node-999");
-        var (signature, signedData) = SignData(channelId, "unknown-node-999");
+        var cert = Service.Services.Node.CertificateHelper.GenerateSelfSignedCertificate("unknown-node-999", 1);
+        var certificate = Service.Services.Node.CertificateHelper.ExportCertificateToBase64(cert);
+        var (signature, timestamp, signedData) = SignData(channelId, "unknown-node-999", cert);
 
         var identifyRequest = new NodeIdentifyRequest
         {
             NodeId = "unknown-node-999",
             Certificate = certificate,
-            Signature = signature
+            Signature = signature,
+            Timestamp = timestamp
         };
 
         // Encrypt payload
@@ -94,7 +98,7 @@ public class Phase2NodeIdentificationTests : IClassFixture<TestWebApplicationFac
         _client.DefaultRequestHeaders.Add("X-Channel-Id", channelId);
 
         // Act
-        var response = await _client.PostAsJsonAsync("/api/channel/identify", encryptedPayload);
+        var response = await _client.PostAsJsonAsync("/api/node/identify", encryptedPayload);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -118,14 +122,16 @@ public class Phase2NodeIdentificationTests : IClassFixture<TestWebApplicationFac
         var encryptionService = _factory.Services.GetRequiredService<IChannelEncryptionService>();
 
         // Generate signature
-        var certificate = GenerateTestCertificate(nodeId);
-        var (signature, signedData) = SignData(channelId, nodeId);
+        var cert = Service.Services.Node.CertificateHelper.GenerateSelfSignedCertificate(nodeId, 1);
+        var certificate = Service.Services.Node.CertificateHelper.ExportCertificateToBase64(cert);
+        var (signature, timestamp, signedData) = SignData(channelId, nodeId, cert);
 
         var identifyRequest = new NodeIdentifyRequest
         {
             NodeId = nodeId,
             Certificate = certificate,
-            Signature = signature
+            Signature = signature,
+            Timestamp = timestamp
         };
 
         // Encrypt payload
@@ -136,7 +142,7 @@ public class Phase2NodeIdentificationTests : IClassFixture<TestWebApplicationFac
         _client.DefaultRequestHeaders.Add("X-Channel-Id", channelId);
 
         // Act
-        var response = await _client.PostAsJsonAsync("/api/channel/identify", encryptedPayload);
+        var response = await _client.PostAsJsonAsync("/api/node/identify", encryptedPayload);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -161,14 +167,16 @@ public class Phase2NodeIdentificationTests : IClassFixture<TestWebApplicationFac
         var encryptionService = _factory.Services.GetRequiredService<IChannelEncryptionService>();
 
         // Generate signature
-        var certificate = GenerateTestCertificate(nodeId);
-        var (signature, signedData) = SignData(channelId, nodeId);
+        var cert = Service.Services.Node.CertificateHelper.GenerateSelfSignedCertificate(nodeId, 1);
+        var certificate = Service.Services.Node.CertificateHelper.ExportCertificateToBase64(cert);
+        var (signature, timestamp, signedData) = SignData(channelId, nodeId, cert);
 
         var identifyRequest = new NodeIdentifyRequest
         {
             NodeId = nodeId,
             Certificate = certificate,
-            Signature = signature
+            Signature = signature,
+            Timestamp = timestamp
         };
 
         // Encrypt payload
@@ -179,7 +187,7 @@ public class Phase2NodeIdentificationTests : IClassFixture<TestWebApplicationFac
         _client.DefaultRequestHeaders.Add("X-Channel-Id", channelId);
 
         // Act
-        var response = await _client.PostAsJsonAsync("/api/channel/identify", encryptedPayload);
+        var response = await _client.PostAsJsonAsync("/api/node/identify", encryptedPayload);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -205,7 +213,7 @@ public class Phase2NodeIdentificationTests : IClassFixture<TestWebApplicationFac
         };
 
         // Act (no X-Channel-Id header)
-        var response = await _client.PostAsJsonAsync("/api/channel/identify", identifyRequest);
+        var response = await _client.PostAsJsonAsync("/api/node/identify", identifyRequest);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -225,9 +233,10 @@ public class Phase2NodeIdentificationTests : IClassFixture<TestWebApplicationFac
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        var nodes = await response.Content.ReadFromJsonAsync<List<dynamic>>();
-        nodes.Should().NotBeNull();
-        nodes!.Count.Should().BeGreaterOrEqualTo(2);
+        var content = await response.Content.ReadAsStringAsync();
+        content.Should().NotBeNullOrEmpty();
+        content.Should().Contain("list-test-node-1");
+        content.Should().Contain("list-test-node-2");
     }
 
     [Fact]
@@ -248,8 +257,8 @@ public class Phase2NodeIdentificationTests : IClassFixture<TestWebApplicationFac
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        var result = await response.Content.ReadFromJsonAsync<dynamic>();
-        result.Should().NotBeNull();
+        var content = await response.Content.ReadAsStringAsync();
+        content.Should().NotBeNullOrEmpty();
     }
 
     #region Helper Methods
@@ -298,7 +307,8 @@ public class Phase2NodeIdentificationTests : IClassFixture<TestWebApplicationFac
     {
         var encryptionService = _factory.Services.GetRequiredService<IChannelEncryptionService>();
 
-        var certificate = GenerateTestCertificate(nodeId);
+        var cert = Service.Services.Node.CertificateHelper.GenerateSelfSignedCertificate(nodeId, 1);
+        var certificate = Service.Services.Node.CertificateHelper.ExportCertificateToBase64(cert);
 
         var registrationRequest = new NodeRegistrationRequest
         {
@@ -331,25 +341,15 @@ public class Phase2NodeIdentificationTests : IClassFixture<TestWebApplicationFac
         await _client.PutAsJsonAsync($"/api/node/{nodeId}/status", updateRequest);
     }
 
-    private string GenerateTestCertificate(string nodeId)
+
+    private (string signature, DateTime timestamp, string signedData) SignData(string channelId, string nodeId, X509Certificate2 certificate)
     {
-        // For testing, we use the certificate helper to generate a real certificate
-        var cert = Service.Services.Node.CertificateHelper.GenerateSelfSignedCertificate(
-            nodeId,
-            1);
+        // Generate real signature using the provided certificate
+        var timestamp = DateTime.UtcNow;
+        var signedData = $"{channelId}{nodeId}{timestamp:O}";
+        var signature = Service.Services.Node.CertificateHelper.SignData(signedData, certificate);
 
-        return Convert.ToBase64String(cert.Export(System.Security.Cryptography.X509Certificates.X509ContentType.Cert));
-    }
-
-    private (string signature, string signedData) SignData(string channelId, string nodeId)
-    {
-        // For testing, generate a dummy signature
-        // In real scenario, this would use the private key
-        var timestamp = DateTime.UtcNow.ToString("o");
-        var signedData = $"{channelId}{nodeId}{timestamp}";
-        var signature = Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(256));
-
-        return (signature, signedData);
+        return (signature, timestamp, signedData);
     }
 
     private byte[] CombineNonces(string nonce1, string nonce2)

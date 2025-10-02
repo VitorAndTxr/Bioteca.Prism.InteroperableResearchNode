@@ -18,8 +18,8 @@ public class EncryptedChannelIntegrationTests
     public async Task FullWorkflow_EstablishChannel_RegisterNode_Identify_Authorize()
     {
         // Arrange - Create two node instances (Node A and Node B)
-        using var factoryNodeA = new TestWebApplicationFactory("NodeA");
-        using var factoryNodeB = new TestWebApplicationFactory("NodeB");
+        using var factoryNodeA = TestWebApplicationFactory.Create("NodeA");
+        using var factoryNodeB = TestWebApplicationFactory.Create("NodeB");
 
         var clientA = factoryNodeA.CreateClient();
         var clientB = factoryNodeB.CreateClient();
@@ -62,7 +62,7 @@ public class EncryptedChannelIntegrationTests
         Array.Clear(sharedSecret, 0, sharedSecret.Length);
 
         // Step 2: Node A registers with Node B (encrypted payload)
-        var certificate = GenerateTestCertificate("node-a-integration");
+        var (cert, certificate) = GenerateTestCertificate("node-a-integration");
 
         var registrationRequest = new NodeRegistrationRequest
         {
@@ -92,13 +92,14 @@ public class EncryptedChannelIntegrationTests
         registrationResult.Status.Should().Be(AuthorizationStatus.Pending);
 
         // Step 3: Node A identifies itself (should be Pending)
-        var (signature, signedData) = SignData(channelId, "node-a-integration");
+        var (signature, timestamp, signedData) = SignData(channelId, "node-a-integration", cert);
 
         var identifyRequest = new NodeIdentifyRequest
         {
             NodeId = "node-a-integration",
             Certificate = certificate,
-            Signature = signature
+            Signature = signature,
+            Timestamp = timestamp
         };
 
         var encryptedIdentifyPayload = encryptionServiceA.EncryptPayload(identifyRequest, symmetricKey);
@@ -106,7 +107,7 @@ public class EncryptedChannelIntegrationTests
         clientB.DefaultRequestHeaders.Clear();
         clientB.DefaultRequestHeaders.Add("X-Channel-Id", channelId);
 
-        var identifyResponse = await clientB.PostAsJsonAsync("/api/channel/identify", encryptedIdentifyPayload);
+        var identifyResponse = await clientB.PostAsJsonAsync("/api/node/identify", encryptedIdentifyPayload);
         identifyResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
         var encryptedIdentifyResponse = await identifyResponse.Content.ReadFromJsonAsync<EncryptedPayload>();
@@ -128,13 +129,14 @@ public class EncryptedChannelIntegrationTests
         approveResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
         // Step 5: Node A identifies again (should be Authorized with phase3)
-        var (newSignature, newSignedData) = SignData(channelId, "node-a-integration");
+        var (newSignature, newTimestamp, newSignedData) = SignData(channelId, "node-a-integration", cert);
 
         var identifyRequest2 = new NodeIdentifyRequest
         {
             NodeId = "node-a-integration",
             Certificate = certificate,
-            Signature = newSignature
+            Signature = newSignature,
+            Timestamp = newTimestamp
         };
 
         var encryptedIdentifyPayload2 = encryptionServiceA.EncryptPayload(identifyRequest2, symmetricKey);
@@ -142,7 +144,7 @@ public class EncryptedChannelIntegrationTests
         clientB.DefaultRequestHeaders.Clear();
         clientB.DefaultRequestHeaders.Add("X-Channel-Id", channelId);
 
-        var identifyResponse2 = await clientB.PostAsJsonAsync("/api/channel/identify", encryptedIdentifyPayload2);
+        var identifyResponse2 = await clientB.PostAsJsonAsync("/api/node/identify", encryptedIdentifyPayload2);
         identifyResponse2.StatusCode.Should().Be(HttpStatusCode.OK);
 
         var encryptedIdentifyResponse2 = await identifyResponse2.Content.ReadFromJsonAsync<EncryptedPayload>();
@@ -161,7 +163,7 @@ public class EncryptedChannelIntegrationTests
     public async Task EncryptedChannel_WithWrongKey_FailsDecryption()
     {
         // Arrange
-        using var factory = new TestWebApplicationFactory();
+        using var factory = TestWebApplicationFactory.Create("Development");
         var client = factory.CreateClient();
 
         var ephemeralKeyService = factory.Services.GetRequiredService<IEphemeralKeyService>();
@@ -187,7 +189,7 @@ public class EncryptedChannelIntegrationTests
         client.DefaultRequestHeaders.Add("X-Channel-Id", channelId);
 
         // Act
-        var response = await client.PostAsJsonAsync("/api/channel/identify", encryptedPayload);
+        var response = await client.PostAsJsonAsync("/api/node/identify", encryptedPayload);
 
         // Assert - Server should fail to decrypt
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -218,7 +220,7 @@ public class EncryptedChannelIntegrationTests
         client.DefaultRequestHeaders.Add("X-Channel-Id", "invalid-channel-id");
 
         // Act
-        var response = await client.PostAsJsonAsync("/api/channel/identify", encryptedPayload);
+        var response = await client.PostAsJsonAsync("/api/node/identify", encryptedPayload);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -266,22 +268,24 @@ public class EncryptedChannelIntegrationTests
         return (channelId, symmetricKey);
     }
 
-    private string GenerateTestCertificate(string nodeId)
+    private (System.Security.Cryptography.X509Certificates.X509Certificate2 certificate, string certBase64) GenerateTestCertificate(string nodeId)
     {
         var cert = Service.Services.Node.CertificateHelper.GenerateSelfSignedCertificate(
             nodeId,
             1);
 
-        return Convert.ToBase64String(cert.Export(System.Security.Cryptography.X509Certificates.X509ContentType.Cert));
+        var certBase64 = Service.Services.Node.CertificateHelper.ExportCertificateToBase64(cert);
+        return (cert, certBase64);
     }
 
-    private (string signature, string signedData) SignData(string channelId, string nodeId)
+    private (string signature, DateTime timestamp, string signedData) SignData(string channelId, string nodeId, System.Security.Cryptography.X509Certificates.X509Certificate2 certificate)
     {
-        var timestamp = DateTime.UtcNow.ToString("o");
-        var signedData = $"{channelId}{nodeId}{timestamp}";
-        var signature = Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(256));
+        // Generate real signature using the provided certificate
+        var timestamp = DateTime.UtcNow;
+        var signedData = $"{channelId}{nodeId}{timestamp:O}";
+        var signature = Service.Services.Node.CertificateHelper.SignData(signedData, certificate);
 
-        return (signature, signedData);
+        return (signature, timestamp, signedData);
     }
 
     private byte[] CombineNonces(string nonce1, string nonce2)

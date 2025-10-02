@@ -167,7 +167,7 @@ public class SecurityAndEdgeCaseTests : IClassFixture<TestWebApplicationFactory>
         _client.DefaultRequestHeaders.Add("X-Channel-Id", channelId);
 
         // Act
-        var response = await _client.PostAsJsonAsync("/api/channel/identify", encryptedPayload);
+        var response = await _client.PostAsJsonAsync("/api/node/identify", encryptedPayload);
 
         // Assert - Should fail authentication tag verification
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -202,7 +202,7 @@ public class SecurityAndEdgeCaseTests : IClassFixture<TestWebApplicationFactory>
         _client.DefaultRequestHeaders.Add("X-Channel-Id", channelId);
 
         // Act
-        var response = await _client.PostAsJsonAsync("/api/channel/identify", encryptedPayload);
+        var response = await _client.PostAsJsonAsync("/api/node/identify", encryptedPayload);
 
         // Assert - Should fail authentication
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -304,7 +304,7 @@ public class SecurityAndEdgeCaseTests : IClassFixture<TestWebApplicationFactory>
         _client.DefaultRequestHeaders.Add("X-Channel-Id", "non-existent-channel-id");
 
         // Act
-        var response = await _client.PostAsJsonAsync("/api/channel/identify", encryptedPayload);
+        var response = await _client.PostAsJsonAsync("/api/node/identify", encryptedPayload);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);

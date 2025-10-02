@@ -96,17 +96,42 @@ docker logs -f irn-node-b               # View Node B logs
 
 ### Testing
 
-```powershell
-# Phase 1 tests (channel establishment)
-.\test-docker.ps1
+```bash
+# Run all automated tests
+dotnet test Bioteca.Prism.InteroperableResearchNode.Test/Bioteca.Prism.InteroperableResearchNode.Test.csproj
 
-# Phase 2 tests (node identification - full)
-.\test-phase2-full.ps1
+# Run specific test class
+dotnet test --filter "FullyQualifiedName~Phase1ChannelEstablishmentTests"
+
+# Run with detailed output
+dotnet test --verbosity detailed
+
+# Legacy PowerShell scripts (deprecated - use dotnet test instead)
+# .\test-docker.ps1              # Phase 1 tests
+# .\test-phase2-full.ps1         # Phase 2 tests
 
 # Manual testing with Swagger
 # Node A: http://localhost:5000/swagger
 # Node B: http://localhost:5001/swagger
 ```
+
+### Test Status (Last Updated: 2025-10-02)
+
+**Overall: 34/56 tests passing (61% pass rate)**
+
+| Category | Passing | Total | Status |
+|----------|---------|-------|--------|
+| Phase 1 (Channel Establishment) | 6/6 | 100% | ✅ |
+| Certificate & Signature | 14/15 | 93% | ✅ |
+| Phase 2 (Node Identification) | 5/6 | 83% | ✅ |
+| Encrypted Channel Integration | 2/3 | 67% | ⚠️ |
+| NodeChannelClient | 1/7 | 14% | ❌ |
+| Security & Edge Cases | 6/17 | 36% | ❌ |
+
+**Key Issues:**
+- NodeChannelClient tests need architectural fix (IHttpClientFactory vs in-memory test servers)
+- Security tests validate unimplemented features (timestamp/nonce validation, etc.)
+- Some encryption edge cases need investigation
 
 ### Environment Profiles
 
@@ -191,11 +216,57 @@ All services are registered as **Singleton** (shared state across requests):
 
 ## Known Issues & Warnings
 
-### Critical Issues
-1. **Phase 2+ Not Encrypted** (🔴 High Priority)
-   - Identification/registration payloads sent in plaintext
-   - Violates protocol specification
-   - See: `docs/development/channel-encryption-plan.md`
+### Test Suite Issues (22 failing tests)
+
+**1. NodeChannelClient Architecture (7 failures) - NEEDS FIX**
+- **Problem**: Tests use `INodeChannelClient` which internally uses `IHttpClientFactory.CreateClient()` to make real HTTP requests
+- **Issue**: Cannot connect to in-memory `TestWebApplicationFactory` servers
+- **Affected Tests**:
+  - `InitiateChannel_WithValidRemoteUrl_EstablishesChannel`
+  - `IdentifyNode_WithInvalidSignature_ReturnsError`
+  - `IdentifyNode_UnknownNode_ReturnsNotKnown`
+  - `FullWorkflow_InitiateRegisterIdentify_WorksEndToEnd`
+  - `RegisterNode_AfterChannelEstablished_SuccessfullyRegisters`
+  - `IdentifyNode_AfterRegistration_ReturnsPending`
+  - `InitiateChannel_WithInvalidUrl_ReturnsFailure` (fixed - now checks result instead of exception)
+- **Solutions**:
+  - Option A: Mock `IHttpClientFactory` to return `HttpClient` from `factory.CreateClient()`
+  - Option B: Refactor `NodeChannelClient` to accept `HttpClient` directly
+  - Option C: Skip these tests and rely on manual/integration testing
+
+**2. Unimplemented Validation Features (11 failures) - FUTURE WORK**
+- Tests for features not yet implemented (TDD approach)
+- **Missing Features**:
+  - Timestamp validation (future/old timestamps)
+  - Nonce validation (short/invalid nonces)
+  - Certificate expiration checking
+  - Empty field validation (NodeId, NodeName)
+- **Affected Tests**:
+  - `OpenChannel_WithFutureTimestamp_ReturnsBadRequest`
+  - `OpenChannel_WithOldTimestamp_ReturnsBadRequest`
+  - `OpenChannel_WithInvalidNonce_ReturnsBadRequest`
+  - `OpenChannel_WithShortNonce_ReturnsBadRequest`
+  - `RegisterNode_WithExpiredCertificate_ReturnsBadRequest`
+  - `RegisterNode_WithInvalidCertificateFormat_ReturnsBadRequest`
+  - `RegisterNode_WithEmptyNodeId_ReturnsBadRequest`
+  - `RegisterNode_WithEmptyNodeName_ReturnsBadRequest`
+  - `UpdateNodeStatus_ToInvalidStatus_ReturnsBadRequest`
+  - `GenerateCertificate_WithEmptySubjectName_ReturnsBadRequest`
+  - `RegisterNode_Twice_SecondRegistrationUpdatesInfo`
+
+**3. Encryption/Decryption Edge Cases (3 failures) - INVESTIGATE**
+- **Symptoms**: "Failed to decrypt data - authentication failed"
+- **Affected Tests**:
+  - `FullWorkflow_EstablishChannel_RegisterNode_Identify_Authorize`
+  - `IdentifyNode_UnknownNode_ReturnsNotKnown`
+  - `IdentifyNode_PendingNode_ReturnsPending`
+- **Possible Causes**:
+  - Channel expiration during test
+  - Key derivation mismatch in multi-step scenarios
+  - Certificate signing issues
+
+**4. Minor Bugs (1 failure)**
+- `CertificateHelper_GenerateCertificate_ProducesValidCertificate` - Timezone handling issue
 
 ### Compiler Warnings
 - `NodeRegistryService.cs:44` - Async method without await (intentional, will be fixed with DB implementation)
@@ -206,17 +277,41 @@ All services are registered as **Singleton** (shared state across requests):
 
 ## Next Steps
 
-### Immediate Priority
-1. Implement channel encryption for Phase 2+ (see `channel-encryption-plan.md`)
-   - Extend `IChannelEncryptionService` with `EncryptPayload`/`DecryptPayload`
-   - Create `ChannelValidationMiddleware` to validate `X-Channel-Id` header
-   - Update controllers to encrypt/decrypt payloads
-   - Update client to send encrypted requests
+### Test Suite Fixes (Before Phase 3)
 
-### Phase 3 (Planned)
+**Priority 1: Fix NodeChannelClient Tests (7 failures)**
+1. Create `TestHttpClientFactory` that returns `HttpClient` from `TestWebApplicationFactory.CreateClient()`
+2. Register in `TestWebApplicationFactory.ConfigureWebHost()`:
+   ```csharp
+   services.AddSingleton<IHttpClientFactory>(new TestHttpClientFactory(remoteFactory));
+   ```
+3. Update NodeChannelClientTests to properly configure the factory
+4. Alternative: Use `WebApplicationFactory<Program>.Server.CreateClient()` directly
+
+**Priority 2: Investigate Encryption Failures (3 failures)**
+1. Add debug logging to track channel lifecycle
+2. Verify nonce generation consistency
+3. Check if tests complete before channel expires (30 min TTL)
+4. Review Phase2NodeIdentificationTests helper methods
+
+**Priority 3: Implement Missing Validations (11 failures)**
+1. Add timestamp validation in `ChannelController.ValidateChannelOpenRequest()`:
+   - Reject timestamps > 5 minutes in future
+   - Reject timestamps > 30 seconds in past
+2. Add nonce validation (min 12 bytes)
+3. Add certificate expiration check in `NodeConnectionController`
+4. Add required field validation with `[Required]` attributes
+5. Implement proper enum validation for `AuthorizationStatus`
+
+**Priority 4: Fix Minor Issues (1 failure)**
+1. Fix timezone handling in `CertificateHelper_GenerateCertificate_ProducesValidCertificate`
+
+### Phase 3 Implementation
+**After all tests pass, proceed with Phase 3:**
 - Implement challenge/response authentication
 - Verify private key possession
 - Prevent replay attacks
+- Add comprehensive tests for Phase 3
 
 ### Phase 4 (Planned)
 - Session management with capabilities
@@ -228,6 +323,11 @@ All services are registered as **Singleton** (shared state across requests):
 - Add structured logging (Serilog)
 - Implement distributed tracing (OpenTelemetry)
 - Add Prometheus metrics
+
+### Documentation Updates Needed
+- Update `docs/testing/manual-testing-guide.md` with dotnet test commands
+- Create `docs/testing/test-troubleshooting.md` for common test failures
+- Document test architecture in `docs/development/testing-strategy.md`
 
 ## Reference
 

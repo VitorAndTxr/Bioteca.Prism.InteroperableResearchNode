@@ -89,22 +89,44 @@ public class NodeRegistryService : INodeRegistryService
         {
             try
             {
-                // Check if node already exists
-                if (_nodes.ContainsKey(request.NodeId))
-                {
-                return Task.FromResult(new NodeRegistrationResponse
-                {
-                    Success = false,
-                    Status = AuthorizationStatus.Revoked,
-                    Message = "Node ID already registered"
-                });
-                }
-
                 // Calculate certificate fingerprint
                 var certBytes = Convert.FromBase64String(request.Certificate);
                 var fingerprint = CalculateCertificateFingerprint(certBytes);
 
-                // Check if certificate is already registered
+                // Check if node already exists
+                if (_nodes.TryGetValue(request.NodeId, out var existingNode))
+                {
+                    // Update existing node information
+                    // Remove old certificate fingerprint mapping if certificate changed
+                    if (existingNode.CertificateFingerprint != fingerprint)
+                    {
+                        _nodesByCertificate.Remove(existingNode.CertificateFingerprint);
+                    }
+
+                    existingNode.NodeName = request.NodeName;
+                    existingNode.Certificate = request.Certificate;
+                    existingNode.CertificateFingerprint = fingerprint;
+                    existingNode.NodeUrl = request.NodeUrl;
+                    existingNode.ContactInfo = request.ContactInfo;
+                    existingNode.InstitutionDetails = request.InstitutionDetails;
+                    existingNode.Capabilities = request.RequestedCapabilities;
+                    existingNode.UpdatedAt = DateTime.UtcNow;
+
+                    _nodesByCertificate[fingerprint] = existingNode;
+
+                    _logger.LogInformation("Node {NodeId} information updated successfully", request.NodeId);
+
+                    return Task.FromResult(new NodeRegistrationResponse
+                    {
+                        Success = true,
+                        RegistrationId = Guid.NewGuid().ToString(),
+                        Status = existingNode.Status, // Preserve existing status
+                        Message = "Node information updated successfully.",
+                        EstimatedApprovalTime = existingNode.Status == AuthorizationStatus.Pending ? TimeSpan.FromHours(24) : null
+                    });
+                }
+
+                // Check if certificate is already registered with another node
                 if (_nodesByCertificate.ContainsKey(fingerprint))
                 {
                 return Task.FromResult(new NodeRegistrationResponse

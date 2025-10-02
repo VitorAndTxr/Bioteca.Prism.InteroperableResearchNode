@@ -26,32 +26,44 @@ public class NodeChannelClientTests : IClassFixture<TestWebApplicationFactory>
     public async Task InitiateChannel_WithValidRemoteUrl_EstablishesChannel()
     {
         // Arrange
-        using var remoteFactory = new TestWebApplicationFactory("RemoteNode");
+        using var remoteFactory = TestWebApplicationFactory.Create("RemoteNode");
         var remoteClient = remoteFactory.CreateClient();
         var remoteUrl = remoteClient.BaseAddress!.ToString().TrimEnd('/');
 
-        // Act
-        var result = await _channelClient.OpenChannelAsync(remoteUrl);
+        // Register the remote factory so HttpClient can route to it
+        TestWebApplicationFactory.RegisterRemoteFactory(remoteUrl, remoteFactory);
 
-        // Assert
-        result.Should().NotBeNull();
-        result.Success.Should().BeTrue();
-        result.ChannelId.Should().NotBeNullOrEmpty();
-        result.SelectedCipher.Should().NotBeNullOrEmpty();
-        result.SymmetricKey.Should().NotBeNullOrEmpty();
+        try
+        {
+            // Act
+            var result = await _channelClient.OpenChannelAsync(remoteUrl);
+
+            // Assert
+            result.Should().NotBeNull();
+            result.Success.Should().BeTrue();
+            result.ChannelId.Should().NotBeNullOrEmpty();
+            result.SelectedCipher.Should().NotBeNullOrEmpty();
+            result.SymmetricKey.Should().NotBeNullOrEmpty();
+        }
+        finally
+        {
+            TestWebApplicationFactory.ClearRemoteFactories();
+        }
     }
 
     [Fact]
-    public async Task InitiateChannel_WithInvalidUrl_ThrowsException()
+    public async Task InitiateChannel_WithInvalidUrl_ReturnsFailure()
     {
         // Arrange
         var invalidUrl = "http://non-existent-server:9999";
 
-        // Act & Assert
-        await Assert.ThrowsAnyAsync<Exception>(async () =>
-        {
-            await _channelClient.OpenChannelAsync(invalidUrl);
-        });
+        // Act
+        var result = await _channelClient.OpenChannelAsync(invalidUrl);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.Success.Should().BeFalse();
+        result.Error.Should().NotBeNull();
     }
 
     #endregion
@@ -62,39 +74,49 @@ public class NodeChannelClientTests : IClassFixture<TestWebApplicationFactory>
     public async Task RegisterNode_AfterChannelEstablished_SuccessfullyRegisters()
     {
         // Arrange - Establish channel first
-        using var remoteFactory = new TestWebApplicationFactory("RemoteNode");
+        using var remoteFactory = TestWebApplicationFactory.Create("RemoteNode");
         var remoteClient = remoteFactory.CreateClient();
         var remoteUrl = remoteClient.BaseAddress!.ToString().TrimEnd('/');
 
-        var channelResult = await _channelClient.OpenChannelAsync(remoteUrl);
+        // Register the remote factory
+        TestWebApplicationFactory.RegisterRemoteFactory(remoteUrl, remoteFactory);
 
-        // Generate certificate
-        var certificate = Service.Services.Node.CertificateHelper.GenerateSelfSignedCertificate(
-            "client-test-node-001",
-            1);
-
-        var certBase64 = Service.Services.Node.CertificateHelper.ExportCertificateToBase64(certificate);
-
-        var registrationRequest = new NodeRegistrationRequest
+        try
         {
-            NodeId = "client-test-node-001",
-            NodeName = "Client Test Node",
-            Certificate = certBase64,
-            ContactInfo = "admin@clienttest.test",
-            InstitutionDetails = "Client Test Institution",
-            NodeUrl = "http://clienttest:8080",
-            RequestedCapabilities = new List<string> { "search", "retrieve" }
-        };
+            var channelResult = await _channelClient.OpenChannelAsync(remoteUrl);
 
-        // Act
-        var result = await _channelClient.RegisterNodeAsync(
-            channelResult.ChannelId,
-            registrationRequest);
+            // Generate certificate
+            var certificate = Service.Services.Node.CertificateHelper.GenerateSelfSignedCertificate(
+                "client-test-node-001",
+                1);
 
-        // Assert
-        result.Should().NotBeNull();
-        result.Success.Should().BeTrue();
-        result.RegistrationId.Should().NotBeNullOrEmpty();
+            var certBase64 = Service.Services.Node.CertificateHelper.ExportCertificateToBase64(certificate);
+
+            var registrationRequest = new NodeRegistrationRequest
+            {
+                NodeId = "client-test-node-001",
+                NodeName = "Client Test Node",
+                Certificate = certBase64,
+                ContactInfo = "admin@clienttest.test",
+                InstitutionDetails = "Client Test Institution",
+                NodeUrl = "http://clienttest:8080",
+                RequestedCapabilities = new List<string> { "search", "retrieve" }
+            };
+
+            // Act
+            var result = await _channelClient.RegisterNodeAsync(
+                channelResult.ChannelId,
+                registrationRequest);
+
+            // Assert
+            result.Should().NotBeNull();
+            result.Success.Should().BeTrue();
+            result.RegistrationId.Should().NotBeNullOrEmpty();
+        }
+        finally
+        {
+            TestWebApplicationFactory.ClearRemoteFactories();
+        }
     }
 
     #endregion
@@ -105,94 +127,116 @@ public class NodeChannelClientTests : IClassFixture<TestWebApplicationFactory>
     public async Task IdentifyNode_UnknownNode_ReturnsNotKnown()
     {
         // Arrange - Establish channel
-        using var remoteFactory = new TestWebApplicationFactory("RemoteNode");
+        using var remoteFactory = TestWebApplicationFactory.Create("RemoteNode");
         var remoteClient = remoteFactory.CreateClient();
         var remoteUrl = remoteClient.BaseAddress!.ToString().TrimEnd('/');
 
-        var channelResult = await _channelClient.OpenChannelAsync(remoteUrl);
+        // Register the remote factory
+        TestWebApplicationFactory.RegisterRemoteFactory(remoteUrl, remoteFactory);
 
-        // Generate certificate and sign data
-        var certificate = Service.Services.Node.CertificateHelper.GenerateSelfSignedCertificate(
-            "unknown-client-node",
-            1);
-
-        var certBase64 = Service.Services.Node.CertificateHelper.ExportCertificateToBase64(certificate);
-
-        var timestamp = DateTime.UtcNow;
-        var signedData = $"{channelResult.ChannelId}unknown-client-node{timestamp:O}";
-        var signature = Service.Services.Node.CertificateHelper.SignData(signedData, certificate);
-
-        var identifyRequest = new NodeIdentifyRequest
+        try
         {
-            NodeId = "unknown-client-node",
-            Certificate = certBase64,
-            Signature = signature,
-        };
+            var channelResult = await _channelClient.OpenChannelAsync(remoteUrl);
 
-        // Act
-        var result = await _channelClient.IdentifyNodeAsync(
-            channelResult.ChannelId,
-            identifyRequest);
+            // Generate certificate and sign data
+            var certificate = Service.Services.Node.CertificateHelper.GenerateSelfSignedCertificate(
+                "unknown-client-node",
+                1);
 
-        // Assert
-        result.Should().NotBeNull();
-        result.IsKnown.Should().BeFalse();
-        result.Status.Should().Be(Domain.Responses.Node.AuthorizationStatus.Unknown);
+            var certBase64 = Service.Services.Node.CertificateHelper.ExportCertificateToBase64(certificate);
+
+            var timestamp = DateTime.UtcNow;
+            var signedData = $"{channelResult.ChannelId}unknown-client-node{timestamp:O}";
+            var signature = Service.Services.Node.CertificateHelper.SignData(signedData, certificate);
+
+            var identifyRequest = new NodeIdentifyRequest
+            {
+                NodeId = "unknown-client-node",
+                Certificate = certBase64,
+                Signature = signature,
+                Timestamp = timestamp
+            };
+
+            // Act
+            var result = await _channelClient.IdentifyNodeAsync(
+                channelResult.ChannelId,
+                identifyRequest);
+
+            // Assert
+            result.Should().NotBeNull();
+            result.IsKnown.Should().BeFalse();
+            result.Status.Should().Be(Domain.Responses.Node.AuthorizationStatus.Unknown);
+        }
+        finally
+        {
+            TestWebApplicationFactory.ClearRemoteFactories();
+        }
     }
 
     [Fact]
     public async Task IdentifyNode_AfterRegistration_ReturnsPending()
     {
         // Arrange - Establish channel and register
-        using var remoteFactory = new TestWebApplicationFactory("RemoteNode");
+        using var remoteFactory = TestWebApplicationFactory.Create("RemoteNode");
         var remoteClient = remoteFactory.CreateClient();
         var remoteUrl = remoteClient.BaseAddress!.ToString().TrimEnd('/');
 
-        var channelResult = await _channelClient.OpenChannelAsync(remoteUrl);
+        // Register the remote factory
+        TestWebApplicationFactory.RegisterRemoteFactory(remoteUrl, remoteFactory);
 
-        var certificate = Service.Services.Node.CertificateHelper.GenerateSelfSignedCertificate(
-            "pending-client-node",
-            1);
-
-        var certBase64 = Service.Services.Node.CertificateHelper.ExportCertificateToBase64(certificate);
-
-        // Register first
-        var registrationRequest = new NodeRegistrationRequest
+        try
         {
-            NodeId = "pending-client-node",
-            NodeName = "Pending Client Node",
-            Certificate = certBase64,
-            ContactInfo = "admin@pending.test",
-            InstitutionDetails = "Pending Test Institution",
-            NodeUrl = "http://pending:8080",
-            RequestedCapabilities = new List<string> { "search" }
-        };
+            var channelResult = await _channelClient.OpenChannelAsync(remoteUrl);
 
-        await _channelClient.RegisterNodeAsync(
-            channelResult.ChannelId,
-            registrationRequest);
+            var certificate = Service.Services.Node.CertificateHelper.GenerateSelfSignedCertificate(
+                "pending-client-node",
+                1);
 
-        // Generate signature for identification
-        var timestamp = DateTime.UtcNow;
-        var signedData = $"{channelResult.ChannelId}pending-client-node{timestamp:O}";
-        var signature = Service.Services.Node.CertificateHelper.SignData(signedData, certificate);
+            var certBase64 = Service.Services.Node.CertificateHelper.ExportCertificateToBase64(certificate);
 
-        var identifyRequest = new NodeIdentifyRequest
+            // Register first
+            var registrationRequest = new NodeRegistrationRequest
+            {
+                NodeId = "pending-client-node",
+                NodeName = "Pending Client Node",
+                Certificate = certBase64,
+                ContactInfo = "admin@pending.test",
+                InstitutionDetails = "Pending Test Institution",
+                NodeUrl = "http://pending:8080",
+                RequestedCapabilities = new List<string> { "search" }
+            };
+
+            await _channelClient.RegisterNodeAsync(
+                channelResult.ChannelId,
+                registrationRequest);
+
+            // Generate signature for identification
+            var timestamp = DateTime.UtcNow;
+            var signedData = $"{channelResult.ChannelId}pending-client-node{timestamp:O}";
+            var signature = Service.Services.Node.CertificateHelper.SignData(signedData, certificate);
+
+            var identifyRequest = new NodeIdentifyRequest
+            {
+                NodeId = "pending-client-node",
+                Certificate = certBase64,
+                Signature = signature,
+                Timestamp = timestamp
+            };
+
+            // Act
+            var result = await _channelClient.IdentifyNodeAsync(
+                channelResult.ChannelId,
+                identifyRequest);
+
+            // Assert
+            result.Should().NotBeNull();
+            result.IsKnown.Should().BeTrue();
+            result.Status.Should().Be(Domain.Responses.Node.AuthorizationStatus.Pending);
+        }
+        finally
         {
-            NodeId = "pending-client-node",
-            Certificate = certBase64,
-            Signature = signature,
-        };
-
-        // Act
-        var result = await _channelClient.IdentifyNodeAsync(
-            channelResult.ChannelId,
-            identifyRequest);
-
-        // Assert
-        result.Should().NotBeNull();
-        result.IsKnown.Should().BeTrue();
-        result.Status.Should().Be(Domain.Responses.Node.AuthorizationStatus.Pending);
+            TestWebApplicationFactory.ClearRemoteFactories();
+        }
     }
 
     #endregion
@@ -210,11 +254,16 @@ public class NodeChannelClientTests : IClassFixture<TestWebApplicationFactory>
         // 5. Node A identifies again (should be Authorized)
 
         // Arrange
-        using var nodeB = new TestWebApplicationFactory("NodeB");
+        using var nodeB = TestWebApplicationFactory.Create("NodeB");
         var nodeBClient = nodeB.CreateClient();
         var nodeBUrl = nodeBClient.BaseAddress!.ToString().TrimEnd('/');
 
-        var nodeId = "full-workflow-node";
+        // Register the remote factory
+        TestWebApplicationFactory.RegisterRemoteFactory(nodeBUrl, nodeB);
+
+        try
+        {
+            var nodeId = "full-workflow-node";
 
         // Step 1: Initiate channel
         var channelResult = await _channelClient.OpenChannelAsync(nodeBUrl);
@@ -256,6 +305,7 @@ public class NodeChannelClientTests : IClassFixture<TestWebApplicationFactory>
             NodeId = nodeId,
             Certificate = certBase64,
             Signature = signature1,
+            Timestamp = timestamp1
         };
 
         var identifyResult1 = await _channelClient.IdentifyNodeAsync(
@@ -285,16 +335,22 @@ public class NodeChannelClientTests : IClassFixture<TestWebApplicationFactory>
             NodeId = nodeId,
             Certificate = certBase64,
             Signature = signature2,
+            Timestamp = timestamp2
         };
 
         var identifyResult2 = await _channelClient.IdentifyNodeAsync(
             channelResult.ChannelId,
             identifyRequest2);
 
-        // Assert final state
-        identifyResult2.IsKnown.Should().BeTrue();
-        identifyResult2.Status.Should().Be(Domain.Responses.Node.AuthorizationStatus.Authorized);
-        identifyResult2.NextPhase.Should().Be("phase3_authenticate");
+            // Assert final state
+            identifyResult2.IsKnown.Should().BeTrue();
+            identifyResult2.Status.Should().Be(Domain.Responses.Node.AuthorizationStatus.Authorized);
+            identifyResult2.NextPhase.Should().Be("phase3_authenticate");
+        }
+        finally
+        {
+            TestWebApplicationFactory.ClearRemoteFactories();
+        }
     }
 
     #endregion
@@ -305,7 +361,7 @@ public class NodeChannelClientTests : IClassFixture<TestWebApplicationFactory>
     public async Task RegisterNode_WithInvalidChannelId_ThrowsException()
     {
         // Arrange
-        using var remoteFactory = new TestWebApplicationFactory("RemoteNode");
+        using var remoteFactory = TestWebApplicationFactory.Create("RemoteNode");
         var remoteClient = remoteFactory.CreateClient();
         var remoteUrl = remoteClient.BaseAddress!.ToString().TrimEnd('/');
 
@@ -337,28 +393,37 @@ public class NodeChannelClientTests : IClassFixture<TestWebApplicationFactory>
     public async Task IdentifyNode_WithInvalidSignature_ReturnsError()
     {
         // Arrange - Establish channel
-        using var remoteFactory = new TestWebApplicationFactory("RemoteNode");
+        using var remoteFactory = TestWebApplicationFactory.Create("RemoteNode");
         var remoteClient = remoteFactory.CreateClient();
         var remoteUrl = remoteClient.BaseAddress!.ToString().TrimEnd('/');
 
-        var channelResult = await _channelClient.OpenChannelAsync(remoteUrl);
+        // Register the remote factory
+        TestWebApplicationFactory.RegisterRemoteFactory(remoteUrl, remoteFactory);
 
-        var identifyRequest = new NodeIdentifyRequest
+        try
         {
-            NodeId = "invalid-sig-node",
-            Certificate = "dummy-cert",
-            Signature = "invalid-signature"
-        };
+            var channelResult = await _channelClient.OpenChannelAsync(remoteUrl);
 
-        // Act & Assert
-        // The identify should complete but return an error status
-        var result = await _channelClient.IdentifyNodeAsync(
-            channelResult.ChannelId,
-            identifyRequest);
+            var identifyRequest = new NodeIdentifyRequest
+            {
+                NodeId = "invalid-sig-node",
+                Certificate = "dummy-cert",
+                Signature = "invalid-signature"
+            };
 
-        // The signature validation happens server-side, 
-        // so we should get a response but with validation errors
-        result.Should().NotBeNull();
+            // Act & Assert
+            // The identify should throw an exception due to invalid signature
+            await Assert.ThrowsAsync<Exception>(async () =>
+            {
+                await _channelClient.IdentifyNodeAsync(
+                    channelResult.ChannelId,
+                    identifyRequest);
+            });
+        }
+        finally
+        {
+            TestWebApplicationFactory.ClearRemoteFactories();
+        }
     }
 
     #endregion

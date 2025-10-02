@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using Bioteca.Prism.Service.Services.Node;
 using FluentAssertions;
 
@@ -39,11 +40,11 @@ public class CertificateAndSignatureTests : IClassFixture<TestWebApplicationFact
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        var result = await response.Content.ReadFromJsonAsync<dynamic>();
-        result.Should().NotBeNull();
-        result!.GetProperty("certificate").GetString().Should().NotBeNullOrEmpty();
-        result.GetProperty("certificateWithPrivateKey").GetString().Should().NotBeNullOrEmpty();
-        result.GetProperty("thumbprint").GetString().Should().NotBeNullOrEmpty();
+        using var jsonDoc = await response.Content.ReadFromJsonAsync<JsonDocument>();
+        jsonDoc.Should().NotBeNull();
+        jsonDoc!.RootElement.GetProperty("certificate").GetString().Should().NotBeNullOrEmpty();
+        jsonDoc.RootElement.GetProperty("certificateWithPrivateKey").GetString().Should().NotBeNullOrEmpty();
+        jsonDoc.RootElement.GetProperty("thumbprint").GetString().Should().NotBeNullOrEmpty();
     }
 
     [Fact]
@@ -63,15 +64,15 @@ public class CertificateAndSignatureTests : IClassFixture<TestWebApplicationFact
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        var result = await response.Content.ReadFromJsonAsync<dynamic>();
-        result.Should().NotBeNull();
+        using var jsonDoc = await response.Content.ReadFromJsonAsync<JsonDocument>();
+        jsonDoc.Should().NotBeNull();
 
         // Verify validity period
-        var validFrom = DateTime.Parse(result!.GetProperty("validFrom").GetString()!);
-        var validTo = DateTime.Parse(result.GetProperty("validTo").GetString()!);
+        var validFrom = DateTime.Parse(jsonDoc!.RootElement.GetProperty("validFrom").GetString()!);
+        var validTo = DateTime.Parse(jsonDoc.RootElement.GetProperty("validTo").GetString()!);
         var validityPeriod = validTo - validFrom;
 
-        validityPeriod.TotalDays.Should().BeCloseTo(365 * 5, 1); // ~5 years
+        validityPeriod.TotalDays.Should().BeApproximately(365 * 5, 1); // ~5 years
     }
 
     [Fact]
@@ -108,8 +109,8 @@ public class CertificateAndSignatureTests : IClassFixture<TestWebApplicationFact
         };
 
         var certResponse = await _client.PostAsJsonAsync("/api/testing/generate-certificate", certRequest);
-        var certResult = await certResponse.Content.ReadFromJsonAsync<dynamic>();
-        var certificateWithPrivateKey = certResult!.GetProperty("certificateWithPrivateKey").GetString();
+        using var certDoc = await certResponse.Content.ReadFromJsonAsync<JsonDocument>();
+        var certificateWithPrivateKey = certDoc!.RootElement.GetProperty("certificateWithPrivateKey").GetString();
 
         // Sign data
         var signRequest = new
@@ -125,10 +126,10 @@ public class CertificateAndSignatureTests : IClassFixture<TestWebApplicationFact
         // Assert
         signResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        var signResult = await signResponse.Content.ReadFromJsonAsync<dynamic>();
-        signResult.Should().NotBeNull();
-        signResult!.GetProperty("signature").GetString().Should().NotBeNullOrEmpty();
-        signResult.GetProperty("algorithm").GetString().Should().Be("RSA-SHA256");
+        using var signDoc = await signResponse.Content.ReadFromJsonAsync<JsonDocument>();
+        signDoc.Should().NotBeNull();
+        signDoc!.RootElement.GetProperty("signature").GetString().Should().NotBeNullOrEmpty();
+        signDoc.RootElement.GetProperty("algorithm").GetString().Should().Be("RSA-SHA256");
     }
 
     [Fact]
@@ -143,8 +144,8 @@ public class CertificateAndSignatureTests : IClassFixture<TestWebApplicationFact
         };
 
         var certResponse = await _client.PostAsJsonAsync("/api/testing/generate-certificate", certRequest);
-        var certResult = await certResponse.Content.ReadFromJsonAsync<dynamic>();
-        var certificateWithPrivateKey = certResult!.GetProperty("certificateWithPrivateKey").GetString();
+        using var certDoc = await certResponse.Content.ReadFromJsonAsync<JsonDocument>();
+        var certificateWithPrivateKey = certDoc!.RootElement.GetProperty("certificateWithPrivateKey").GetString();
 
         // Try to sign with wrong password
         var signRequest = new
@@ -195,9 +196,9 @@ public class CertificateAndSignatureTests : IClassFixture<TestWebApplicationFact
         };
 
         var certResponse = await _client.PostAsJsonAsync("/api/testing/generate-certificate", certRequest);
-        var certResult = await certResponse.Content.ReadFromJsonAsync<dynamic>();
-        var certificate = certResult!.GetProperty("certificate").GetString();
-        var certificateWithPrivateKey = certResult.GetProperty("certificateWithPrivateKey").GetString();
+        using var certDoc = await certResponse.Content.ReadFromJsonAsync<JsonDocument>();
+        var certificate = certDoc!.RootElement.GetProperty("certificate").GetString();
+        var certificateWithPrivateKey = certDoc.RootElement.GetProperty("certificateWithPrivateKey").GetString();
 
         var dataToSign = "important-data-to-verify";
 
@@ -209,8 +210,8 @@ public class CertificateAndSignatureTests : IClassFixture<TestWebApplicationFact
         };
 
         var signResponse = await _client.PostAsJsonAsync("/api/testing/sign-data", signRequest);
-        var signResult = await signResponse.Content.ReadFromJsonAsync<dynamic>();
-        var signature = signResult!.GetProperty("signature").GetString();
+        using var signDoc = await signResponse.Content.ReadFromJsonAsync<JsonDocument>();
+        var signature = signDoc!.RootElement.GetProperty("signature").GetString();
 
         // Verify signature
         var verifyRequest = new
@@ -226,9 +227,9 @@ public class CertificateAndSignatureTests : IClassFixture<TestWebApplicationFact
         // Assert
         verifyResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        var verifyResult = await verifyResponse.Content.ReadFromJsonAsync<dynamic>();
-        verifyResult.Should().NotBeNull();
-        verifyResult!.GetProperty("isValid").GetBoolean().Should().BeTrue();
+        using var verifyDoc = await verifyResponse.Content.ReadFromJsonAsync<JsonDocument>();
+        verifyDoc.Should().NotBeNull();
+        verifyDoc!.RootElement.GetProperty("isValid").GetBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -243,9 +244,9 @@ public class CertificateAndSignatureTests : IClassFixture<TestWebApplicationFact
         };
 
         var certResponse = await _client.PostAsJsonAsync("/api/testing/generate-certificate", certRequest);
-        var certResult = await certResponse.Content.ReadFromJsonAsync<dynamic>();
-        var certificate = certResult!.GetProperty("certificate").GetString();
-        var certificateWithPrivateKey = certResult.GetProperty("certificateWithPrivateKey").GetString();
+        using var certDoc = await certResponse.Content.ReadFromJsonAsync<JsonDocument>();
+        var certificate = certDoc!.RootElement.GetProperty("certificate").GetString();
+        var certificateWithPrivateKey = certDoc.RootElement.GetProperty("certificateWithPrivateKey").GetString();
 
         var originalData = "original-data";
 
@@ -257,8 +258,8 @@ public class CertificateAndSignatureTests : IClassFixture<TestWebApplicationFact
         };
 
         var signResponse = await _client.PostAsJsonAsync("/api/testing/sign-data", signRequest);
-        var signResult = await signResponse.Content.ReadFromJsonAsync<dynamic>();
-        var signature = signResult!.GetProperty("signature").GetString();
+        using var signDoc = await signResponse.Content.ReadFromJsonAsync<JsonDocument>();
+        var signature = signDoc!.RootElement.GetProperty("signature").GetString();
 
         // Verify with tampered data
         var verifyRequest = new
@@ -274,9 +275,9 @@ public class CertificateAndSignatureTests : IClassFixture<TestWebApplicationFact
         // Assert
         verifyResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        var verifyResult = await verifyResponse.Content.ReadFromJsonAsync<dynamic>();
-        verifyResult.Should().NotBeNull();
-        verifyResult!.GetProperty("isValid").GetBoolean().Should().BeFalse();
+        using var verifyDoc = await verifyResponse.Content.ReadFromJsonAsync<JsonDocument>();
+        verifyDoc.Should().NotBeNull();
+        verifyDoc!.RootElement.GetProperty("isValid").GetBoolean().Should().BeFalse();
     }
 
     [Fact]
@@ -291,8 +292,8 @@ public class CertificateAndSignatureTests : IClassFixture<TestWebApplicationFact
         };
 
         var cert1Response = await _client.PostAsJsonAsync("/api/testing/generate-certificate", cert1Request);
-        var cert1Result = await cert1Response.Content.ReadFromJsonAsync<dynamic>();
-        var certificateWithPrivateKey = cert1Result!.GetProperty("certificateWithPrivateKey").GetString();
+        using var cert1Doc = await cert1Response.Content.ReadFromJsonAsync<JsonDocument>();
+        var certificateWithPrivateKey = cert1Doc!.RootElement.GetProperty("certificateWithPrivateKey").GetString();
 
         var cert2Request = new
         {
@@ -302,8 +303,8 @@ public class CertificateAndSignatureTests : IClassFixture<TestWebApplicationFact
         };
 
         var cert2Response = await _client.PostAsJsonAsync("/api/testing/generate-certificate", cert2Request);
-        var cert2Result = await cert2Response.Content.ReadFromJsonAsync<dynamic>();
-        var differentCertificate = cert2Result!.GetProperty("certificate").GetString();
+        using var cert2Doc = await cert2Response.Content.ReadFromJsonAsync<JsonDocument>();
+        var differentCertificate = cert2Doc!.RootElement.GetProperty("certificate").GetString();
 
         // Sign with cert1
         var dataToSign = "test-data";
@@ -315,8 +316,8 @@ public class CertificateAndSignatureTests : IClassFixture<TestWebApplicationFact
         };
 
         var signResponse = await _client.PostAsJsonAsync("/api/testing/sign-data", signRequest);
-        var signResult = await signResponse.Content.ReadFromJsonAsync<dynamic>();
-        var signature = signResult!.GetProperty("signature").GetString();
+        using var signDoc = await signResponse.Content.ReadFromJsonAsync<JsonDocument>();
+        var signature = signDoc!.RootElement.GetProperty("signature").GetString();
 
         // Verify with cert2 (wrong certificate)
         var verifyRequest = new
@@ -332,9 +333,9 @@ public class CertificateAndSignatureTests : IClassFixture<TestWebApplicationFact
         // Assert
         verifyResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        var verifyResult = await verifyResponse.Content.ReadFromJsonAsync<dynamic>();
-        verifyResult.Should().NotBeNull();
-        verifyResult!.GetProperty("isValid").GetBoolean().Should().BeFalse();
+        using var verifyDoc = await verifyResponse.Content.ReadFromJsonAsync<JsonDocument>();
+        verifyDoc.Should().NotBeNull();
+        verifyDoc!.RootElement.GetProperty("isValid").GetBoolean().Should().BeFalse();
     }
 
     #endregion
@@ -360,14 +361,14 @@ public class CertificateAndSignatureTests : IClassFixture<TestWebApplicationFact
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        var result = await response.Content.ReadFromJsonAsync<dynamic>();
-        result.Should().NotBeNull();
-        result!.GetProperty("nodeId").GetString().Should().Be("complete-identity-node");
-        result.GetProperty("certificate").GetString().Should().NotBeNullOrEmpty();
-        result.GetProperty("certificateWithPrivateKey").GetString().Should().NotBeNullOrEmpty();
+        using var jsonDoc = await response.Content.ReadFromJsonAsync<JsonDocument>();
+        jsonDoc.Should().NotBeNull();
+        jsonDoc!.RootElement.GetProperty("nodeId").GetString().Should().Be("complete-identity-node");
+        jsonDoc.RootElement.GetProperty("certificate").GetString().Should().NotBeNullOrEmpty();
+        jsonDoc.RootElement.GetProperty("certificateWithPrivateKey").GetString().Should().NotBeNullOrEmpty();
 
         // Verify identification request is ready to use
-        var identRequest = result.GetProperty("identificationRequest");
+        var identRequest = jsonDoc.RootElement.GetProperty("identificationRequest");
         identRequest.GetProperty("channelId").GetString().Should().Be("test-channel-123");
         identRequest.GetProperty("nodeId").GetString().Should().Be("complete-identity-node");
         identRequest.GetProperty("signature").GetString().Should().NotBeNullOrEmpty();
@@ -387,10 +388,10 @@ public class CertificateAndSignatureTests : IClassFixture<TestWebApplicationFact
         };
 
         var identityResponse = await _client.PostAsJsonAsync("/api/testing/generate-node-identity", identityRequest);
-        var identityResult = await identityResponse.Content.ReadFromJsonAsync<dynamic>();
+        using var identityDoc = await identityResponse.Content.ReadFromJsonAsync<JsonDocument>();
 
-        var certificate = identityResult!.GetProperty("certificate").GetString();
-        var identRequest = identityResult.GetProperty("identificationRequest");
+        var certificate = identityDoc!.RootElement.GetProperty("certificate").GetString();
+        var identRequest = identityDoc.RootElement.GetProperty("identificationRequest");
         var signature = identRequest.GetProperty("signature").GetString();
         var timestamp = identRequest.GetProperty("timestamp").GetString();
 
@@ -411,8 +412,8 @@ public class CertificateAndSignatureTests : IClassFixture<TestWebApplicationFact
         // Assert
         verifyResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        var verifyResult = await verifyResponse.Content.ReadFromJsonAsync<dynamic>();
-        verifyResult!.GetProperty("isValid").GetBoolean().Should().BeTrue();
+        using var verifyDoc = await verifyResponse.Content.ReadFromJsonAsync<JsonDocument>();
+        verifyDoc!.RootElement.GetProperty("isValid").GetBoolean().Should().BeTrue();
     }
 
     #endregion
@@ -431,8 +432,9 @@ public class CertificateAndSignatureTests : IClassFixture<TestWebApplicationFact
         cert.Should().NotBeNull();
         cert.Subject.Should().Contain("direct-test-node");
         cert.HasPrivateKey.Should().BeTrue();
-        cert.NotBefore.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromMinutes(5));
-        cert.NotAfter.Should().BeCloseTo(DateTime.UtcNow.AddYears(1), TimeSpan.FromDays(1));
+        // Note: X509Certificate2.NotBefore returns local time, not UTC
+        cert.NotBefore.Should().BeCloseTo(DateTime.Now, TimeSpan.FromMinutes(5));
+        cert.NotAfter.Should().BeCloseTo(DateTime.Now.AddYears(1), TimeSpan.FromDays(1));
     }
 
     [Fact]
