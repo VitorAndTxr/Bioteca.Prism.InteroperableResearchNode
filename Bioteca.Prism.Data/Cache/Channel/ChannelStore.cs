@@ -1,8 +1,7 @@
-using Bioteca.Prism.Service.Interfaces.Node;
 using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 
-namespace Bioteca.Prism.Service.Services.Node;
+namespace Bioteca.Prism.Data.Cache.Channel;
 
 /// <summary>
 /// In-memory implementation of channel store

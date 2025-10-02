@@ -1,3 +1,4 @@
+using Bioteca.Prism.Data.Cache.Channel;
 using Bioteca.Prism.Domain.Errors.Node;
 using Bioteca.Prism.Domain.Requests.Node;
 using Bioteca.Prism.Domain.Responses.Node;
@@ -112,7 +113,7 @@ public class ChannelController : ControllerBase
 
             // Store channel context (with expiration)
             var channelId = Guid.NewGuid().ToString();
-            var channelContext = new Service.Interfaces.Node.ChannelContext
+            var channelContext = new ChannelContext
             {
                 ChannelId = channelId,
                 SymmetricKey = symmetricKey,

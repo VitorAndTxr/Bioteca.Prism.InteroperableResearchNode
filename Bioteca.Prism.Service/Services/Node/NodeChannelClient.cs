@@ -7,6 +7,7 @@ using System.Net.Http.Json;
 using Bioteca.Prism.Domain.Requests.Node;
 using Bioteca.Prism.Domain.Errors.Node;
 using Bioteca.Prism.Domain.Responses.Node;
+using Bioteca.Prism.Data.Cache.Channel;
 
 namespace Bioteca.Prism.Service.Services.Node;
 
@@ -138,7 +139,7 @@ public class NodeChannelClient : INodeChannelClient
             Array.Clear(sharedSecret, 0, sharedSecret.Length);
 
             // Store channel context
-            var channelContext = new Interfaces.Node.ChannelContext
+            var channelContext = new ChannelContext
             {
                 ChannelId = channelId,
                 SymmetricKey = symmetricKey,

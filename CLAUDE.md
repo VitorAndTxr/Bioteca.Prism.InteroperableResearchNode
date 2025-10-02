@@ -115,23 +115,28 @@ dotnet test --verbosity detailed
 # Node B: http://localhost:5001/swagger
 ```
 
-### Test Status (Last Updated: 2025-10-02)
+### Test Status (Last Updated: 2025-10-02 - 18:00)
 
-**Overall: 34/56 tests passing (61% pass rate)**
+**Overall: 56/56 tests passing (100% pass rate)** ✅
 
 | Category | Passing | Total | Status |
 |----------|---------|-------|--------|
 | Phase 1 (Channel Establishment) | 6/6 | 100% | ✅ |
-| Certificate & Signature | 14/15 | 93% | ✅ |
-| Phase 2 (Node Identification) | 5/6 | 83% | ✅ |
-| Encrypted Channel Integration | 2/3 | 67% | ⚠️ |
-| NodeChannelClient | 1/7 | 14% | ❌ |
-| Security & Edge Cases | 6/17 | 36% | ❌ |
+| Certificate & Signature | 15/15 | 100% | ✅ |
+| Phase 2 (Node Identification) | 6/6 | 100% | ✅ |
+| Encrypted Channel Integration | 3/3 | 100% | ✅ |
+| NodeChannelClient | 7/7 | 100% | ✅ |
+| Security & Edge Cases | 17/17 | 100% | ✅ |
 
-**Key Issues:**
-- NodeChannelClient tests need architectural fix (IHttpClientFactory vs in-memory test servers)
-- Security tests validate unimplemented features (timestamp/nonce validation, etc.)
-- Some encryption edge cases need investigation
+**Recent Fixes (2025-10-02):**
+- ✅ Implemented timestamp validation (protect against replay attacks)
+- ✅ Implemented nonce validation (format and minimum size)
+- ✅ Implemented certificate validation (format, structure, expiration)
+- ✅ Implemented required fields validation (NodeId, NodeName, SubjectName)
+- ✅ Implemented enum validation for AuthorizationStatus
+- ✅ Fixed signature validation with proper timestamps
+- ✅ Fixed timezone issues in certificate tests
+- ✅ Implemented node re-registration with update logic
 
 ### Environment Profiles
 
@@ -216,57 +221,26 @@ All services are registered as **Singleton** (shared state across requests):
 
 ## Known Issues & Warnings
 
-### Test Suite Issues (22 failing tests)
+### ✅ All Test Issues Resolved (2025-10-02)
 
-**1. NodeChannelClient Architecture (7 failures) - NEEDS FIX**
-- **Problem**: Tests use `INodeChannelClient` which internally uses `IHttpClientFactory.CreateClient()` to make real HTTP requests
-- **Issue**: Cannot connect to in-memory `TestWebApplicationFactory` servers
-- **Affected Tests**:
-  - `InitiateChannel_WithValidRemoteUrl_EstablishesChannel`
-  - `IdentifyNode_WithInvalidSignature_ReturnsError`
-  - `IdentifyNode_UnknownNode_ReturnsNotKnown`
-  - `FullWorkflow_InitiateRegisterIdentify_WorksEndToEnd`
-  - `RegisterNode_AfterChannelEstablished_SuccessfullyRegisters`
-  - `IdentifyNode_AfterRegistration_ReturnsPending`
-  - `InitiateChannel_WithInvalidUrl_ReturnsFailure` (fixed - now checks result instead of exception)
-- **Solutions**:
-  - Option A: Mock `IHttpClientFactory` to return `HttpClient` from `factory.CreateClient()`
-  - Option B: Refactor `NodeChannelClient` to accept `HttpClient` directly
-  - Option C: Skip these tests and rely on manual/integration testing
+All 56 tests are now passing. Previous issues have been fixed:
 
-**2. Unimplemented Validation Features (11 failures) - FUTURE WORK**
-- Tests for features not yet implemented (TDD approach)
-- **Missing Features**:
-  - Timestamp validation (future/old timestamps)
-  - Nonce validation (short/invalid nonces)
-  - Certificate expiration checking
-  - Empty field validation (NodeId, NodeName)
-- **Affected Tests**:
-  - `OpenChannel_WithFutureTimestamp_ReturnsBadRequest`
-  - `OpenChannel_WithOldTimestamp_ReturnsBadRequest`
-  - `OpenChannel_WithInvalidNonce_ReturnsBadRequest`
-  - `OpenChannel_WithShortNonce_ReturnsBadRequest`
-  - `RegisterNode_WithExpiredCertificate_ReturnsBadRequest`
-  - `RegisterNode_WithInvalidCertificateFormat_ReturnsBadRequest`
-  - `RegisterNode_WithEmptyNodeId_ReturnsBadRequest`
-  - `RegisterNode_WithEmptyNodeName_ReturnsBadRequest`
-  - `UpdateNodeStatus_ToInvalidStatus_ReturnsBadRequest`
-  - `GenerateCertificate_WithEmptySubjectName_ReturnsBadRequest`
-  - `RegisterNode_Twice_SecondRegistrationUpdatesInfo`
+**Fixed Issues:**
+1. ✅ **NodeChannelClient Architecture** - Resolved by implementing `TestHttpClientFactory` and `TestHttpMessageHandler` to route requests to in-memory test servers
+2. ✅ **Validation Features** - All validations implemented:
+   - Timestamp validation (±5 minutes tolerance)
+   - Nonce validation (Base64 format, min 12 bytes)
+   - Certificate validation (format, structure, expiration check)
+   - Required fields validation (NodeId, NodeName, SubjectName)
+   - Enum validation (AuthorizationStatus)
+3. ✅ **Encryption/Decryption** - Fixed by implementing proper signature generation with timestamps
+4. ✅ **Timezone Issues** - Fixed by using `DateTime.Now` for local time comparisons
 
-**3. Encryption/Decryption Edge Cases (3 failures) - INVESTIGATE**
-- **Symptoms**: "Failed to decrypt data - authentication failed"
-- **Affected Tests**:
-  - `FullWorkflow_EstablishChannel_RegisterNode_Identify_Authorize`
-  - `IdentifyNode_UnknownNode_ReturnsNotKnown`
-  - `IdentifyNode_PendingNode_ReturnsPending`
-- **Possible Causes**:
-  - Channel expiration during test
-  - Key derivation mismatch in multi-step scenarios
-  - Certificate signing issues
-
-**4. Minor Bugs (1 failure)**
-- `CertificateHelper_GenerateCertificate_ProducesValidCertificate` - Timezone handling issue
+**Implemented Security Features:**
+- Replay attack protection (timestamp validation)
+- Certificate expiration validation
+- Input sanitization and validation
+- Proper error responses for invalid requests
 
 ### Compiler Warnings
 - `NodeRegistryService.cs:44` - Async method without await (intentional, will be fixed with DB implementation)
@@ -277,41 +251,24 @@ All services are registered as **Singleton** (shared state across requests):
 
 ## Next Steps
 
-### Test Suite Fixes (Before Phase 3)
+### ✅ Phase 2 Complete - Ready for Phase 3
 
-**Priority 1: Fix NodeChannelClient Tests (7 failures)**
-1. Create `TestHttpClientFactory` that returns `HttpClient` from `TestWebApplicationFactory.CreateClient()`
-2. Register in `TestWebApplicationFactory.ConfigureWebHost()`:
-   ```csharp
-   services.AddSingleton<IHttpClientFactory>(new TestHttpClientFactory(remoteFactory));
-   ```
-3. Update NodeChannelClientTests to properly configure the factory
-4. Alternative: Use `WebApplicationFactory<Program>.Server.CreateClient()` directly
+All Phase 2 features are implemented and tested (56/56 tests passing):
+- ✅ Encrypted channel establishment (Phase 1)
+- ✅ Node identification and registration (Phase 2)
+- ✅ Certificate-based identity verification
+- ✅ Complete validation suite (timestamps, nonces, certificates, fields)
+- ✅ Security hardening (replay protection, input validation)
 
-**Priority 2: Investigate Encryption Failures (3 failures)**
-1. Add debug logging to track channel lifecycle
-2. Verify nonce generation consistency
-3. Check if tests complete before channel expires (30 min TTL)
-4. Review Phase2NodeIdentificationTests helper methods
-
-**Priority 3: Implement Missing Validations (11 failures)**
-1. Add timestamp validation in `ChannelController.ValidateChannelOpenRequest()`:
-   - Reject timestamps > 5 minutes in future
-   - Reject timestamps > 30 seconds in past
-2. Add nonce validation (min 12 bytes)
-3. Add certificate expiration check in `NodeConnectionController`
-4. Add required field validation with `[Required]` attributes
-5. Implement proper enum validation for `AuthorizationStatus`
-
-**Priority 4: Fix Minor Issues (1 failure)**
-1. Fix timezone handling in `CertificateHelper_GenerateCertificate_ProducesValidCertificate`
-
-### Phase 3 Implementation
-**After all tests pass, proceed with Phase 3:**
-- Implement challenge/response authentication
-- Verify private key possession
-- Prevent replay attacks
-- Add comprehensive tests for Phase 3
+### Phase 3 Implementation (Next Priority)
+**Challenge/Response Mutual Authentication:**
+1. Design challenge/response protocol
+2. Implement challenge generation and verification
+3. Add mutual authentication between nodes
+4. Verify private key possession without exposing keys
+5. Add session key derivation
+6. Create comprehensive test suite for Phase 3
+7. Document Phase 3 protocol in `docs/architecture/handshake-protocol.md`
 
 ### Phase 4 (Planned)
 - Session management with capabilities

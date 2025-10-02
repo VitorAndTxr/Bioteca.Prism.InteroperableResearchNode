@@ -1,8 +1,11 @@
-﻿using Bioteca.Prism.Domain.Errors.Node;
+﻿using Bioteca.Prism.Core.Middleware.Channel;
+using Bioteca.Prism.Data.Cache.Channel;
+using Bioteca.Prism.Domain.Errors.Node;
 using Bioteca.Prism.Domain.Requests.Node;
 using Bioteca.Prism.Domain.Responses.Node;
 using Bioteca.Prism.Service.Interfaces.Node;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Filters;
 
 namespace Bioteca.Prism.InteroperableResearchNode.Controllers
 {
@@ -178,34 +181,15 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
         /// <param name="encryptedRequest">Encrypted node registration request</param>
         /// <returns>Encrypted registration response</returns>
         [HttpPost("/api/node/register")]
+        [PrismChannelConnection]
         [ProducesResponseType(typeof(EncryptedPayload), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(HandshakeError), StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> RegisterNode([FromBody] EncryptedPayload encryptedRequest)
         {
             try
             {
-                // Get ChannelId from header
-                if (!Request.Headers.TryGetValue("X-Channel-Id", out var channelIdHeader))
-                {
-                    return BadRequest(CreateError(
-                        "ERR_MISSING_CHANNEL_ID",
-                        "X-Channel-Id header is required",
-                        retryable: false
-                    ));
-                }
-
-                var channelId = channelIdHeader.ToString();
-
-                // Validate channel exists
-                var channelContext = _channelStore.GetChannel(channelId);
-                if (channelContext == null)
-                {
-                    return BadRequest(CreateError(
-                        "ERR_INVALID_CHANNEL",
-                        "Channel does not exist or has expired",
-                        retryable: true
-                    ));
-                }
+                var channelId = HttpContext.Items["ChannelId"] as string;
+                var channelContext = HttpContext.Items["ChannelContext"] as ChannelContext;
 
                 // Decrypt request
                 NodeRegistrationRequest request;

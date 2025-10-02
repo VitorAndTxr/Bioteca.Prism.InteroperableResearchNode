@@ -1,8 +1,8 @@
 # Project Status Report - IRN
 
-**Data:** 2025-10-01
-**Versão:** 0.2.0
-**Status Geral:** ✅ Fase 2 Completa e Validada
+**Data:** 2025-10-02
+**Versão:** 0.3.0
+**Status Geral:** ✅ Fase 2 Completa com Validações de Segurança Implementadas
 
 ---
 
@@ -14,6 +14,9 @@ O projeto **Interoperable Research Node (IRN)** está com as **Fases 1 e 2** do 
 2. ✅ Identificar e autorizar nós usando certificados X.509 e assinaturas digitais
 3. ✅ Gerenciar registro de nós desconhecidos com workflow de aprovação
 4. ✅ Rodar em containers Docker com configuração multi-nó
+5. ✅ **NOVO**: Validar rigorosamente todos os inputs com proteção contra ataques
+6. ✅ **NOVO**: Proteger contra replay attacks com validação de timestamp
+7. ✅ **NOVO**: 100% de cobertura de testes (56/56 testes passando)
 
 ---
 
@@ -123,6 +126,42 @@ Nó Desconhecido
 - ✅ Admin pode aprovar/revogar nós
 - ✅ Status Authorized permite avanço para Fase 3
 - ✅ Testes automatizados passando
+
+---
+
+### ✅ Validações de Segurança (IMPLEMENTADO - 2025-10-02)
+
+**Objetivo:** Proteger o sistema contra ataques e inputs maliciosos.
+
+**Validações Implementadas:**
+
+1. **Validação de Timestamp** (`ChannelController.cs`)
+   - ✅ Rejeita timestamps > 5 minutos no futuro
+   - ✅ Rejeita timestamps > 5 minutos no passado
+   - ✅ Proteção contra replay attacks
+   - ✅ Tolerância para clock skew
+
+2. **Validação de Nonce** (`ChannelController.cs`)
+   - ✅ Valida formato Base64
+   - ✅ Tamanho mínimo de 12 bytes
+   - ✅ Previne nonces triviais
+
+3. **Validação de Certificado** (`NodeRegistryService.cs`)
+   - ✅ Valida formato Base64
+   - ✅ Valida estrutura X.509
+   - ✅ Verifica expiração do certificado
+   - ✅ Rejeita certificados malformados
+
+4. **Validação de Campos Obrigatórios**
+   - ✅ NodeId obrigatório
+   - ✅ NodeName obrigatório
+   - ✅ SubjectName obrigatório (TestingController)
+
+5. **Validação de Enum**
+   - ✅ Valida valores de AuthorizationStatus
+   - ✅ Rejeita valores numéricos inválidos
+
+**Testes:** 56/56 passando (100%)
 
 ---
 

@@ -5,18 +5,14 @@ VisualStudioVersion = 17.14.36414.22
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bioteca.Prism.InteroperableResearchNode", "Bioteca.Prism.InteroperableResearchNode.csproj", "{DE174938-3BFB-4D7E-833B-8C9B1A6B3B74}"
 	ProjectSection(ProjectDependencies) = postProject
-		{197D9272-054D-4C29-8472-BDB891F39CC8} = {197D9272-054D-4C29-8472-BDB891F39CC8}
 		{42D54E3F-ADE1-4DA8-BD69-128DCCFBB9E7} = {42D54E3F-ADE1-4DA8-BD69-128DCCFBB9E7}
 		{DE1C07B4-A6DC-48DE-A7FE-2A30ADA68D09} = {DE1C07B4-A6DC-48DE-A7FE-2A30ADA68D09}
 	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bioteca.Prism.Domain", "..\Bioteca.Prism.Domain\Bioteca.Prism.Domain.csproj", "{42D54E3F-ADE1-4DA8-BD69-128DCCFBB9E7}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bioteca.DotNet", "..\Bioteca.DotNet\Bioteca.DotNet.csproj", "{197D9272-054D-4C29-8472-BDB891F39CC8}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bioteca.Prism.Service", "..\Bioteca.Prism.Service\Bioteca.Prism.Service.csproj", "{DE1C07B4-A6DC-48DE-A7FE-2A30ADA68D09}"
 	ProjectSection(ProjectDependencies) = postProject
-		{197D9272-054D-4C29-8472-BDB891F39CC8} = {197D9272-054D-4C29-8472-BDB891F39CC8}
 		{42D54E3F-ADE1-4DA8-BD69-128DCCFBB9E7} = {42D54E3F-ADE1-4DA8-BD69-128DCCFBB9E7}
 	EndProjectSection
 EndProject
@@ -27,6 +23,14 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bioteca.Prism.InteroperableResearchNode.Test", "..\Bioteca.Prism.InteroperableResearchNode.Test\Bioteca.Prism.InteroperableResearchNode.Test.csproj", "{B08978F2-105A-4B7D-BAD1-C5E0864ACD5F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bioteca.Prism.Core", "..\Bioteca.Prism.Core\Bioteca.Prism.Core.csproj", "{D2860F24-1775-473D-ABDE-7F87321981A6}"
+	ProjectSection(ProjectDependencies) = postProject
+		{16B4F4DD-73E2-4FB8-8B7B-DD421CDCC6E6} = {16B4F4DD-73E2-4FB8-8B7B-DD421CDCC6E6}
+		{42D54E3F-ADE1-4DA8-BD69-128DCCFBB9E7} = {42D54E3F-ADE1-4DA8-BD69-128DCCFBB9E7}
+	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bioteca.Prism.Data", "..\Bioteca.Prism.Data\Bioteca.Prism.Data.csproj", "{16B4F4DD-73E2-4FB8-8B7B-DD421CDCC6E6}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -42,10 +46,6 @@ Global
 		{42D54E3F-ADE1-4DA8-BD69-128DCCFBB9E7}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{42D54E3F-ADE1-4DA8-BD69-128DCCFBB9E7}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{42D54E3F-ADE1-4DA8-BD69-128DCCFBB9E7}.Release|Any CPU.Build.0 = Release|Any CPU
-		{197D9272-054D-4C29-8472-BDB891F39CC8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{197D9272-054D-4C29-8472-BDB891F39CC8}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{197D9272-054D-4C29-8472-BDB891F39CC8}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{197D9272-054D-4C29-8472-BDB891F39CC8}.Release|Any CPU.Build.0 = Release|Any CPU
 		{DE1C07B4-A6DC-48DE-A7FE-2A30ADA68D09}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{DE1C07B4-A6DC-48DE-A7FE-2A30ADA68D09}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{DE1C07B4-A6DC-48DE-A7FE-2A30ADA68D09}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -54,6 +54,14 @@ Global
 		{B08978F2-105A-4B7D-BAD1-C5E0864ACD5F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B08978F2-105A-4B7D-BAD1-C5E0864ACD5F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B08978F2-105A-4B7D-BAD1-C5E0864ACD5F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D2860F24-1775-473D-ABDE-7F87321981A6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D2860F24-1775-473D-ABDE-7F87321981A6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D2860F24-1775-473D-ABDE-7F87321981A6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D2860F24-1775-473D-ABDE-7F87321981A6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{16B4F4DD-73E2-4FB8-8B7B-DD421CDCC6E6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{16B4F4DD-73E2-4FB8-8B7B-DD421CDCC6E6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{16B4F4DD-73E2-4FB8-8B7B-DD421CDCC6E6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{16B4F4DD-73E2-4FB8-8B7B-DD421CDCC6E6}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
