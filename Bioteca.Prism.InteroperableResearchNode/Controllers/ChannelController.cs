@@ -8,7 +8,7 @@ using System.Collections.Concurrent;
 namespace Bioteca.Prism.InteroperableResearchNode.Controllers;
 
 /// <summary>
-/// Controller for Phase 1: Encrypted Channel Establishment
+/// Controller for Phase 1: Encrypted Channel Establishment and Phase 2: Node Identification
 /// </summary>
 [ApiController]
 [Route("api/channel")]
@@ -19,6 +19,7 @@ public class ChannelController : ControllerBase
     private readonly IChannelEncryptionService _encryptionService;
     private readonly IConfiguration _configuration;
     private readonly INodeChannelClient _channelClient;
+    private readonly Service.Services.Node.INodeRegistryService _nodeRegistry;
 
     // In-memory storage for active channels (in production, use distributed cache)
     private static readonly ConcurrentDictionary<string, ChannelContext> _activeChannels = new();
@@ -28,13 +29,15 @@ public class ChannelController : ControllerBase
         IEphemeralKeyService ephemeralKeyService,
         IChannelEncryptionService encryptionService,
         IConfiguration configuration,
-        INodeChannelClient channelClient)
+        INodeChannelClient channelClient,
+        Service.Services.Node.INodeRegistryService nodeRegistry)
     {
         _logger = logger;
         _ephemeralKeyService = ephemeralKeyService;
         _encryptionService = encryptionService;
         _configuration = configuration;
         _channelClient = channelClient;
+        _nodeRegistry = nodeRegistry;
     }
 
     /// <summary>
@@ -223,6 +226,166 @@ public class ChannelController : ControllerBase
         }
 
         return NotFound();
+    }
+
+    /// <summary>
+    /// Phase 2: Identify node after encrypted channel is established
+    /// </summary>
+    /// <param name="request">Node identification request with certificate and signature</param>
+    /// <returns>Node status response (known/unknown)</returns>
+    [HttpPost("identify")]
+    [ProducesResponseType(typeof(NodeStatusResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(HandshakeError), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> IdentifyNode([FromBody] NodeIdentifyRequest request)
+    {
+        try
+        {
+            _logger.LogInformation("Received node identification request for NodeId: {NodeId}", request.NodeId);
+
+            // Validate channel exists
+            if (!_activeChannels.ContainsKey(request.ChannelId))
+            {
+                return BadRequest(CreateError(
+                    "ERR_INVALID_CHANNEL",
+                    "Channel does not exist or has expired",
+                    retryable: true
+                ));
+            }
+
+            // Verify signature
+            var signatureValid = await _nodeRegistry.VerifyNodeSignatureAsync(request);
+            if (!signatureValid)
+            {
+                return BadRequest(CreateError(
+                    "ERR_INVALID_SIGNATURE",
+                    "Node signature verification failed",
+                    retryable: false
+                ));
+            }
+
+            // Check if node is known
+            var registeredNode = await _nodeRegistry.GetNodeAsync(request.NodeId);
+
+            if (registeredNode == null)
+            {
+                // Unknown node - return registration information
+                _logger.LogWarning("Unknown node attempted to connect: {NodeId}", request.NodeId);
+
+                return Ok(new NodeStatusResponse
+                {
+                    IsKnown = false,
+                    Status = AuthorizationStatus.Unknown,
+                    NodeId = request.NodeId,
+                    Timestamp = DateTime.UtcNow,
+                    RegistrationUrl = $"{Request.Scheme}://{Request.Host}/api/node/register",
+                    Message = "Node is not registered. Please register using the provided URL.",
+                    NextPhase = null
+                });
+            }
+
+            // Known node - check authorization status
+            _logger.LogInformation("Known node identified: {NodeId} with status {Status}",
+                request.NodeId, registeredNode.Status);
+
+            var response = new NodeStatusResponse
+            {
+                IsKnown = true,
+                Status = registeredNode.Status,
+                NodeId = registeredNode.NodeId,
+                NodeName = registeredNode.NodeName,
+                Timestamp = DateTime.UtcNow
+            };
+
+            switch (registeredNode.Status)
+            {
+                case AuthorizationStatus.Authorized:
+                    response.Message = "Node is authorized. Proceed to Phase 3 (Mutual Authentication).";
+                    response.NextPhase = "phase3_authenticate";
+                    break;
+
+                case AuthorizationStatus.Pending:
+                    response.Message = "Node registration is pending approval.";
+                    response.NextPhase = null;
+                    break;
+
+                case AuthorizationStatus.Revoked:
+                    response.Message = "Node authorization has been revoked.";
+                    response.NextPhase = null;
+                    break;
+            }
+
+            return Ok(response);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error identifying node {NodeId}", request.NodeId);
+            return StatusCode(StatusCodes.Status500InternalServerError, CreateError(
+                "ERR_IDENTIFICATION_FAILED",
+                "Failed to identify node",
+                retryable: true
+            ));
+        }
+    }
+
+    /// <summary>
+    /// Register a new node
+    /// </summary>
+    /// <param name="request">Node registration request</param>
+    /// <returns>Registration response</returns>
+    [HttpPost("register")]
+    [Route("/api/node/register")]
+    [ProducesResponseType(typeof(NodeRegistrationResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(HandshakeError), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> RegisterNode([FromBody] NodeRegistrationRequest request)
+    {
+        try
+        {
+            _logger.LogInformation("Received node registration request for NodeId: {NodeId}", request.NodeId);
+
+            var response = await _nodeRegistry.RegisterNodeAsync(request);
+
+            return Ok(response);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error registering node {NodeId}", request.NodeId);
+            return StatusCode(StatusCodes.Status500InternalServerError, CreateError(
+                "ERR_REGISTRATION_FAILED",
+                "Failed to register node",
+                retryable: true
+            ));
+        }
+    }
+
+    /// <summary>
+    /// Get all registered nodes (for admin purposes)
+    /// </summary>
+    [HttpGet("nodes")]
+    [Route("/api/node/nodes")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetAllNodes()
+    {
+        var nodes = await _nodeRegistry.GetAllNodesAsync();
+        return Ok(nodes);
+    }
+
+    /// <summary>
+    /// Update node authorization status (for admin purposes)
+    /// </summary>
+    [HttpPut("nodes/{nodeId}/status")]
+    [Route("/api/node/{nodeId}/status")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateNodeStatus(string nodeId, [FromBody] UpdateNodeStatusRequest request)
+    {
+        var success = await _nodeRegistry.UpdateNodeStatusAsync(nodeId, request.Status);
+
+        if (!success)
+        {
+            return NotFound(new { message = "Node not found" });
+        }
+
+        return Ok(new { message = "Node status updated successfully", nodeId, status = request.Status });
     }
 
     /// <summary>

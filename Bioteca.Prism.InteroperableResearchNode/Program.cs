@@ -16,6 +16,9 @@ builder.Services.AddSingleton<IChannelEncryptionService, ChannelEncryptionServic
 builder.Services.AddHttpClient(); // Required for NodeChannelClient
 builder.Services.AddSingleton<INodeChannelClient, NodeChannelClient>();
 
+// Register Phase 2 services (Node Identification and Authorization)
+builder.Services.AddSingleton<Bioteca.Prism.Service.Services.Node.INodeRegistryService, NodeRegistryService>();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
