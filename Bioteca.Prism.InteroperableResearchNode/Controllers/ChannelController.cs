@@ -266,6 +266,65 @@ public class ChannelController : ControllerBase
             return CreateError("ERR_CHANNEL_FAILED", "Nonce is required", retryable: true);
         }
 
+        // Validate nonce format (must be valid Base64)
+        try
+        {
+            var nonceBytes = Convert.FromBase64String(request.Nonce);
+
+            // Validate nonce length (minimum 12 bytes for security)
+            if (nonceBytes.Length < 12)
+            {
+                return CreateError(
+                    "ERR_INVALID_NONCE",
+                    "Nonce must be at least 12 bytes",
+                    new Dictionary<string, object> { ["nonceSize"] = nonceBytes.Length },
+                    retryable: true
+                );
+            }
+        }
+        catch (FormatException)
+        {
+            return CreateError(
+                "ERR_INVALID_NONCE",
+                "Nonce must be valid Base64 string",
+                retryable: true
+            );
+        }
+
+        // Validate timestamp (protect against replay attacks and clock skew)
+        var now = DateTime.UtcNow;
+        var timeDifference = Math.Abs((now - request.Timestamp).TotalMinutes);
+
+        if (request.Timestamp > now.AddMinutes(5))
+        {
+            return CreateError(
+                "ERR_INVALID_TIMESTAMP",
+                "Timestamp is too far in the future",
+                new Dictionary<string, object>
+                {
+                    ["clientTimestamp"] = request.Timestamp,
+                    ["serverTimestamp"] = now,
+                    ["maxSkewMinutes"] = 5
+                },
+                retryable: true
+            );
+        }
+
+        if (request.Timestamp < now.AddMinutes(-5))
+        {
+            return CreateError(
+                "ERR_INVALID_TIMESTAMP",
+                "Timestamp is too old (possible replay attack)",
+                new Dictionary<string, object>
+                {
+                    ["clientTimestamp"] = request.Timestamp,
+                    ["serverTimestamp"] = now,
+                    ["maxAgeMinutes"] = 5
+                },
+                retryable: true
+            );
+        }
+
         return null;
     }
 

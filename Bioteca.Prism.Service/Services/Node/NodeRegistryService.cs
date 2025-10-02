@@ -89,8 +89,76 @@ public class NodeRegistryService : INodeRegistryService
         {
             try
             {
+                // Validate required fields
+                if (string.IsNullOrWhiteSpace(request.NodeId))
+                {
+                    return Task.FromResult(new NodeRegistrationResponse
+                    {
+                        Success = false,
+                        Status = AuthorizationStatus.Revoked,
+                        Message = "NodeId is required"
+                    });
+                }
+
+                if (string.IsNullOrWhiteSpace(request.NodeName))
+                {
+                    return Task.FromResult(new NodeRegistrationResponse
+                    {
+                        Success = false,
+                        Status = AuthorizationStatus.Revoked,
+                        Message = "NodeName is required"
+                    });
+                }
+
+                // Validate and parse certificate
+                byte[] certBytes;
+                try
+                {
+                    certBytes = Convert.FromBase64String(request.Certificate);
+                }
+                catch (FormatException)
+                {
+                    return Task.FromResult(new NodeRegistrationResponse
+                    {
+                        Success = false,
+                        Status = AuthorizationStatus.Revoked,
+                        Message = "Certificate must be a valid Base64 string"
+                    });
+                }
+
+                // Try to load certificate to validate format
+                X509Certificate2? cert = null;
+                try
+                {
+                    cert = new X509Certificate2(certBytes);
+
+                    // Check if certificate is expired
+                    if (cert.NotAfter < DateTime.Now)
+                    {
+                        return Task.FromResult(new NodeRegistrationResponse
+                        {
+                            Success = false,
+                            Status = AuthorizationStatus.Revoked,
+                            Message = "Certificate has expired"
+                        });
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Invalid certificate format for node {NodeId}", request.NodeId);
+                    return Task.FromResult(new NodeRegistrationResponse
+                    {
+                        Success = false,
+                        Status = AuthorizationStatus.Revoked,
+                        Message = "Invalid certificate format"
+                    });
+                }
+                finally
+                {
+                    cert?.Dispose();
+                }
+
                 // Calculate certificate fingerprint
-                var certBytes = Convert.FromBase64String(request.Certificate);
                 var fingerprint = CalculateCertificateFingerprint(certBytes);
 
                 // Check if node already exists

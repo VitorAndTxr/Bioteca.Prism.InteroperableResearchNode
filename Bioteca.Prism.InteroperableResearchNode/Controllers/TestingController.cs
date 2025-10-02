@@ -42,6 +42,12 @@ public class TestingController : ControllerBase
     {
         try
         {
+            // Validate subject name
+            if (string.IsNullOrWhiteSpace(request.SubjectName))
+            {
+                return BadRequest(new { error = "SubjectName is required" });
+            }
+
             _logger.LogInformation("Generating self-signed certificate for {SubjectName}", request.SubjectName);
 
             // Generate certificate

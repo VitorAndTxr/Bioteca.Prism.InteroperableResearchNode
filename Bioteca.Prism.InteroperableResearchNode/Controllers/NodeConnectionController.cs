@@ -227,6 +227,16 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
 
                 var response = await _nodeRegistry.RegisterNodeAsync(request);
 
+                // Check if registration was successful
+                if (!response.Success)
+                {
+                    return BadRequest(CreateError(
+                        "ERR_REGISTRATION_FAILED",
+                        response.Message ?? "Registration failed",
+                        retryable: false
+                    ));
+                }
+
                 // Encrypt response
                 var encryptedResponse = _encryptionService.EncryptPayload(response, channelContext.SymmetricKey);
 
@@ -260,8 +270,19 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
         [HttpPut("/api/node/{nodeId}/status")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> UpdateNodeStatus(string nodeId, [FromBody] UpdateNodeStatusRequest request)
         {
+            // Validate status enum
+            if (!Enum.IsDefined(typeof(AuthorizationStatus), request.Status))
+            {
+                return BadRequest(CreateError(
+                    "ERR_INVALID_STATUS",
+                    $"Invalid status value: {(int)request.Status}",
+                    retryable: false
+                ));
+            }
+
             var success = await _nodeRegistry.UpdateNodeStatusAsync(nodeId, request.Status);
 
             if (!success)
