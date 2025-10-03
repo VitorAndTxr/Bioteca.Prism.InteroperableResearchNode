@@ -6,8 +6,8 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Extensions.DependencyInjection;
-using Newtonsoft.Json;
 using System.Text;
+using System.Text.Json;
 
 namespace Bioteca.Prism.Core.Middleware.Channel
 {
@@ -53,19 +53,15 @@ namespace Bioteca.Prism.Core.Middleware.Channel
             var encryptionService = context.HttpContext.RequestServices.GetRequiredService<IChannelEncryptionService>();
             var nodeRegistryService = context.HttpContext.RequestServices.GetRequiredService<INodeRegistryService>();
 
-            // Enable buffering to allow re-reading the request body
-            context.HttpContext.Request.EnableBuffering();
-
             // Read the body
             string body;
             using (var reader = new StreamReader(
                 context.HttpContext.Request.Body,
                 encoding: Encoding.UTF8,
                 detectEncodingFromByteOrderMarks: false,
-                leaveOpen: true))
+                leaveOpen: false))
             {
                 body = await reader.ReadToEndAsync();
-                context.HttpContext.Request.Body.Position = 0;
             }
 
             if (string.IsNullOrWhiteSpace(body))
@@ -82,14 +78,27 @@ namespace Bioteca.Prism.Core.Middleware.Channel
                 return;
             }
 
-            EncryptedPayload encryptedRequest = JsonConvert.DeserializeObject<EncryptedPayload>(body);
+            EncryptedPayload? encryptedRequest = JsonSerializer.Deserialize<EncryptedPayload>(body);
 
-            T request;
+            if (encryptedRequest == null)
+            {
+                context.Result = new BadRequestObjectResult(new HandshakeError
+                {
+                    Error = new ErrorDetails
+                    {
+                        Code = "ERR_INVALID_PAYLOAD",
+                        Message = "Failed to deserialize encrypted payload",
+                        Retryable = false
+                    }
+                });
+                return;
+            }
+
+            T? request;
 
             try
             {
                 request = encryptionService.DecryptPayload<T>(encryptedRequest, channelContext.SymmetricKey);
-
             }
             catch (Exception ex)
             {
@@ -98,8 +107,8 @@ namespace Bioteca.Prism.Core.Middleware.Channel
                     Error = new ErrorDetails
                     {
                         Code = "ERR_DECRYPTION_FAILED",
-                        Message = "Failed to decrypt request payload",
-                        Retryable =  false
+                        Message = $"Failed to decrypt request payload: {ex.Message}",
+                        Retryable = false
                     }
                 });
                 return;
@@ -107,19 +116,34 @@ namespace Bioteca.Prism.Core.Middleware.Channel
 
             if(request.GetType() == typeof(NodeIdentifyRequest))
             {
-                var signatureValid = await nodeRegistryService.VerifyNodeSignatureAsync(request as NodeIdentifyRequest);
-                if (!signatureValid)
+                var identifyRequest = request as NodeIdentifyRequest;
+
+                // Populate ChannelId if not already set (needed for signature verification)
+                if (string.IsNullOrWhiteSpace(identifyRequest!.ChannelId))
                 {
-                    context.Result = new BadRequestObjectResult(new HandshakeError
+                    identifyRequest.ChannelId = channelId;
+                }
+
+                // Verify signature if certificate and signature are provided
+                if (!string.IsNullOrWhiteSpace(identifyRequest.Certificate) &&
+                    !string.IsNullOrWhiteSpace(identifyRequest.Signature))
+                {
+                    // For registered nodes, verify against stored certificate
+                    // For unknown nodes, verify self-consistency (certificate matches signature)
+                    var signatureValid = await nodeRegistryService.VerifyNodeSignatureAsync(identifyRequest);
+                    if (!signatureValid)
                     {
-                        Error = new ErrorDetails
+                        context.Result = new BadRequestObjectResult(new HandshakeError
                         {
-                            Code = "ERR_INVALID_SIGNATURE",
-                            Message = "Node signature verification failed",
-                            Retryable = false
-                        }
-                    });
-                    return;
+                            Error = new ErrorDetails
+                            {
+                                Code = "ERR_INVALID_SIGNATURE",
+                                Message = "Node signature verification failed",
+                                Retryable = false
+                            }
+                        });
+                        return;
+                    }
                 }
             }
 

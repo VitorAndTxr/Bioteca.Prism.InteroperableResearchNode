@@ -45,7 +45,7 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
         [PrismEncryptedChannelConnection<NodeIdentifyRequest>]
         [ProducesResponseType(typeof(EncryptedPayload), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(HandshakeError), StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> IdentifyNode([FromBody] EncryptedPayload encryptedRequest)
+        public async Task<IActionResult> IdentifyNode()
         {
             try
             {
@@ -135,7 +135,7 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
         [PrismEncryptedChannelConnection<NodeRegistrationRequest>]
         [ProducesResponseType(typeof(EncryptedPayload), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(HandshakeError), StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> RegisterNode([FromBody] EncryptedPayload encryptedRequest)
+        public async Task<IActionResult> RegisterNode()
         {
             try
             {
