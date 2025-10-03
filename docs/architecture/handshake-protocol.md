@@ -1,7 +1,7 @@
 # Protocolo de Handshake entre Nós IRN
 
-**Status**: ✅ Fase 2 Completa | 📋 Fase 3 Planejada
-**Última atualização**: 2025-10-03
+**Status**: ✅ Fase 3 Completa | 📋 Fase 4 Planejada
+**Última atualização**: 2025-10-03 - 00:57
 **Responsável**: Desenvolvimento inicial
 
 ## Visão Geral
@@ -161,67 +161,83 @@ Content-Type: application/json
 3. Após cadastro, Nó A aguarda aprovação/liberação por administrador do Nó B
 4. Nó A pode tentar novo handshake após aprovação
 
-### Fase 3: Autenticação Mútua
+### Fase 3: Autenticação Mútua ✅ IMPLEMENTADO
 
-**Pré-requisito**: Esta fase só ocorre se o Nó B retornou `status: "known"` na Fase 2.
+**Pré-requisito**: Esta fase só ocorre se o Nó retornou `status: "authorized"` na Fase 2.
 
-**⚠️ REQUISITO**: Todas as mensagens desta fase **DEVEM** ser criptografadas usando o canal estabelecido na Fase 1. O header `X-Channel-Id` é obrigatório em todas as requisições.
+**✅ IMPLEMENTADO**: Todas as mensagens desta fase **SÃO criptografadas** usando o canal estabelecido na Fase 1. O header `X-Channel-Id` é obrigatório em todas as requisições.
 
 ```
 Nó A (Iniciador)                    Nó B (Receptor)
      |                                    |
-     |------ AUTH_CHALLENGE ------------->|
-     |       (assinado com chave de A)    |
+     |------ CHALLENGE_REQUEST ---------->|
+     |       (NodeId, Timestamp)          |
      |                                    |
-     |<----- AUTH_RESPONSE ---------------|
-     |       (assinado com chave de B)    |
+     |<----- CHALLENGE_RESPONSE ----------|
+     |       (32-byte random challenge)   |
      |                                    |
-     |------ AUTH_VERIFY ---------------->|
+     |------ AUTHENTICATE --------------->|
+     |       (signed challenge)           |
      |                                    |
-     |<----- AUTH_COMPLETE ---------------|
+     |<----- AUTHENTICATION_RESPONSE -----|
+     |       (session token, capabilities)|
      |                                    |
 ```
 
-**AUTH_CHALLENGE (criptografado):**
+**CHALLENGE_REQUEST (criptografado via AES-256-GCM):**
 ```json
 {
-  "challengeId": "uuid-challenge",
+  "channelId": "channel-uuid",
   "nodeId": "uuid-do-no-a",
-  "nonce": "random-nonce-abc",
-  "signature": "base64-signature-of-nonce-with-A-private-key",
-  "timestamp": "2025-10-01T12:00:03Z"
+  "timestamp": "2025-10-03T00:00:00Z"
 }
 ```
 
-**AUTH_RESPONSE (criptografado):**
+**CHALLENGE_RESPONSE (criptografado via AES-256-GCM):**
 ```json
 {
-  "challengeId": "uuid-challenge",
-  "nodeId": "uuid-do-no-b",
-  "nonce": "random-nonce-def",
-  "challengeResponse": "base64-signature-of-A-nonce-with-B-private-key",
-  "signature": "base64-signature-of-B-nonce-with-B-private-key",
-  "timestamp": "2025-10-01T12:00:04Z"
+  "challengeData": "base64-encoded-32-byte-random-value",
+  "challengeTimestamp": "2025-10-03T00:00:01Z",
+  "challengeTtlSeconds": 300,
+  "expiresAt": "2025-10-03T00:05:01Z"
 }
 ```
 
-**AUTH_VERIFY (criptografado):**
+**AUTHENTICATE (criptografado via AES-256-GCM):**
 ```json
 {
-  "challengeId": "uuid-challenge",
-  "challengeResponse": "base64-signature-of-B-nonce-with-A-private-key",
-  "timestamp": "2025-10-01T12:00:05Z"
+  "channelId": "channel-uuid",
+  "nodeId": "uuid-do-no-a",
+  "challengeData": "base64-encoded-32-byte-random-value",
+  "signature": "base64-rsa-signature-of-challenge+channelId+nodeId+timestamp",
+  "timestamp": "2025-10-03T00:00:02Z"
 }
 ```
 
-**AUTH_COMPLETE (criptografado):**
+**AUTHENTICATION_RESPONSE (criptografado via AES-256-GCM):**
 ```json
 {
-  "challengeId": "uuid-challenge",
-  "status": "authenticated",
-  "timestamp": "2025-10-01T12:00:06Z"
+  "authenticated": true,
+  "nodeId": "uuid-do-no-a",
+  "sessionToken": "session-token-guid",
+  "sessionExpiresAt": "2025-10-03T01:00:02Z",
+  "grantedCapabilities": ["search", "retrieve"],
+  "message": "Authentication successful",
+  "nextPhase": "phase4_session",
+  "timestamp": "2025-10-03T00:00:02Z"
 }
 ```
+
+**Detalhes Técnicos**:
+- **Challenge TTL**: 5 minutos (300 segundos)
+- **Session Token TTL**: 1 hora (3600 segundos)
+- **Signature Format**: RSA-2048 signature of `{ChallengeData}{ChannelId}{NodeId}{Timestamp:O}`
+- **Challenge Storage**: In-memory `ConcurrentDictionary<string, ChallengeData>` (key: `{ChannelId}:{NodeId}`)
+- **One-time Use**: Challenge is invalidated after successful authentication or expiration
+- **Verification**: Uses node's registered certificate public key for signature verification
+- **Endpoints**:
+  - `POST /api/node/challenge` (decorated with `[PrismEncryptedChannelConnection<ChallengeRequest>]`)
+  - `POST /api/node/authenticate` (decorated with `[PrismEncryptedChannelConnection<ChallengeResponseRequest>]`)
 
 ### Fase 4: Estabelecimento de Sessão
 

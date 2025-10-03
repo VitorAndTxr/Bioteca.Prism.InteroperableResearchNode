@@ -1,0 +1,1 @@
+{"success":false,"error":"Failed to request challenge","message":"An invalid request URI was provided. Either the request URI must be an absolute URI or BaseAddress must be set.","hint":"Make sure the node is registered and authorized (status=Authorized)"}

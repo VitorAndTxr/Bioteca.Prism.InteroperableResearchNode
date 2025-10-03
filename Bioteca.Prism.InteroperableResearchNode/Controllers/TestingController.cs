@@ -1,6 +1,8 @@
 using Bioteca.Prism.Core.Middleware.Channel;
+using Bioteca.Prism.Core.Middleware.Node;
 using Bioteca.Prism.Core.Security.Certificate;
 using Bioteca.Prism.Core.Security.Cryptography.Interfaces;
+using Bioteca.Prism.Domain.Requests.Node;
 using Microsoft.AspNetCore.Mvc;
 using System.Text.Json;
 
@@ -18,17 +20,20 @@ public class TestingController : ControllerBase
     private readonly IConfiguration _configuration;
     private readonly IChannelStore _channelStore;
     private readonly IChannelEncryptionService _channelEncryptionService;
+    private readonly INodeChannelClient _nodeChannelClient;
 
     public TestingController(
         ILogger<TestingController> logger,
         IConfiguration configuration,
         IChannelStore channelStore,
-        IChannelEncryptionService channelEncryptionService)
+        IChannelEncryptionService channelEncryptionService,
+        INodeChannelClient nodeChannelClient)
     {
         this._logger = logger;
         this._configuration = configuration;
         this._channelStore = channelStore;
         this._channelEncryptionService = channelEncryptionService;
+        this._nodeChannelClient = nodeChannelClient;
     }
 
     /// <summary>
@@ -111,7 +116,7 @@ public class TestingController : ControllerBase
                 request.Password);
 
             // Sign data
-            var signature = CertificateHelper.SignData(request.Data, certificate);
+            var signature = CertificateHelper.SignData($"{request.Data}{request.ChannelId}{request.NodeId}{request.Timestamp:O}", certificate);
 
             _logger.LogInformation("Data signed successfully");
 
@@ -362,6 +367,193 @@ public class TestingController : ControllerBase
     }
 
     /// <summary>
+    /// Phase 3: Request authentication challenge from a remote node
+    /// This is a testing helper that wraps NodeChannelClient.RequestChallengeAsync
+    /// </summary>
+    /// <param name="request">Challenge request with remote URL, channel ID, and node ID</param>
+    /// <returns>Challenge response with challenge data and expiration</returns>
+    [HttpPost("request-challenge")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> RequestChallenge([FromBody] TestChallengeRequest request)
+    {
+        try
+        {
+            _logger.LogInformation("Testing: Requesting challenge for node {NodeId} on channel {ChannelId}",
+                request.NodeId, request.ChannelId);
+
+            // Use NodeChannelClient to request challenge
+            var challengeResponse = await _nodeChannelClient.RequestChallengeAsync(
+                request.ChannelId,
+                request.NodeId);
+
+            _logger.LogInformation("Challenge received successfully for node {NodeId}", request.NodeId);
+
+            return Ok(new
+            {
+                success = true,
+                channelId = request.ChannelId,
+                nodeId = request.NodeId,
+                challengeResponse = new
+                {
+                    challengeData = challengeResponse.ChallengeData,
+                    challengeTimestamp = challengeResponse.ChallengeTimestamp,
+                    challengeTtlSeconds = challengeResponse.ChallengeTtlSeconds,
+                    expiresAt = challengeResponse.ExpiresAt
+                },
+                nextStep = new
+                {
+                    action = "Sign the challengeData with your node's private key",
+                    format = "{ChallengeData}{ChannelId}{NodeId}{Timestamp:O}",
+                    endpoint = "POST /api/testing/authenticate"
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to request challenge for node {NodeId}", request.NodeId);
+            return BadRequest(new
+            {
+                success = false,
+                error = "Failed to request challenge",
+                message = ex.Message,
+                hint = "Make sure the node is registered and authorized (status=Authorized)"
+            });
+        }
+    }
+
+    /// <summary>
+    /// Phase 3: Sign challenge data for authentication
+    /// This helper signs the challenge data in the correct format for Phase 3
+    /// Format: {ChallengeData}{ChannelId}{NodeId}{Timestamp:O}
+    /// </summary>
+    /// <param name="request">Challenge signing request</param>
+    /// <returns>Signature that can be used in authenticate endpoint</returns>
+    [HttpPost("sign-challenge")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public IActionResult SignChallenge([FromBody] SignChallengeRequest request)
+    {
+        try
+        {
+            _logger.LogInformation("Signing challenge for node {NodeId}", request.NodeId);
+
+            // Load certificate with private key
+            var certificate = CertificateHelper.LoadCertificateWithPrivateKeyFromBase64(
+                request.CertificateWithPrivateKey,
+                request.Password);
+
+            // Build data to sign in Phase 3 format: ChallengeData + ChannelId + NodeId + Timestamp
+            var dataToSign = $"{request.ChallengeData}{request.ChannelId}{request.NodeId}{request.Timestamp:O}";
+            var signature = CertificateHelper.SignData(dataToSign, certificate);
+
+            _logger.LogInformation("Challenge signed successfully for node {NodeId}", request.NodeId);
+
+            return Ok(new
+            {
+                success = true,
+                challengeData = request.ChallengeData,
+                channelId = request.ChannelId,
+                nodeId = request.NodeId,
+                timestamp = request.Timestamp,
+                signature = signature,
+                signedData = dataToSign,
+                algorithm = "RSA-SHA256",
+                usage = new
+                {
+                    endpoint = "POST /api/testing/authenticate",
+                    description = "Use this signature in the authenticate request"
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to sign challenge for node {NodeId}", request.NodeId);
+            return StatusCode(StatusCodes.Status500InternalServerError, new
+            {
+                success = false,
+                error = "Failed to sign challenge",
+                message = ex.Message
+            });
+        }
+    }
+
+    /// <summary>
+    /// Phase 3: Authenticate node using signed challenge
+    /// This is a testing helper that wraps NodeChannelClient.AuthenticateAsync
+    /// </summary>
+    /// <param name="request">Authentication request with signed challenge</param>
+    /// <returns>Authentication response with session token</returns>
+    [HttpPost("authenticate")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> Authenticate([FromBody] TestAuthenticateRequest request)
+    {
+        try
+        {
+            _logger.LogInformation("Testing: Authenticating node {NodeId} on channel {ChannelId}",
+                request.NodeId, request.ChannelId);
+
+            // Build challenge response request
+            var challengeResponseRequest = new ChallengeResponseRequest
+            {
+                ChannelId = request.ChannelId,
+                NodeId = request.NodeId,
+                ChallengeData = request.ChallengeData,
+                Signature = request.Signature,
+                Timestamp = request.Timestamp
+            };
+
+            // Use NodeChannelClient to authenticate
+            var authResponse = await _nodeChannelClient.AuthenticateAsync(
+                request.ChannelId,
+                challengeResponseRequest);
+
+            _logger.LogInformation("Node {NodeId} authenticated successfully", request.NodeId);
+
+            return Ok(new
+            {
+                success = true,
+                channelId = request.ChannelId,
+                nodeId = request.NodeId,
+                authenticationResponse = new
+                {
+                    authenticated = authResponse.Authenticated,
+                    sessionToken = authResponse.SessionToken,
+                    sessionExpiresAt = authResponse.SessionExpiresAt,
+                    grantedCapabilities = authResponse.GrantedCapabilities,
+                    message = authResponse.Message,
+                    nextPhase = authResponse.NextPhase,
+                    timestamp = authResponse.Timestamp
+                },
+                usage = new
+                {
+                    sessionToken = "Use this token in subsequent authenticated requests",
+                    ttl = "Session expires in 1 hour",
+                    capabilities = authResponse.GrantedCapabilities
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to authenticate node {NodeId}", request.NodeId);
+            return BadRequest(new
+            {
+                success = false,
+                error = "Failed to authenticate",
+                message = ex.Message,
+                possibleCauses = new[]
+                {
+                    "Challenge has expired (TTL: 5 minutes)",
+                    "Challenge data does not match the one generated",
+                    "Invalid signature (wrong private key or wrong data format)",
+                    "Challenge was already used (one-time use only)"
+                }
+            });
+        }
+    }
+
+    /// <summary>
     /// Get information about an active channel
     /// </summary>
     /// <param name="channelId">Channel ID</param>
@@ -421,8 +613,14 @@ public class GenerateCertificateRequest
 public class SignDataRequest
 {
     public string Data { get; set; } = string.Empty;
+    public string ChannelId { get; set; } = string.Empty;
+    public string NodeId { get; set; } = string.Empty;
+
+
     public string CertificateWithPrivateKey { get; set; } = string.Empty;
     public string Password { get; set; } = "test123";
+    public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+
 }
 
 public class VerifySignatureRequest
@@ -465,4 +663,79 @@ public class DecryptPayloadRequest
     /// Encrypted payload to decrypt
     /// </summary>
     public EncryptedPayload EncryptedPayload { get; set; } = new();
+}
+
+public class TestChallengeRequest
+{
+    /// <summary>
+    /// Channel ID from Phase 1
+    /// </summary>
+    public string ChannelId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Node ID requesting authentication
+    /// </summary>
+    public string NodeId { get; set; } = string.Empty;
+}
+
+public class SignChallengeRequest
+{
+    /// <summary>
+    /// Challenge data received from request-challenge
+    /// </summary>
+    public string ChallengeData { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Channel ID from Phase 1
+    /// </summary>
+    public string ChannelId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Node ID authenticating
+    /// </summary>
+    public string NodeId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Certificate with private key (PFX format, Base64)
+    /// </summary>
+    public string CertificateWithPrivateKey { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Password for the PFX certificate
+    /// </summary>
+    public string Password { get; set; } = "test123";
+
+    /// <summary>
+    /// Timestamp to use in signature
+    /// </summary>
+    public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+}
+
+public class TestAuthenticateRequest
+{
+    /// <summary>
+    /// Channel ID from Phase 1
+    /// </summary>
+    public string ChannelId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Node ID authenticating
+    /// </summary>
+    public string NodeId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Challenge data received from request-challenge
+    /// </summary>
+    public string ChallengeData { get; set; } = string.Empty;
+
+    /// <summary>
+    /// RSA signature of: {ChallengeData}{ChannelId}{NodeId}{Timestamp:O}
+    /// Use /api/testing/sign-challenge to generate
+    /// </summary>
+    public string Signature { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Timestamp used in signature (must match signed data)
+    /// </summary>
+    public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 }

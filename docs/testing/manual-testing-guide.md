@@ -1,9 +1,9 @@
-# Guia de Testes Manuais e Discovery - Fases 1 e 2
+# Guia de Testes Manuais e Discovery - Fases 1, 2 e 3
 
-**Versão**: 0.3.0 (com criptografia de canal)
-**Última atualização**: 2025-10-02
+**Versão**: 0.5.0 (com autenticação mútua)
+**Última atualização**: 2025-10-03
 
-Este guia fornece um roteiro passo a passo para testar e entender manualmente o funcionamento das Fases 1 e 2 do protocolo de handshake, ideal para debugging e aprendizado.
+Este guia fornece um roteiro passo a passo para testar e entender manualmente o funcionamento das Fases 1, 2 e 3 do protocolo de handshake, ideal para debugging e aprendizado.
 
 ## ⚠️ IMPORTANTE: Criptografia de Canal
 
@@ -11,7 +11,8 @@ Este guia fornece um roteiro passo a passo para testar e entender manualmente o 
 
 - ✅ **Fase 1** (`/api/channel/open`, `/api/channel/initiate`) - Sem criptografia (estabelece o canal)
 - 🔒 **Fase 2** (`/api/channel/identify`, `/api/node/register`) - **Payload criptografado obrigatório**
-- 🔒 **Fases 3-4** - **Payload criptografado obrigatório**
+- 🔒 **Fase 3** (`/api/node/challenge`, `/api/node/authenticate`) - **Payload criptografado obrigatório**
+- 🔒 **Fase 4** - **Payload criptografado obrigatório** (planejada)
 
 **Formato do payload criptografado**:
 ```json
@@ -39,6 +40,7 @@ Este guia fornece um roteiro passo a passo para testar e entender manualmente o 
 Entender o fluxo completo de:
 1. **Fase 1**: Estabelecimento de canal criptografado com chaves efêmeras
 2. **Fase 2**: Identificação e autorização de nós com certificados
+3. **Fase 3**: Autenticação mútua via challenge-response com prova de posse de chave privada
 
 ---
 
@@ -827,9 +829,540 @@ $nodes | ConvertTo-Json -Depth 3
 
 ---
 
-## 🧪 Parte 4: Cenários de Teste Adicionais
+## 🔐 Parte 4: FASE 3 - Autenticação Mútua Challenge/Response
 
-### Cenário 4.1: Nó Desconhecido Tenta se Identificar
+### Objetivo da Fase 3
+Autenticar mutuamente os nós usando **challenge-response** com prova criptográfica de posse de chave privada, gerando session tokens para comunicação autenticada.
+
+### Pré-requisito
+⚠️ **IMPORTANTE**: O nó deve estar **AUTORIZADO** (status=Authorized) antes de solicitar autenticação.
+
+### Passo 4.1: Entender a Arquitetura
+
+**Componentes envolvidos:**
+- `ChallengeService.cs` - Geração e verificação de challenges
+- `IChallengeService.cs` - Interface do serviço
+- `NodeConnectionController.cs` - Endpoints `/challenge` e `/authenticate`
+- `ChallengeRequest.cs`, `ChallengeResponseRequest.cs` - DTOs
+- `ChallengeResponse.cs`, `AuthenticationResponse.cs` - Respostas
+
+**Fluxo:**
+```
+1. Nó solicita challenge (requer status Authorized)
+2. Servidor gera challenge aleatório (32 bytes, TTL 5 min)
+3. Nó assina challenge com chave privada
+4. Servidor verifica assinatura
+5. Servidor gera session token (TTL 1 hora)
+```
+
+### Passo 4.2: Garantir Nó Autorizado
+
+**Verificar status do nó:**
+```powershell
+$nodes = Invoke-RestMethod -Uri "http://localhost:5001/api/node/nodes" -Method Get
+$myNode = $nodes | Where-Object { $_.nodeId -eq "node-a-test-001" }
+Write-Host "Status: $($myNode.status)"  # Deve ser 1 (Authorized)
+```
+
+**Se não estiver autorizado, aprovar:**
+```powershell
+$approveBody = @{ status = 1 } | ConvertTo-Json
+Invoke-RestMethod -Uri "http://localhost:5001/api/node/node-a-test-001/status" `
+  -Method Put `
+  -ContentType "application/json" `
+  -Body $approveBody
+```
+
+### Passo 4.3: Solicitar Challenge (COM CRIPTOGRAFIA)
+
+**Usando NodeChannelClient (C#) - RECOMENDADO:**
+
+```csharp
+// Pré-requisito: canal estabelecido e nó autorizado
+var channelResult = await _nodeChannelClient.OpenChannelAsync("http://node-b:8080");
+var channelId = channelResult.ChannelId;
+
+// Solicitar challenge
+var challengeResponse = await _nodeChannelClient.RequestChallengeAsync(channelId, "node-a-test-001");
+
+Console.WriteLine($"Challenge Data: {challengeResponse.ChallengeData}");
+Console.WriteLine($"Expires At: {challengeResponse.ExpiresAt}");
+Console.WriteLine($"TTL: {challengeResponse.ChallengeTtlSeconds} seconds");
+```
+
+**Payload da requisição (criptografado automaticamente):**
+```json
+{
+  "channelId": "abc-123",
+  "nodeId": "node-a-test-001",
+  "timestamp": "2025-10-03T00:00:00Z"
+}
+```
+
+**Resposta esperada (descriptografada):**
+```json
+{
+  "challengeData": "YXNkZmFzZGZhc2RmYXNkZmFzZGZhc2RmYXNkZg==",
+  "challengeTimestamp": "2025-10-03T00:00:01Z",
+  "challengeTtlSeconds": 300,
+  "expiresAt": "2025-10-03T00:05:01Z"
+}
+```
+
+### Passo 4.4: Debugging - Geração de Challenge
+
+**Configure breakpoint em:**
+
+**`ChallengeService.cs:26`** - Método `GenerateChallengeAsync`
+```csharp
+public Task<ChallengeResponse> GenerateChallengeAsync(string channelId, string nodeId)
+```
+
+**Inspecione:**
+```csharp
+var challengeBytes = RandomNumberGenerator.GetBytes(32);
+// 🔍 INSPECIONAR: challengeBytes
+// - 32 bytes aleatórios
+// - Gerados com RandomNumberGenerator (criptograficamente seguro)
+
+var challengeData = Convert.ToBase64String(challengeBytes);
+// 🔍 INSPECIONAR: challengeData
+// - String Base64 do challenge
+// - ~44 caracteres
+
+var key = $"{channelId}:{nodeId}";
+_activeChallenges[key] = new ChallengeData { ... };
+// 🔍 INSPECIONAR: _activeChallenges
+// - ConcurrentDictionary com challenges ativos
+// - Chave: "{channelId}:{nodeId}"
+// - Valor: ChallengeData com TTL de 5 minutos
+```
+
+**No `NodeConnectionController.cs:225`** - Método `RequestChallenge`:
+```csharp
+// Verificar se nó está autorizado
+if (registeredNode.Status != AuthorizationStatus.Authorized)
+// 🔍 BREAKPOINT AQUI se erro ERR_NODE_NOT_AUTHORIZED
+// - Nó deve ter status Authorized (1)
+```
+
+### Passo 4.5: Assinar Challenge
+
+**Carregar certificado com chave privada:**
+```csharp
+// Usar o certificateWithPrivateKey salvo anteriormente
+var certWithPrivateKey = new X509Certificate2(
+    Convert.FromBase64String(identity.CertificateWithPrivateKey),
+    identity.Password
+);
+
+// Construir dados para assinar
+var timestamp = DateTime.UtcNow;
+var dataToSign = $"{challengeResponse.ChallengeData}{channelId}{nodeId}{timestamp:O}";
+
+// Assinar com chave privada
+var signature = CertificateHelper.SignData(dataToSign, certWithPrivateKey);
+
+Console.WriteLine($"Data to Sign: {dataToSign}");
+Console.WriteLine($"Signature: {signature}");
+```
+
+**💡 Formato da assinatura:**
+- `{ChallengeData}{ChannelId}{NodeId}{Timestamp:O}`
+- Exemplo: `YXNkZmFz...abc-123node-a-test-0012025-10-03T00:00:02.1234567Z`
+
+### Passo 4.6: Debugging - Assinatura de Challenge
+
+**Configure breakpoint em:**
+
+**`CertificateHelper.cs:57`** - Método `SignData`
+```csharp
+public static string SignData(string data, X509Certificate2 certificate)
+```
+
+**Inspecione:**
+```csharp
+using var rsa = certificate.GetRSAPrivateKey();
+// 🔍 INSPECIONAR: rsa
+// - Verificar que chave privada está disponível
+// - Se null, certificado não tem chave privada
+
+var signature = rsa.SignData(dataBytes, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+// 🔍 INSPECIONAR: signature
+// - byte[] com assinatura RSA (256 bytes para RSA-2048)
+// - Será convertida para Base64
+```
+
+### Passo 4.7: Submeter Resposta ao Challenge (COM CRIPTOGRAFIA)
+
+**Usando NodeChannelClient (C#) - RECOMENDADO:**
+
+```csharp
+// Criar request com challenge assinado
+var challengeResponseRequest = new ChallengeResponseRequest
+{
+    ChannelId = channelId,
+    NodeId = nodeId,
+    ChallengeData = challengeResponse.ChallengeData,
+    Signature = signature,
+    Timestamp = timestamp
+};
+
+// Autenticar (payload criptografado automaticamente)
+var authResponse = await _nodeChannelClient.AuthenticateAsync(channelId, challengeResponseRequest);
+
+Console.WriteLine($"Authenticated: {authResponse.Authenticated}");
+Console.WriteLine($"Session Token: {authResponse.SessionToken}");
+Console.WriteLine($"Expires At: {authResponse.SessionExpiresAt}");
+Console.WriteLine($"Capabilities: {string.Join(", ", authResponse.GrantedCapabilities)}");
+Console.WriteLine($"Next Phase: {authResponse.NextPhase}");
+```
+
+**Payload da requisição (criptografado automaticamente):**
+```json
+{
+  "channelId": "abc-123",
+  "nodeId": "node-a-test-001",
+  "challengeData": "YXNkZmFz...",
+  "signature": "as8xW2gP...",
+  "timestamp": "2025-10-03T00:00:02Z"
+}
+```
+
+**Resposta esperada (descriptografada):**
+```json
+{
+  "authenticated": true,
+  "nodeId": "node-a-test-001",
+  "sessionToken": "a1b2c3d4e5f6",
+  "sessionExpiresAt": "2025-10-03T01:00:02Z",
+  "grantedCapabilities": ["search", "retrieve"],
+  "message": "Authentication successful",
+  "nextPhase": "phase4_session",
+  "timestamp": "2025-10-03T00:00:02Z"
+}
+```
+
+### Passo 4.8: Debugging - Verificação de Challenge
+
+**Configure breakpoint em:**
+
+**`ChallengeService.cs:58`** - Método `VerifyChallengeResponseAsync`
+```csharp
+public Task<bool> VerifyChallengeResponseAsync(ChallengeResponseRequest request, string certificate)
+```
+
+**Inspecione:**
+```csharp
+var key = $"{request.ChannelId}:{request.NodeId}";
+if (!_activeChallenges.TryGetValue(key, out var challengeData))
+// 🔍 INSPECIONAR: challengeData
+// - Deve existir (challenge foi gerado antes)
+// - Se null, challenge não foi solicitado ou expirou
+
+if (challengeData.ExpiresAt < DateTime.UtcNow)
+// 🔍 VERIFICAR: Expiração
+// - Challenge tem TTL de 5 minutos
+// - Se expirado, retorna false
+
+if (request.ChallengeData != challengeData.ChallengeValue)
+// 🔍 VERIFICAR: Dados do challenge
+// - Deve corresponder exatamente ao challenge gerado
+
+var signedData = $"{request.ChallengeData}{request.ChannelId}{request.NodeId}{request.Timestamp:O}";
+// 🔍 INSPECIONAR: signedData
+// - Deve ser EXATAMENTE igual ao que foi assinado pelo cliente
+
+var isValid = rsa.VerifyData(dataBytes, signatureBytes, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+// 🔍 INSPECIONAR: isValid
+// - true se assinatura for válida
+// - false se assinatura incorreta ou dados não correspondem
+```
+
+**No `NodeConnectionController.cs:279`** - Método `Authenticate`:
+```csharp
+var isValid = await _challengeService.VerifyChallengeResponseAsync(request, registeredNode.Certificate);
+
+if (!isValid)
+{
+    // 🔍 BREAKPOINT AQUI se falhar
+    // Causas possíveis:
+    // - Challenge expirado (> 5 min)
+    // - Challenge não encontrado
+    // - Dados do challenge não correspondem
+    // - Assinatura inválida
+    await _challengeService.InvalidateChallengeAsync(channelId!, request.NodeId);
+    return BadRequest(...);
+}
+
+// Gerar session token
+var authResponse = await _challengeService.GenerateAuthenticationResultAsync(...);
+// 🔍 INSPECIONAR: authResponse
+// - SessionToken gerado (GUID)
+// - SessionExpiresAt: 1 hora no futuro
+// - GrantedCapabilities: capabilities do nó registrado
+```
+
+### Passo 4.9: Validar Session Token
+
+**Session token gerado:**
+```csharp
+// Session token é um GUID (versão simplificada)
+// Produção: usar JWT com claims
+Console.WriteLine($"Session Token: {authResponse.SessionToken}");
+// Exemplo: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+
+Console.WriteLine($"Expires At: {authResponse.SessionExpiresAt}");
+// Exemplo: "2025-10-03T01:00:02Z" (1 hora no futuro)
+```
+
+**💡 Armazenamento:**
+- Session tokens são armazenados em `ConcurrentDictionary<string, string>`
+- Chave: sessionToken
+- Valor: nodeId
+- TTL: 1 hora (3600 segundos)
+
+### Passo 4.10: Debugging - Geração de Session Token
+
+**Configure breakpoint em:**
+
+**`ChallengeService.cs:121`** - Método `GenerateAuthenticationResultAsync`
+```csharp
+public Task<AuthenticationResponse> GenerateAuthenticationResultAsync(string nodeId, List<string> grantedCapabilities)
+```
+
+**Inspecione:**
+```csharp
+var sessionToken = Guid.NewGuid().ToString("N");
+// 🔍 INSPECIONAR: sessionToken
+// - GUID sem hífens (32 caracteres)
+// - Exemplo: "a1b2c3d4e5f67890abcdef1234567890"
+
+var expiresAt = DateTime.UtcNow.AddSeconds(SessionTtlSeconds);
+// 🔍 INSPECIONAR: expiresAt
+// - 1 hora no futuro (SessionTtlSeconds = 3600)
+
+_sessionTokens[sessionToken] = nodeId;
+// 🔍 INSPECIONAR: _sessionTokens
+// - ConcurrentDictionary armazenando tokens ativos
+// - Token → NodeId mapping
+```
+
+### Passo 4.11: Testar Fluxo Completo com Testes Automatizados
+
+**Executar teste de integração:**
+```powershell
+dotnet test --filter "FullyQualifiedName~Phase3MutualAuthenticationTests.Authenticate_WithValidChallengeResponse_ReturnsSessionToken"
+```
+
+**O que o teste faz:**
+1. Estabelece canal (Fase 1)
+2. Registra nó (Fase 2)
+3. Autoriza nó (admin)
+4. Solicita challenge (Fase 3)
+5. Assina challenge com chave privada
+6. Submete resposta assinada
+7. Valida session token recebido
+
+---
+
+## 🧪 Parte 5: Cenários de Teste Adicionais
+
+### Cenário 5.1: Challenge com Nó Não Autorizado (Fase 3)
+
+**Tentar solicitar challenge sem estar autorizado:**
+```csharp
+// Registrar nó mas NÃO autorizar
+var registrationRequest = new NodeRegistrationRequest
+{
+    NodeId = "unauthorized-node",
+    NodeName = "Unauthorized Test Node",
+    Certificate = certificate,
+    // ... outros campos
+};
+
+await _nodeChannelClient.RegisterNodeAsync(channelId, registrationRequest);
+// Status: Pending
+
+// Tentar solicitar challenge
+try
+{
+    var challenge = await _nodeChannelClient.RequestChallengeAsync(channelId, "unauthorized-node");
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"Error: {ex.Message}");
+    // Expected: "Challenge request failed: Node status is Pending. Only authorized nodes can authenticate."
+}
+```
+
+**Resultado esperado:**
+```json
+{
+  "error": {
+    "code": "ERR_NODE_NOT_AUTHORIZED",
+    "message": "Node status is Pending. Only authorized nodes can authenticate.",
+    "retryable": false
+  }
+}
+```
+
+### Cenário 5.2: Assinatura Inválida no Challenge (Fase 3)
+
+**Submeter challenge com assinatura incorreta:**
+```csharp
+// Solicitar challenge válido
+var challengeResponse = await _nodeChannelClient.RequestChallengeAsync(channelId, nodeId);
+
+// Criar resposta com assinatura INVÁLIDA
+var invalidRequest = new ChallengeResponseRequest
+{
+    ChannelId = channelId,
+    NodeId = nodeId,
+    ChallengeData = challengeResponse.ChallengeData,
+    Signature = "INVALID_SIGNATURE_BASE64",
+    Timestamp = DateTime.UtcNow
+};
+
+try
+{
+    var result = await _nodeChannelClient.AuthenticateAsync(channelId, invalidRequest);
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"Error: {ex.Message}");
+    // Expected: "Authentication failed: Challenge response verification failed"
+}
+```
+
+**Resultado esperado:**
+```json
+{
+  "error": {
+    "code": "ERR_INVALID_CHALLENGE_RESPONSE",
+    "message": "Challenge response verification failed",
+    "retryable": false
+  }
+}
+```
+
+### Cenário 5.3: Challenge Expirado (Fase 3)
+
+**Aguardar expiração do challenge (> 5 minutos):**
+```csharp
+// Solicitar challenge
+var challengeResponse = await _nodeChannelClient.RequestChallengeAsync(channelId, nodeId);
+
+// Aguardar 6 minutos (TTL = 5 min)
+await Task.Delay(TimeSpan.FromMinutes(6));
+
+// Tentar usar challenge expirado
+var certWithKey = new X509Certificate2(...);
+var dataToSign = $"{challengeResponse.ChallengeData}{channelId}{nodeId}{DateTime.UtcNow:O}";
+var signature = CertificateHelper.SignData(dataToSign, certWithKey);
+
+var request = new ChallengeResponseRequest
+{
+    ChannelId = channelId,
+    NodeId = nodeId,
+    ChallengeData = challengeResponse.ChallengeData,
+    Signature = signature,
+    Timestamp = DateTime.UtcNow
+};
+
+try
+{
+    var result = await _nodeChannelClient.AuthenticateAsync(channelId, request);
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"Error: {ex.Message}");
+    // Expected: Challenge expired or not found
+}
+```
+
+**Debugging:**
+- Breakpoint em `ChallengeService.cs:68` (verificação de expiração)
+- `challengeData.ExpiresAt < DateTime.UtcNow` será `true`
+
+### Cenário 5.4: Challenge Data Incorreto (Fase 3)
+
+**Submeter challenge data diferente do gerado:**
+```csharp
+// Solicitar challenge válido
+var challengeResponse = await _nodeChannelClient.RequestChallengeAsync(channelId, nodeId);
+
+// Usar OUTRO challenge data (não o gerado)
+var wrongChallengeData = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
+
+var certWithKey = new X509Certificate2(...);
+var dataToSign = $"{wrongChallengeData}{channelId}{nodeId}{DateTime.UtcNow:O}";
+var signature = CertificateHelper.SignData(dataToSign, certWithKey);
+
+var request = new ChallengeResponseRequest
+{
+    ChannelId = channelId,
+    NodeId = nodeId,
+    ChallengeData = wrongChallengeData,  // ❌ Errado!
+    Signature = signature,
+    Timestamp = DateTime.UtcNow
+};
+
+try
+{
+    var result = await _nodeChannelClient.AuthenticateAsync(channelId, request);
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"Error: {ex.Message}");
+    // Expected: Challenge data mismatch
+}
+```
+
+**Debugging:**
+- Breakpoint em `ChallengeService.cs:74` (verificação de challenge data)
+- `request.ChallengeData != challengeData.ChallengeValue` será `true`
+
+### Cenário 5.5: Reutilização de Challenge (One-Time Use)
+
+**Tentar usar mesmo challenge duas vezes:**
+```csharp
+// Primeira autenticação (sucesso)
+var challengeResponse = await _nodeChannelClient.RequestChallengeAsync(channelId, nodeId);
+var certWithKey = new X509Certificate2(...);
+var dataToSign = $"{challengeResponse.ChallengeData}{channelId}{nodeId}{DateTime.UtcNow:O}";
+var signature = CertificateHelper.SignData(dataToSign, certWithKey);
+
+var request = new ChallengeResponseRequest
+{
+    ChannelId = channelId,
+    NodeId = nodeId,
+    ChallengeData = challengeResponse.ChallengeData,
+    Signature = signature,
+    Timestamp = DateTime.UtcNow
+};
+
+var firstAuth = await _nodeChannelClient.AuthenticateAsync(channelId, request);
+Console.WriteLine($"First auth: {firstAuth.Authenticated}"); // true
+
+// Tentar reutilizar MESMO challenge (deve falhar)
+try
+{
+    var secondAuth = await _nodeChannelClient.AuthenticateAsync(channelId, request);
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"Error: {ex.Message}");
+    // Expected: Challenge not found (foi invalidado após primeiro uso)
+}
+```
+
+**💡 Observação:**
+- Challenge é invalidado após autenticação bem-sucedida
+- Proteção contra replay attacks
+- Cada autenticação requer novo challenge
+
+### Cenário 5.6: Nó Desconhecido Tenta se Identificar
 
 **Gerar identidade para nó não registrado:**
 ```powershell
@@ -1112,6 +1645,90 @@ catch (Exception ex)
        │                                                  │
        │  ✅ Pronto para Fase 3!                         │
        │                                                  │
+       │  ════════════════════════════════════════════   │
+       │      FASE 3: AUTENTICAÇÃO MÚTUA                │
+       │  ════════════════════════════════════════════   │
+       │                                                  │
+       │  11. POST /api/node/challenge                   │
+       │      Headers: X-Channel-Id: abc-123             │
+       │      Body: EncryptedPayload {                   │
+       │        encryptedData: "...",  ← CRIPTOGRAFADO!  │
+       │        iv: "...",                               │
+       │        authTag: "..."                           │
+       │      }                                           │
+       ├────────────────────────────────────────────────>│
+       │                                                  │
+       │                       Valida X-Channel-Id        │
+       │                       Descriptografa payload     │
+       │                       Verifica status: Authorized│
+       │                                                  │
+       │                       Gera challenge (32 bytes)  │
+       │                       ┌──────────────────────┐  │
+       │                       │ RandomNumberGenerator│  │
+       │                       │ 32 bytes aleatórios  │  │
+       │                       └──────────────────────┘  │
+       │                       TTL: 5 minutos             │
+       │                       Armazena: {channelId:nodeId}│
+       │                       Criptografa resposta       │
+       │                                                  │
+       │  12. EncryptedPayload (ChallengeResponse)       │
+       │      {encryptedData, iv, authTag}               │
+       │<────────────────────────────────────────────────┤
+       │                                                  │
+       │  Descriptografa resposta                        │
+       │  {challengeData: "abc...", ttl: 300}            │
+       │                                                  │
+       │  Assina challenge com chave privada             │
+       │  ┌──────────────────────────────────┐           │
+       │  │ dataToSign = challengeData +     │           │
+       │  │   channelId + nodeId + timestamp │           │
+       │  │ signature = RSA.Sign(dataToSign) │           │
+       │  └──────────────────────────────────┘           │
+       │                                                  │
+       │  13. POST /api/node/authenticate                │
+       │      Headers: X-Channel-Id: abc-123             │
+       │      Body: EncryptedPayload {                   │
+       │        encryptedData: "...",  ← CRIPTOGRAFADO!  │
+       │        iv: "...",                               │
+       │        authTag: "..."                           │
+       │      }                                           │
+       │      Contém: {challengeData, signature}         │
+       ├────────────────────────────────────────────────>│
+       │                                                  │
+       │                       Valida X-Channel-Id        │
+       │                       Descriptografa payload     │
+       │                       Busca challenge armazenado │
+       │                       Verifica expiração (< 5min)│
+       │                       Verifica challengeData     │
+       │                       Verifica assinatura RSA    │
+       │                       ┌──────────────────────┐  │
+       │                       │ RSA.Verify(signature)│  │
+       │                       │ com cert público     │  │
+       │                       └──────────────────────┘  │
+       │                       ✅ Assinatura válida       │
+       │                                                  │
+       │                       Gera session token         │
+       │                       ┌──────────────────────┐  │
+       │                       │ GUID (32 chars)      │  │
+       │                       │ TTL: 1 hora          │  │
+       │                       └──────────────────────┘  │
+       │                       Invalida challenge (one-time)│
+       │                       Atualiza lastAuthenticatedAt│
+       │                       Criptografa resposta       │
+       │                                                  │
+       │  14. EncryptedPayload (AuthenticationResponse)  │
+       │      {encryptedData, iv, authTag}               │
+       │<────────────────────────────────────────────────┤
+       │                                                  │
+       │  Descriptografa resposta                        │
+       │  {authenticated: true,                          │
+       │   sessionToken: "abc...",                       │
+       │   expiresAt: "2025-10-03T01:00:00Z",           │
+       │   grantedCapabilities: ["search", "retrieve"],  │
+       │   nextPhase: "phase4_session"}                  │
+       │                                                  │
+       │  ✅ Autenticado com Session Token               │
+       │                                                  │
 ```
 
 ---
@@ -1130,15 +1747,26 @@ catch (Exception ex)
    - Usa salt (nonces combinados) e info
    - Resultado: AES-256 key (32 bytes)
 
-3. **Certificados X.509**
+3. **AES-256-GCM (Advanced Encryption Standard - Galois/Counter Mode)**
+   - Criptografia simétrica autenticada
+   - 256-bit key size
+   - Authenticated Encryption with Associated Data (AEAD)
+
+4. **Certificados X.509**
    - Identificação de nós
    - Chave pública + metadados
    - Auto-assinados para teste
 
-4. **Assinaturas Digitais RSA**
+5. **Assinaturas Digitais RSA**
    - Prova de posse da chave privada
    - SHA-256 para hash
    - PKCS#1 padding
+
+6. **Challenge-Response Protocol** (Fase 3)
+   - Prova de identidade sem transmitir chave privada
+   - Challenge aleatório de 32 bytes
+   - One-time use (proteção contra replay)
+   - TTL curto (5 minutos)
 
 ### Arquitetura
 
@@ -1159,34 +1787,53 @@ catch (Exception ex)
 
 ## ✅ Checklist de Validação
 
-### Fase 1
-- [ ] Canal estabelecido com sucesso
-- [ ] Chaves efêmeras geradas (P-384)
-- [ ] Shared secret derivado (48 bytes)
-- [ ] Symmetric key derivado (32 bytes)
-- [ ] Mesmo channelId em ambos os nós
-- [ ] Roles corretos (client/server)
-- [ ] ChannelStore armazena canal
-- [ ] Logs mostram informações esperadas
+### Fase 1 - Canal Criptografado
+- ✅ Canal estabelecido com sucesso
+- ✅ Chaves efêmeras geradas (P-384)
+- ✅ Shared secret derivado (48 bytes)
+- ✅ Symmetric key derivado (32 bytes)
+- ✅ Mesmo channelId em ambos os nós
+- ✅ Roles corretos (client/server)
+- ✅ ChannelStore armazena canal
+- ✅ Logs mostram informações esperadas
 
-### Fase 2 (COM CRIPTOGRAFIA - v0.3.0)
-- [ ] Certificado auto-assinado gerado
-- [ ] Assinatura RSA-SHA256 criada
-- [ ] **Header X-Channel-Id obrigatório**
-- [ ] **Payload criptografado com AES-256-GCM**
-- [ ] **Descriptografia bem-sucedida no servidor**
-- [ ] **Resposta criptografada retornada**
-- [ ] Nó desconhecido pode se registrar (com criptografia)
-- [ ] Status inicial é Pending
-- [ ] Identificação com Pending bloqueia progresso
+### Fase 2 - Identificação e Autorização (COM CRIPTOGRAFIA - v0.3.0)
+- ✅ Certificado auto-assinado gerado
+- ✅ Assinatura RSA-SHA256 criada
+- ✅ **Header X-Channel-Id obrigatório**
+- ✅ **Payload criptografado com AES-256-GCM**
+- ✅ **Descriptografia bem-sucedida no servidor**
+- ✅ **Resposta criptografada retornada**
+- ✅ Nó desconhecido pode se registrar (com criptografia)
+- ✅ Status inicial é Pending
+- ✅ Identificação com Pending bloqueia progresso
 - [ ] Admin pode aprovar nós
-- [ ] Identificação com Authorized permite Fase 3
-- [ ] Nó desconhecido recebe URL de registro
-- [ ] Assinatura inválida é rejeitada
-- [ ] Canal inválido é rejeitado (ERR_INVALID_CHANNEL)
-- [ ] **Header ausente é rejeitado (ERR_MISSING_CHANNEL_ID)**
-- [ ] **Payload não criptografado é rejeitado (ERR_DECRYPTION_FAILED)**
-- [ ] Listagem de nós funciona
+- ✅ Identificação com Authorized permite Fase 3
+- ✅ Nó desconhecido recebe URL de registro
+- ✅ Assinatura inválida é rejeitada
+- ✅ Canal inválido é rejeitado (ERR_INVALID_CHANNEL)
+- ✅ **Header ausente é rejeitado (ERR_MISSING_CHANNEL_ID)**
+- ✅ **Payload não criptografado é rejeitado (ERR_DECRYPTION_FAILED)**
+- ✅ Listagem de nós funciona
+
+### Fase 3 - Autenticação Mútua Challenge/Response (v0.5.0)
+- [ ] **Challenge gerado com 32 bytes aleatórios**
+- [ ] **Challenge TTL de 5 minutos**
+- [ ] **Apenas nós autorizados podem solicitar challenge**
+- [ ] **Challenge armazenado com chave {ChannelId}:{NodeId}**
+- [ ] **Challenge assinado corretamente: {ChallengeData}{ChannelId}{NodeId}{Timestamp:O}**
+- [ ] **Assinatura RSA-2048 verificada com certificado público**
+- [ ] **Challenge data deve corresponder exatamente**
+- [ ] **Challenge expirado é rejeitado**
+- [ ] **Assinatura inválida é rejeitada**
+- [ ] **Session token gerado (GUID, 32 caracteres)**
+- [ ] **Session TTL de 1 hora**
+- [ ] **Capabilities do nó incluídas na resposta**
+- [ ] **Challenge invalidado após uso (one-time)**
+- [ ] **Reutilização de challenge é bloqueada**
+- [ ] **NextPhase retorna "phase4_session"**
+- [ ] **Nó não autorizado recebe ERR_NODE_NOT_AUTHORIZED**
+- [ ] **LastAuthenticatedAt atualizado no registro do nó**
 
 ---
 
@@ -1291,18 +1938,24 @@ Após completar este guia:
    - Múltiplos canais simultâneos
    - Registro de múltiplos nós
    - Testar expiração de canais (30 min)
+   - Testar expiração de challenges (5 min)
+   - Testar expiração de session tokens (1 hora)
 
-2. **Implementar Fase 3**
-   - Autenticação mútua COM criptografia
-   - Desafio/resposta
-   - Proteção contra replay attacks
+2. **✅ Fase 3 Completa - Implementar Fase 4**
+   - Uso de session tokens em requisições
+   - Middleware de validação de token
+   - Renovação de tokens
+   - Revogação de tokens
+   - Capacidades granulares por token
 
 3. **Produtização**
-   - Persistência de dados
-   - Certificados reais (Let's Encrypt, etc.)
-   - Rate limiting
-   - Auditoria de eventos
-   - Middleware para validação global de canal
+   - Persistência de dados (PostgreSQL/SQL Server)
+   - Certificados reais (Let's Encrypt, CA corporativa)
+   - Session tokens JWT com claims
+   - Rate limiting por nó
+   - Auditoria de eventos de autenticação
+   - Middleware para validação global de canal e token
+   - Distributed cache para challenges e tokens (Redis)
 
 ## 📖 Documentação Adicional
 

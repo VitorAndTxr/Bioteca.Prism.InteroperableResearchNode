@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Interoperable Research Node (IRN)** - Core component of the PRISM framework for federated biomedical research data. Enables secure, standardized communication between research nodes using cryptographic handshakes, node authentication, and federated queries.
 
-**Current Status**: Phase 2 Complete (Encrypted Channel + Node Identification)
+**Current Status**: Phase 3 Complete (Encrypted Channel + Node Identification + Mutual Authentication)
 
 ## Architecture
 
@@ -32,12 +32,13 @@ Bioteca.Prism.Service/         # Service layer (business logic)
 └── Services/Node/             # Node-specific services
     ├── NodeChannelClient.cs             # HTTP client for handshake
     ├── NodeRegistryService.cs           # Node registry (in-memory)
+    ├── ChallengeService.cs              # Challenge-response authentication
     └── CertificateHelper.cs             # X.509 utilities
 
 Bioteca.Prism.InteroperableResearchNode/  # API layer
 ├── Controllers/
-│   ├── ChannelController.cs    # Phases 1-2 endpoints
-│   ├── NodeConnectionController.cs  # Node registration/management
+│   ├── ChannelController.cs    # Phase 1 endpoints
+│   ├── NodeConnectionController.cs  # Phases 2-3 endpoints (registration, identification, authentication)
 │   └── TestingController.cs    # Dev/test utilities
 └── Program.cs                  # DI container
 ```
@@ -58,9 +59,12 @@ Bioteca.Prism.InteroperableResearchNode/  # API layer
 - **Encrypted payload handling via `PrismEncryptedChannelConnectionAttribute<T>`**
 - Endpoints: `/api/channel/identify`, `/api/node/register`, `/api/node/{nodeId}/status`
 
-**Phase 3: Mutual Authentication (📋 Planned)**
-- Challenge/response authentication
+**Phase 3: Mutual Authentication (✅ Complete)**
+- Challenge-response protocol
+- RSA-2048 digital signature verification
 - Proof of private key possession
+- Session token generation (1-hour TTL)
+- Endpoints: `/api/node/challenge`, `/api/node/authenticate`
 
 **Phase 4: Session Establishment (📋 Planned)**
 - Session tokens and capabilities
@@ -145,20 +149,28 @@ dotnet test --verbosity detailed
 # Node B: http://localhost:5001/swagger
 ```
 
-### Test Status (Last Updated: 2025-10-02 - 18:00)
+### Test Status (Last Updated: 2025-10-03 - 00:57)
 
-**Overall: 56/56 tests passing (100% pass rate)** ✅
+**Overall: 61/61 tests passing (100% pass rate)** ✅
 
 | Category | Passing | Total | Status |
 |----------|---------|-------|--------|
 | Phase 1 (Channel Establishment) | 6/6 | 100% | ✅ |
 | Certificate & Signature | 15/15 | 100% | ✅ |
 | Phase 2 (Node Identification) | 6/6 | 100% | ✅ |
+| **Phase 3 (Mutual Authentication)** | **5/5** | **100%** | ✅ |
 | Encrypted Channel Integration | 3/3 | 100% | ✅ |
 | NodeChannelClient | 7/7 | 100% | ✅ |
 | Security & Edge Cases | 17/17 | 100% | ✅ |
 
-**Recent Fixes (2025-10-02):**
+**Recent Updates (2025-10-03):**
+- ✅ **Phase 3 Implementation Complete**: Challenge-response authentication with RSA signature verification
+- ✅ Session token generation (1-hour TTL)
+- ✅ Challenge expiration (5-minute TTL)
+- ✅ Integration with encrypted channel (all Phase 3 requests encrypted via AES-256-GCM)
+- ✅ Comprehensive test coverage (5 new tests for Phase 3)
+
+**Previous Fixes (2025-10-02):**
 - ✅ Implemented timestamp validation (protect against replay attacks)
 - ✅ Implemented nonce validation (format and minimum size)
 - ✅ Implemented certificate validation (format, structure, expiration)
@@ -183,6 +195,7 @@ All services are registered as **Singleton** (shared state across requests):
 - `IChannelEncryptionService` - Crypto operations
 - `INodeChannelClient` - HTTP client for initiating handshakes
 - `INodeRegistryService` - Node registry (in-memory, will need DB in production)
+- `IChallengeService` - Challenge-response authentication (Phase 3)
 
 ### Channel Flow
 
@@ -240,8 +253,8 @@ All services are registered as **Singleton** (shared state across requests):
 
 ### Security Requirements
 - LGPD/GDPR compliance for privacy
-- Encryption for sensitive data (currently missing in Phase 2+!)
-- Role-based access control
+- Encryption for sensitive data (✅ Fully implemented in Phases 2-3 via AES-256-GCM)
+- Role-based access control (Partially implemented via node authorization status)
 - Audit all data operations
 
 ### Naming Conventions
@@ -251,9 +264,9 @@ All services are registered as **Singleton** (shared state across requests):
 
 ## Known Issues & Warnings
 
-### ✅ All Test Issues Resolved (2025-10-02)
+### ✅ All Test Issues Resolved (2025-10-03)
 
-All 56 tests are now passing. Previous issues have been fixed:
+All 61 tests are now passing (56 from Phases 1-2, 5 new from Phase 3). Previous issues have been fixed:
 
 **Fixed Issues:**
 1. ✅ **NodeChannelClient Architecture** - Resolved by implementing `TestHttpClientFactory` and `TestHttpMessageHandler` to route requests to in-memory test servers
@@ -281,24 +294,17 @@ All 56 tests are now passing. Previous issues have been fixed:
 
 ## Next Steps
 
-### ✅ Phase 2 Complete - Ready for Phase 3
+### ✅ Phase 3 Complete - Ready for Phase 4
 
-All Phase 2 features are implemented and tested (56/56 tests passing):
+All Phase 3 features are implemented and tested (61/61 tests passing):
 - ✅ Encrypted channel establishment (Phase 1)
 - ✅ Node identification and registration (Phase 2)
+- ✅ Challenge-response mutual authentication (Phase 3)
 - ✅ Certificate-based identity verification
-- ✅ Complete validation suite (timestamps, nonces, certificates, fields)
-- ✅ Security hardening (replay protection, input validation)
-
-### Phase 3 Implementation (Next Priority)
-**Challenge/Response Mutual Authentication:**
-1. Design challenge/response protocol
-2. Implement challenge generation and verification
-3. Add mutual authentication between nodes
-4. Verify private key possession without exposing keys
-5. Add session key derivation
-6. Create comprehensive test suite for Phase 3
-7. Document Phase 3 protocol in `docs/architecture/handshake-protocol.md`
+- ✅ RSA signature verification for authentication
+- ✅ Session token generation (1-hour TTL)
+- ✅ Complete validation suite (timestamps, nonces, certificates, fields, challenges)
+- ✅ Security hardening (replay protection, input validation, one-time challenges)
 
 ### Phase 4 (Planned)
 - Session management with capabilities

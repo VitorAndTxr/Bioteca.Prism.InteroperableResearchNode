@@ -263,6 +263,81 @@ public class NodeChannelClient : INodeChannelClient
         return _encryptionService.DecryptPayload<NodeRegistrationResponse>(encryptedResponse, channelContext.SymmetricKey);
     }
 
+    /// <inheritdoc/>
+    public async Task<ChallengeResponse> RequestChallengeAsync(string channelId, string nodeId)
+    {
+        var channelContext = _channelStore.GetChannel(channelId);
+        if (channelContext == null)
+        {
+            throw new InvalidOperationException($"Channel {channelId} not found or expired");
+        }
+
+        var request = new ChallengeRequest
+        {
+            ChannelId = channelId,
+            NodeId = nodeId,
+            Timestamp = DateTime.UtcNow
+        };
+
+        // Encrypt payload
+        var encryptedPayload = _encryptionService.EncryptPayload(request, channelContext.SymmetricKey);
+
+        // Send request
+        var httpClient = _httpClientFactory.CreateClient();
+        httpClient.DefaultRequestHeaders.Add("X-Channel-Id", channelId);
+
+        var response = await httpClient.PostAsJsonAsync($"{channelContext.RemoteNodeUrl}/api/node/challenge", encryptedPayload);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var error = await response.Content.ReadFromJsonAsync<HandshakeError>();
+            throw new Exception($"Challenge request failed: {error?.Error?.Message}");
+        }
+
+        // Decrypt response
+        var encryptedResponse = await response.Content.ReadFromJsonAsync<EncryptedPayload>();
+        if (encryptedResponse == null)
+        {
+            throw new Exception("Failed to deserialize encrypted response");
+        }
+
+        return _encryptionService.DecryptPayload<ChallengeResponse>(encryptedResponse, channelContext.SymmetricKey);
+    }
+
+    /// <inheritdoc/>
+    public async Task<AuthenticationResponse> AuthenticateAsync(string channelId, ChallengeResponseRequest request)
+    {
+        var channelContext = _channelStore.GetChannel(channelId);
+        if (channelContext == null)
+        {
+            throw new InvalidOperationException($"Channel {channelId} not found or expired");
+        }
+
+        // Encrypt payload
+        var encryptedPayload = _encryptionService.EncryptPayload(request, channelContext.SymmetricKey);
+
+        // Send request
+        var httpClient = _httpClientFactory.CreateClient();
+        httpClient.DefaultRequestHeaders.Add("X-Channel-Id", channelId);
+
+        var response = await httpClient.PostAsJsonAsync($"{channelContext.RemoteNodeUrl}/api/node/authenticate", encryptedPayload);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var error = await response.Content.ReadFromJsonAsync<HandshakeError>();
+            throw new Exception($"Authentication failed: {error?.Error?.Message}");
+        }
+
+        // Decrypt response
+        var encryptedResponse = await response.Content.ReadFromJsonAsync<EncryptedPayload>();
+        if (encryptedResponse == null)
+        {
+            throw new Exception("Failed to deserialize encrypted response");
+        }
+
+        return _encryptionService.DecryptPayload<AuthenticationResponse>(encryptedResponse, channelContext.SymmetricKey);
+    }
+
     private string ExtractCurveFromAlgorithm(string algorithm)
     {
         // Extract curve from "ECDH-P384" -> "P384"

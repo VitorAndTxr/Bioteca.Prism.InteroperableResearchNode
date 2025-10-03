@@ -1,24 +1,26 @@
 # Project Status Report - IRN
 
 **Data:** 2025-10-03
-**Versão:** 0.4.0
-**Status Geral:** ✅ Fase 2 Completa com Arquitetura de Atributos | 📋 Fase 3 Planejada
+**Versão:** 0.5.0
+**Status Geral:** ✅ Fase 3 Completa (Autenticação Mútua) | 📋 Fase 4 Planejada
 
 ---
 
 ## 📊 Resumo Executivo
 
-O projeto **Interoperable Research Node (IRN)** está com as **Fases 1 e 2** do protocolo de handshake **completamente implementadas, testadas e validadas**. O sistema é capaz de:
+O projeto **Interoperable Research Node (IRN)** está com as **Fases 1, 2 e 3** do protocolo de handshake **completamente implementadas, testadas e validadas**. O sistema é capaz de:
 
-1. ✅ Estabelecer canais criptografados seguros entre nós usando chaves efêmeras
-2. ✅ Identificar e autorizar nós usando certificados X.509 e assinaturas digitais
-3. ✅ **NOVO**: Processar payloads criptografados via `PrismEncryptedChannelConnectionAttribute<T>`
-4. ✅ Gerenciar registro de nós desconhecidos com workflow de aprovação
-5. ✅ Rodar em containers Docker com configuração multi-nó
-6. ✅ Validar rigorosamente todos os inputs com proteção contra ataques
-7. ✅ Proteger contra replay attacks com validação de timestamp
-8. ✅ 100% de cobertura de testes (56/56 testes passando)
-9. 📋 **PRÓXIMO**: Fase 3 - Autenticação Mútua Challenge/Response
+1. ✅ Estabelecer canais criptografados seguros entre nós usando chaves efêmeras (Fase 1)
+2. ✅ Identificar e autorizar nós usando certificados X.509 e assinaturas digitais (Fase 2)
+3. ✅ Processar payloads criptografados via `PrismEncryptedChannelConnectionAttribute<T>` (Fases 2-3)
+4. ✅ **NOVO**: Autenticar nós usando challenge-response com prova de posse de chave privada (Fase 3)
+5. ✅ **NOVO**: Gerar e gerenciar session tokens com TTL de 1 hora (Fase 3)
+6. ✅ Gerenciar registro de nós desconhecidos com workflow de aprovação
+7. ✅ Rodar em containers Docker com configuração multi-nó
+8. ✅ Validar rigorosamente todos os inputs com proteção contra ataques
+9. ✅ Proteger contra replay attacks com validação de timestamp
+10. ✅ 100% de cobertura de testes (61/61 testes passando)
+11. 📋 **PRÓXIMO**: Fase 4 - Estabelecimento de Sessão e Capacidades
 
 ---
 
@@ -132,6 +134,70 @@ Nó Desconhecido
 
 ---
 
+### ✅ Fase 3: Autenticação Mútua Challenge/Response (COMPLETA - 2025-10-03)
+
+**Objetivo:** Autenticar mutuamente os nós usando challenge-response com prova criptográfica de posse de chave privada.
+
+**Tecnologias:**
+- RSA-2048 Digital Signatures
+- Challenge-Response Protocol
+- Session Token Management
+- In-memory Challenge Storage (ConcurrentDictionary)
+
+**Componentes Implementados:**
+- `ChallengeService.cs` - Geração e verificação de challenges
+- `IChallengeService.cs` - Interface do serviço
+- `ChallengeRequest.cs`, `ChallengeResponseRequest.cs` - DTOs de requisição
+- `ChallengeResponse.cs`, `AuthenticationResponse.cs` - DTOs de resposta
+- `NodeConnectionController.cs` - Endpoints `/challenge` e `/authenticate`
+- `NodeChannelClient.cs` - Métodos cliente para Fase 3
+
+**Endpoints:**
+- `POST /api/node/challenge` - Solicita challenge (requer nó autorizado)
+- `POST /api/node/authenticate` - Submete resposta ao challenge
+
+**Fluxo de Autenticação:**
+```
+Nó Iniciador                          Nó Receptor
+    |                                      |
+    | POST /api/node/challenge             |
+    | (NodeId, Timestamp)                  |
+    |------------------------------------->|
+    |                                      |
+    | 32-byte random challenge             |
+    | (TTL: 5 min)                         |
+    |<-------------------------------------|
+    |                                      |
+    | Assina: Challenge+ChannelId          |
+    | +NodeId+Timestamp com chave privada  |
+    |                                      |
+    | POST /api/node/authenticate          |
+    | (Challenge, Signature, Timestamp)    |
+    |------------------------------------->|
+    |                                      |
+    | Verifica assinatura com              |
+    | certificado público registrado       |
+    |                                      |
+    | Session Token (TTL: 1h)              |
+    | Capabilities                         |
+    |<-------------------------------------|
+    |                                      |
+    | ✅ Autenticado                        |
+```
+
+**Validação:**
+- ✅ Challenges de 32 bytes gerados com RandomNumberGenerator
+- ✅ Challenge TTL de 5 minutos (300s)
+- ✅ Session Token TTL de 1 hora (3600s)
+- ✅ One-time use challenges (invalidados após uso)
+- ✅ Verificação de assinatura RSA-2048
+- ✅ Formato de assinatura: `{ChallengeData}{ChannelId}{NodeId}{Timestamp:O}`
+- ✅ Storage em memória com chave `{ChannelId}:{NodeId}`
+- ✅ Apenas nós autorizados podem solicitar challenge
+- ✅ Testes automatizados passando (5 novos testes)
+
+---
+
 ### ✅ Validações de Segurança (IMPLEMENTADO - 2025-10-02)
 
 **Objetivo:** Proteger o sistema contra ataques e inputs maliciosos.
@@ -164,7 +230,7 @@ Nó Desconhecido
    - ✅ Valida valores de AuthorizationStatus
    - ✅ Rejeita valores numéricos inválidos
 
-**Testes:** 56/56 passando (100%)
+**Testes:** 61/61 passando (100%)
 
 ---
 
@@ -181,11 +247,15 @@ InteroperableResearchNode/
 │   │   ├── InitiateHandshakeRequest.cs ✅ Fase 1
 │   │   ├── NodeIdentifyRequest.cs      ✅ Fase 2
 │   │   ├── NodeRegistrationRequest.cs  ✅ Fase 2
-│   │   └── UpdateNodeStatusRequest.cs  ✅ Fase 2
+│   │   ├── UpdateNodeStatusRequest.cs  ✅ Fase 2
+│   │   ├── ChallengeRequest.cs         ✅ Fase 3
+│   │   └── ChallengeResponseRequest.cs ✅ Fase 3
 │   ├── Responses/Node/
 │   │   ├── ChannelReadyResponse.cs     ✅ Fase 1
 │   │   ├── NodeStatusResponse.cs       ✅ Fase 2
-│   │   └── NodeRegistrationResponse.cs ✅ Fase 2
+│   │   ├── NodeRegistrationResponse.cs ✅ Fase 2
+│   │   ├── ChallengeResponse.cs        ✅ Fase 3
+│   │   └── AuthenticationResponse.cs   ✅ Fase 3
 │   └── Errors/Node/
 │       └── HandshakeError.cs           ✅ Tratamento de erros
 │
@@ -199,13 +269,15 @@ InteroperableResearchNode/
 │
 ├── Bioteca.Prism.Service/             # Camada de serviços
 │   └── Services/Node/
-│       ├── NodeChannelClient.cs       ✅ Fase 1 - Cliente HTTP
+│       ├── NodeChannelClient.cs       ✅ Fases 1-3 - Cliente HTTP
 │       ├── NodeRegistryService.cs     ✅ Fase 2 - Registro de nós
+│       ├── ChallengeService.cs        ✅ Fase 3 - Challenge-response
 │       └── CertificateHelper.cs       ✅ Fase 2 - Utilitários X.509
 │
 ├── Bioteca.Prism.InteroperableResearchNode/  # API Layer
 │   ├── Controllers/
-│   │   ├── ChannelController.cs        ✅ Fases 1 e 2
+│   │   ├── ChannelController.cs        ✅ Fase 1
+│   │   ├── NodeConnectionController.cs ✅ Fases 2-3
 │   │   └── TestingController.cs        ✅ Utilitários de teste
 │   ├── Properties/
 │   │   └── launchSettings.json         ✅ Profiles NodeA/NodeB

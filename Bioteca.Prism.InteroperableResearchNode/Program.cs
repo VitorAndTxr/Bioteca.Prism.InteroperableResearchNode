@@ -33,6 +33,9 @@ builder.Services.AddSingleton<INodeChannelClient, NodeChannelClient>();
 // Register Phase 2 services (Node Identification and Authorization)
 builder.Services.AddSingleton<Bioteca.Prism.Core.Middleware.Node.INodeRegistryService, NodeRegistryService>();
 
+// Register Phase 3 services (Mutual Authentication)
+builder.Services.AddSingleton<IChallengeService, ChallengeService>();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.

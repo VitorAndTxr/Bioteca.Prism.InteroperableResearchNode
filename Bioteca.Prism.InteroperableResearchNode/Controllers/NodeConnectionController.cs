@@ -19,6 +19,8 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
         private readonly INodeChannelClient _channelClient;
         private readonly INodeRegistryService _nodeRegistry;
         private readonly IChannelStore _channelStore;
+        private readonly IChallengeService _challengeService;
+
         public NodeConnectionController(
             ILogger<NodeConnectionController> logger,
              IEphemeralKeyService ephemeralKeyService,
@@ -26,7 +28,8 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
             IConfiguration configuration,
             INodeChannelClient channelClient,
             INodeRegistryService nodeRegistry,
-            IChannelStore channelStore)
+            IChannelStore channelStore,
+            IChallengeService challengeService)
         {
             _logger = logger;
             _ephemeralKeyService = ephemeralKeyService;
@@ -35,6 +38,7 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
             _channelClient = channelClient;
             _nodeRegistry = nodeRegistry;
             _channelStore = channelStore;
+            _challengeService = challengeService;
         }
         /// <summary>
         /// Phase 2: Identify node after encrypted channel is established
@@ -209,6 +213,138 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
             }
 
             return Ok(new { message = "Node status updated successfully", nodeId, status = request.Status });
+        }
+
+        /// <summary>
+        /// Phase 3: Request challenge for mutual authentication
+        /// </summary>
+        [HttpPost("challenge")]
+        [PrismEncryptedChannelConnection<ChallengeRequest>]
+        [ProducesResponseType(typeof(EncryptedPayload), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(HandshakeError), StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> RequestChallenge()
+        {
+            try
+            {
+                var channelId = HttpContext.Items["ChannelId"] as string;
+                var channelContext = HttpContext.Items["ChannelContext"] as ChannelContext;
+                var request = HttpContext.Items["DecryptedRequest"] as ChallengeRequest;
+
+                // Verify node is authorized
+                var registeredNode = await _nodeRegistry.GetNodeAsync(request!.NodeId);
+                if (registeredNode == null)
+                {
+                    return BadRequest(CreateError(
+                        "ERR_NODE_NOT_REGISTERED",
+                        "Node is not registered",
+                        retryable: false
+                    ));
+                }
+
+                if (registeredNode.Status != AuthorizationStatus.Authorized)
+                {
+                    return BadRequest(CreateError(
+                        "ERR_NODE_NOT_AUTHORIZED",
+                        $"Node status is {registeredNode.Status}. Only authorized nodes can authenticate.",
+                        retryable: false
+                    ));
+                }
+
+                // Generate challenge
+                var challengeResponse = await _challengeService.GenerateChallengeAsync(channelId!, request.NodeId);
+
+                // Encrypt response
+                var encryptedResponse = _encryptionService.EncryptPayload(challengeResponse, channelContext!.SymmetricKey);
+
+                return Ok(encryptedResponse);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error generating challenge");
+                return StatusCode(StatusCodes.Status500InternalServerError, CreateError(
+                    "ERR_CHALLENGE_FAILED",
+                    "Failed to generate challenge",
+                    retryable: true
+                ));
+            }
+        }
+
+        /// <summary>
+        /// Phase 3: Verify challenge response and complete authentication
+        /// </summary>
+        [HttpPost("authenticate")]
+        [PrismEncryptedChannelConnection<ChallengeResponseRequest>]
+        [ProducesResponseType(typeof(EncryptedPayload), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(HandshakeError), StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> Authenticate()
+        {
+            try
+            {
+                var channelId = HttpContext.Items["ChannelId"] as string;
+                var channelContext = HttpContext.Items["ChannelContext"] as ChannelContext;
+                var request = HttpContext.Items["DecryptedRequest"] as ChallengeResponseRequest;
+
+                // Get node information
+                var registeredNode = await _nodeRegistry.GetNodeAsync(request!.NodeId);
+                if (registeredNode == null)
+                {
+                    return BadRequest(CreateError(
+                        "ERR_NODE_NOT_REGISTERED",
+                        "Node is not registered",
+                        retryable: false
+                    ));
+                }
+
+                if (registeredNode.Status != AuthorizationStatus.Authorized)
+                {
+                    return BadRequest(CreateError(
+                        "ERR_NODE_NOT_AUTHORIZED",
+                        $"Node status is {registeredNode.Status}",
+                        retryable: false
+                    ));
+                }
+
+                // Verify challenge response
+                var isValid = await _challengeService.VerifyChallengeResponseAsync(request, registeredNode.Certificate);
+
+                if (!isValid)
+                {
+                    await _challengeService.InvalidateChallengeAsync(channelId!, request.NodeId);
+
+                    return BadRequest(CreateError(
+                        "ERR_INVALID_CHALLENGE_RESPONSE",
+                        "Challenge response verification failed",
+                        retryable: false
+                    ));
+                }
+
+                // Generate authentication result
+                var authResponse = await _challengeService.GenerateAuthenticationResultAsync(
+                    request.NodeId,
+                    registeredNode.Capabilities);
+
+                // Update last authentication timestamp
+                await _nodeRegistry.UpdateLastAuthenticationAsync(request.NodeId);
+
+                // Invalidate challenge (one-time use)
+                await _challengeService.InvalidateChallengeAsync(channelId!, request.NodeId);
+
+                // Encrypt response
+                var encryptedResponse = _encryptionService.EncryptPayload(authResponse, channelContext!.SymmetricKey);
+
+                _logger.LogInformation("Node {NodeId} authenticated successfully", request.NodeId);
+
+                return Ok(encryptedResponse);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error authenticating node");
+                return StatusCode(StatusCodes.Status500InternalServerError, CreateError(
+                    "ERR_AUTHENTICATION_FAILED",
+                    "Failed to authenticate node",
+                    retryable: true
+                ));
+            }
         }
 
         private HandshakeError CreateError(

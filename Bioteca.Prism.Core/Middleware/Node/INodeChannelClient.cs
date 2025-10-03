@@ -37,6 +37,22 @@ public interface INodeChannelClient
     /// <param name="request">Node registration request</param>
     /// <returns>Registration response</returns>
     Task<NodeRegistrationResponse> RegisterNodeAsync(string channelId, NodeRegistrationRequest request);
+
+    /// <summary>
+    /// Phase 3: Request challenge for authentication
+    /// </summary>
+    /// <param name="channelId">Channel identifier</param>
+    /// <param name="nodeId">Node identifier</param>
+    /// <returns>Challenge response</returns>
+    Task<ChallengeResponse> RequestChallengeAsync(string channelId, string nodeId);
+
+    /// <summary>
+    /// Phase 3: Submit challenge response to complete authentication
+    /// </summary>
+    /// <param name="channelId">Channel identifier</param>
+    /// <param name="request">Challenge response request</param>
+    /// <returns>Authentication response</returns>
+    Task<AuthenticationResponse> AuthenticateAsync(string channelId, ChallengeResponseRequest request);
 }
 
 /// <summary>
