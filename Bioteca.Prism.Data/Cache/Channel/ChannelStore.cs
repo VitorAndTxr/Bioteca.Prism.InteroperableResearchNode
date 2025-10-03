@@ -1,3 +1,4 @@
+using Bioteca.Prism.Core.Middleware.Channel;
 using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 

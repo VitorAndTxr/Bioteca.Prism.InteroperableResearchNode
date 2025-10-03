@@ -1,3 +1,7 @@
+
+using Bioteca.Prism.Core.Middleware.Channel;
+using Bioteca.Prism.Core.Middleware.Node;
+using Bioteca.Prism.Core.Security.Cryptography.Interfaces;
 using Bioteca.Prism.Data.Cache.Channel;
 using Bioteca.Prism.Domain.Errors.Node;
 using Bioteca.Prism.Domain.Requests.Node;
@@ -20,7 +24,7 @@ public class ChannelController : ControllerBase
     private readonly IChannelEncryptionService _encryptionService;
     private readonly IConfiguration _configuration;
     private readonly INodeChannelClient _channelClient;
-    private readonly Service.Services.Node.INodeRegistryService _nodeRegistry;
+    private readonly INodeRegistryService _nodeRegistry;
     private readonly IChannelStore _channelStore;
 
     public ChannelController(
@@ -29,7 +33,7 @@ public class ChannelController : ControllerBase
         IChannelEncryptionService encryptionService,
         IConfiguration configuration,
         INodeChannelClient channelClient,
-        Service.Services.Node.INodeRegistryService nodeRegistry,
+        INodeRegistryService nodeRegistry,
         IChannelStore channelStore)
     {
         _logger = logger;

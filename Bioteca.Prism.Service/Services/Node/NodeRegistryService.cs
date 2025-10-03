@@ -1,3 +1,4 @@
+using Bioteca.Prism.Core.Middleware.Node;
 using Bioteca.Prism.Domain.Entities.Node;
 using Bioteca.Prism.Domain.Requests.Node;
 using Bioteca.Prism.Domain.Responses.Node;

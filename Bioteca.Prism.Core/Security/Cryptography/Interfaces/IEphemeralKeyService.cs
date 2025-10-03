@@ -1,6 +1,6 @@
 using System.Security.Cryptography;
 
-namespace Bioteca.Prism.Service.Interfaces.Node;
+namespace Bioteca.Prism.Core.Security.Cryptography.Interfaces;
 
 /// <summary>
 /// Service for generating and managing ephemeral ECDH keys

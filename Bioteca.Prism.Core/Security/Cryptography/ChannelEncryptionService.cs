@@ -1,10 +1,10 @@
-using Bioteca.Prism.Service.Interfaces.Node;
+using Bioteca.Prism.Core.Security.Cryptography.Interfaces;
 using Microsoft.Extensions.Logging;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 
-namespace Bioteca.Prism.Service.Services.Node;
+namespace Bioteca.Prism.Core.Security.Cryptography;
 
 /// <summary>
 /// Implementation of channel encryption using HKDF and AES-256-GCM

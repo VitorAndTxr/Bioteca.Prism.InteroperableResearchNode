@@ -66,11 +66,13 @@ curl http://localhost:5001/api/channel/health
 ```json
 {
   "success": true,
-  "channelId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "channelId": "46e171cb-8ea7-48f3-abe3-8eeef9e41384",
+  "symmetricKey": "dVkL4CBHF/ItJk2CPURILlabxoS6WgBPEgTck5UM/Jo=",
+  "selectedCipher": "AES-256-GCM",
   "remoteNodeUrl": "http://node-b:8080",
-  "cipher": "AES-256-GCM",
-  "timestamp": "2025-10-02T10:30:00Z",
-  "expiresAt": "2025-10-02T11:00:00Z"
+  "error": null,
+  "clientNonce": "295uRJj5D5OAfrL3V4Ehnw==",
+  "serverNonce": "7pBK8I81yQDRToCH3jIrEw=="
 }
 ```
 

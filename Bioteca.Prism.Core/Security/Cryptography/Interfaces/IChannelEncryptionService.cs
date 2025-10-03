@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace Bioteca.Prism.Service.Interfaces.Node;
+namespace Bioteca.Prism.Core.Security.Cryptography.Interfaces;
 
 /// <summary>
 /// Service for channel encryption using HKDF key derivation and AES-GCM

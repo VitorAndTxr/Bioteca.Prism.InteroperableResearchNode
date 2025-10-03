@@ -1,3 +1,6 @@
+using Bioteca.Prism.Core.Middleware.Channel;
+using Bioteca.Prism.Core.Security.Cryptography;
+using Bioteca.Prism.Core.Security.Cryptography.Interfaces;
 using Bioteca.Prism.Data.Cache.Channel;
 using Bioteca.Prism.Service.Interfaces.Node;
 using Bioteca.Prism.Service.Services.Node;
@@ -28,7 +31,7 @@ builder.Services.AddHttpClient(); // Required for NodeChannelClient
 builder.Services.AddSingleton<INodeChannelClient, NodeChannelClient>();
 
 // Register Phase 2 services (Node Identification and Authorization)
-builder.Services.AddSingleton<Bioteca.Prism.Service.Services.Node.INodeRegistryService, NodeRegistryService>();
+builder.Services.AddSingleton<Bioteca.Prism.Core.Middleware.Node.INodeRegistryService, NodeRegistryService>();
 
 var app = builder.Build();
 

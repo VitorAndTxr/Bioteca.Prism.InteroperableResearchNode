@@ -2,7 +2,7 @@ using Bioteca.Prism.Domain.Entities.Node;
 using Bioteca.Prism.Domain.Requests.Node;
 using Bioteca.Prism.Domain.Responses.Node;
 
-namespace Bioteca.Prism.Service.Services.Node;
+namespace Bioteca.Prism.Core.Middleware.Node;
 
 /// <summary>
 /// Service for managing node registry (known/unknown nodes)

@@ -1,11 +1,12 @@
 ﻿using Bioteca.Prism.Core.Middleware.Channel;
+using Bioteca.Prism.Core.Middleware.Node;
+using Bioteca.Prism.Core.Security.Cryptography.Interfaces;
 using Bioteca.Prism.Data.Cache.Channel;
 using Bioteca.Prism.Domain.Errors.Node;
 using Bioteca.Prism.Domain.Requests.Node;
 using Bioteca.Prism.Domain.Responses.Node;
 using Bioteca.Prism.Service.Interfaces.Node;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Filters;
 
 namespace Bioteca.Prism.InteroperableResearchNode.Controllers
 {
@@ -18,7 +19,7 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
         private readonly IChannelEncryptionService _encryptionService;
         private readonly IConfiguration _configuration;
         private readonly INodeChannelClient _channelClient;
-        private readonly Service.Services.Node.INodeRegistryService _nodeRegistry;
+        private readonly INodeRegistryService _nodeRegistry;
         private readonly IChannelStore _channelStore;
         public NodeConnectionController(
             ILogger<NodeConnectionController> logger,
@@ -26,7 +27,7 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
             IChannelEncryptionService encryptionService,
             IConfiguration configuration,
             INodeChannelClient channelClient,
-            Service.Services.Node.INodeRegistryService nodeRegistry,
+            INodeRegistryService nodeRegistry,
             IChannelStore channelStore)
         {
             _logger = logger;
@@ -43,66 +44,18 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
         /// <param name="encryptedRequest">Encrypted node identification request</param>
         /// <returns>Encrypted node status response (known/unknown)</returns>
         [HttpPost("identify")]
+        [PrismEncryptedChannelConnection<NodeIdentifyRequest>]
         [ProducesResponseType(typeof(EncryptedPayload), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(HandshakeError), StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> IdentifyNode([FromBody] EncryptedPayload encryptedRequest)
         {
             try
             {
-                // Get ChannelId from header
-                if (!Request.Headers.TryGetValue("X-Channel-Id", out var channelIdHeader))
-                {
-                    return BadRequest(CreateError(
-                        "ERR_MISSING_CHANNEL_ID",
-                        "X-Channel-Id header is required",
-                        retryable: false
-                    ));
-                }
+                var channelId = HttpContext.Items["ChannelId"] as string;
 
-                var channelId = channelIdHeader.ToString();
+                var channelContext = HttpContext.Items["ChannelContext"] as ChannelContext;
 
-                // Validate channel exists
-                var channelContext = _channelStore.GetChannel(channelId);
-                if (channelContext == null)
-                {
-                    return BadRequest(CreateError(
-                        "ERR_INVALID_CHANNEL",
-                        "Channel does not exist or has expired",
-                        retryable: true
-                    ));
-                }
-
-                // Decrypt request
-                NodeIdentifyRequest request;
-                try
-                {
-                    request = _encryptionService.DecryptPayload<NodeIdentifyRequest>(encryptedRequest, channelContext.SymmetricKey);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Failed to decrypt identify request");
-                    return BadRequest(CreateError(
-                        "ERR_DECRYPTION_FAILED",
-                        "Failed to decrypt request payload",
-                        retryable: false
-                    ));
-                }
-
-                _logger.LogInformation("Received encrypted node identification for NodeId: {NodeId}", request.NodeId);
-
-                // Inject ChannelId from header into request for signature verification
-                request.ChannelId = channelId;
-
-                // Verify signature
-                var signatureValid = await _nodeRegistry.VerifyNodeSignatureAsync(request);
-                if (!signatureValid)
-                {
-                    return BadRequest(CreateError(
-                        "ERR_INVALID_SIGNATURE",
-                        "Node signature verification failed",
-                        retryable: false
-                    ));
-                }
+                var request = HttpContext.Items["DecryptedRequest"] as NodeIdentifyRequest;
 
                 // Check if node is known
                 var registeredNode = await _nodeRegistry.GetNodeAsync(request.NodeId);
@@ -181,7 +134,7 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
         /// <param name="encryptedRequest">Encrypted node registration request</param>
         /// <returns>Encrypted registration response</returns>
         [HttpPost("/api/node/register")]
-        [PrismChannelConnection]
+        [PrismEncryptedChannelConnection<NodeRegistrationRequest>]
         [ProducesResponseType(typeof(EncryptedPayload), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(HandshakeError), StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> RegisterNode([FromBody] EncryptedPayload encryptedRequest)
@@ -190,24 +143,7 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
             {
                 var channelId = HttpContext.Items["ChannelId"] as string;
                 var channelContext = HttpContext.Items["ChannelContext"] as ChannelContext;
-
-                // Decrypt request
-                NodeRegistrationRequest request;
-                try
-                {
-                    request = _encryptionService.DecryptPayload<NodeRegistrationRequest>(encryptedRequest, channelContext.SymmetricKey);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Failed to decrypt registration request");
-                    return BadRequest(CreateError(
-                        "ERR_DECRYPTION_FAILED",
-                        "Failed to decrypt request payload",
-                        retryable: false
-                    ));
-                }
-
-                _logger.LogInformation("Received encrypted node registration for NodeId: {NodeId}", request.NodeId);
+                var request = HttpContext.Items["DecryptedRequest"] as NodeRegistrationRequest;
 
                 var response = await _nodeRegistry.RegisterNodeAsync(request);
 

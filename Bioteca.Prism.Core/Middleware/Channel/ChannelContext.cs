@@ -1,4 +1,4 @@
-namespace Bioteca.Prism.Data.Cache.Channel;
+namespace Bioteca.Prism.Core.Middleware.Channel;
 
 /// <summary>
 /// Context for an active encrypted channel

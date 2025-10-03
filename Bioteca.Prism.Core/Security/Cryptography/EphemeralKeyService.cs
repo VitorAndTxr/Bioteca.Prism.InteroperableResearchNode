@@ -1,8 +1,8 @@
-using Bioteca.Prism.Service.Interfaces.Node;
+using Bioteca.Prism.Core.Security.Cryptography.Interfaces;
 using Microsoft.Extensions.Logging;
 using System.Security.Cryptography;
 
-namespace Bioteca.Prism.Service.Services.Node;
+namespace Bioteca.Prism.Core.Security.Cryptography;
 
 /// <summary>
 /// Implementation of ephemeral key management for ECDH
