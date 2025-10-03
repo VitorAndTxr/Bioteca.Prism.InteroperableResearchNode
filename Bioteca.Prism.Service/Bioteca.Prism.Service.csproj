@@ -14,4 +14,7 @@
   <ProjectReference Include="..\Bioteca.Prism.Data\Bioteca.Prism.Data.csproj" />
   <ProjectReference Include="..\Bioteca.Prism.Domain\Bioteca.Prism.Domain.csproj" />
 </ItemGroup>
+<ItemGroup>
+  <Folder Include="Interfaces\Node\" />
+</ItemGroup>
 </Project>

@@ -1,8 +1,8 @@
 using Bioteca.Prism.Core.Middleware.Channel;
+using Bioteca.Prism.Core.Middleware.Node;
 using Bioteca.Prism.Core.Security.Cryptography;
 using Bioteca.Prism.Core.Security.Cryptography.Interfaces;
 using Bioteca.Prism.Data.Cache.Channel;
-using Bioteca.Prism.Service.Interfaces.Node;
 using Bioteca.Prism.Service.Services.Node;
 
 var builder = WebApplication.CreateBuilder(args);

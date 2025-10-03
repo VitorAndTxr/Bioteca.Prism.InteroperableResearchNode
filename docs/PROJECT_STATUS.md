@@ -1,8 +1,8 @@
 # Project Status Report - IRN
 
-**Data:** 2025-10-02
-**Versão:** 0.3.0
-**Status Geral:** ✅ Fase 2 Completa com Validações de Segurança Implementadas
+**Data:** 2025-10-03
+**Versão:** 0.4.0
+**Status Geral:** ✅ Fase 2 Completa com Arquitetura de Atributos | 📋 Fase 3 Planejada
 
 ---
 
@@ -12,11 +12,13 @@ O projeto **Interoperable Research Node (IRN)** está com as **Fases 1 e 2** do 
 
 1. ✅ Estabelecer canais criptografados seguros entre nós usando chaves efêmeras
 2. ✅ Identificar e autorizar nós usando certificados X.509 e assinaturas digitais
-3. ✅ Gerenciar registro de nós desconhecidos com workflow de aprovação
-4. ✅ Rodar em containers Docker com configuração multi-nó
-5. ✅ **NOVO**: Validar rigorosamente todos os inputs com proteção contra ataques
-6. ✅ **NOVO**: Proteger contra replay attacks com validação de timestamp
-7. ✅ **NOVO**: 100% de cobertura de testes (56/56 testes passando)
+3. ✅ **NOVO**: Processar payloads criptografados via `PrismEncryptedChannelConnectionAttribute<T>`
+4. ✅ Gerenciar registro de nós desconhecidos com workflow de aprovação
+5. ✅ Rodar em containers Docker com configuração multi-nó
+6. ✅ Validar rigorosamente todos os inputs com proteção contra ataques
+7. ✅ Proteger contra replay attacks com validação de timestamp
+8. ✅ 100% de cobertura de testes (56/56 testes passando)
+9. 📋 **PRÓXIMO**: Fase 3 - Autenticação Mútua Challenge/Response
 
 ---
 
@@ -68,6 +70,7 @@ O projeto **Interoperable Research Node (IRN)** está com as **Fases 1 e 2** do 
 - `RegisteredNode.cs` - Entidade de domínio
 - `ChannelController.cs` - Endpoint `/identify` e admin endpoints
 - `TestingController.cs` - Utilitários de teste
+- **`PrismEncryptedChannelConnectionAttribute<T>`** - Resource filter para payloads criptografados
 
 **Modelos de Domínio:**
 
@@ -186,13 +189,19 @@ InteroperableResearchNode/
 │   └── Errors/Node/
 │       └── HandshakeError.cs           ✅ Tratamento de erros
 │
+├── Bioteca.Prism.Core/                # Camada core (middleware)
+│   ├── Middleware/Channel/
+│   │   ├── PrismEncryptedChannelConnectionAttribute.cs  ✅ Resource filter
+│   │   ├── ChannelContext.cs          ✅ Estado do canal
+│   │   └── IChannelStore.cs           ✅ Interface storage
+│   ├── Middleware/Node/               ✅ Middleware específico de nó
+│   └── Security/                      ✅ Utilitários de segurança
+│
 ├── Bioteca.Prism.Service/             # Camada de serviços
 │   └── Services/Node/
-│       ├── EphemeralKeyService.cs      ✅ Fase 1 - ECDH
-│       ├── ChannelEncryptionService.cs ✅ Fase 1 - HKDF/AES
-│       ├── NodeChannelClient.cs        ✅ Fase 1 - Cliente HTTP
-│       ├── NodeRegistryService.cs      ✅ Fase 2 - Registro de nós
-│       └── CertificateHelper.cs        ✅ Fase 2 - Utilitários X.509
+│       ├── NodeChannelClient.cs       ✅ Fase 1 - Cliente HTTP
+│       ├── NodeRegistryService.cs     ✅ Fase 2 - Registro de nós
+│       └── CertificateHelper.cs       ✅ Fase 2 - Utilitários X.509
 │
 ├── Bioteca.Prism.InteroperableResearchNode/  # API Layer
 │   ├── Controllers/
@@ -395,20 +404,51 @@ docker-compose down
 
 ## 📋 Próximos Passos
 
-### Fase 3: Autenticação Mútua (Planejada)
+### 📋 Fase 3: Autenticação Mútua Challenge/Response (Planejada)
 
-**Objetivo:** Autenticação bidirecional com desafio/resposta para provar posse das chaves privadas.
+**Status:** Planejamento completo em `docs/development/phase3-authentication-plan.md`
+
+**Objetivo:** Autenticação bidirecional com desafio/resposta para provar posse das chaves privadas sem expô-las.
+
+**Arquitetura:**
+- **Resource Filter:** `PrismEncryptedChannelConnectionAttribute<T>` para payloads criptografados
+- **Service:** `AuthenticationService` para geração/verificação de desafios
+- **Storage:** Desafios em memória com TTL de 5 minutos
+- **Sessões:** Sessões autenticadas com TTL de 1 hora
 
 **Componentes a Implementar:**
-- Geração de desafios criptográficos
-- Verificação de respostas
-- Timeout de desafios
-- Proteção contra replay attacks
 
-**Endpoints Planejados:**
-- `POST /api/auth/challenge` - Solicita desafio
-- `POST /api/auth/respond` - Responde ao desafio
-- `POST /api/auth/verify` - Verifica resposta
+**Domain Layer:**
+- `AuthChallengeRequest.cs` - Desafio do iniciador
+- `AuthChallengeResponse.cs` - Resposta com contra-desafio
+- `AuthResponseRequest.cs` - Resposta ao contra-desafio
+- `AuthCompleteResponse.cs` - Status final de autenticação
+
+**Service Layer:**
+- `IAuthenticationService.cs` / `AuthenticationService.cs`
+  - `GenerateChallengeAsync()` - Gera desafio com nonce de 32 bytes
+  - `VerifyChallengeSignatureAsync()` - Verifica assinatura RSA do desafio
+  - `VerifyResponseSignatureAsync()` - Verifica resposta ao desafio
+  - `CreateAuthenticatedSessionAsync()` - Cria sessão após autenticação
+
+**API Layer:**
+- `POST /api/channel/challenge` - Recebe desafio do iniciador, retorna contra-desafio
+- `POST /api/channel/authenticate` - Verifica resposta, retorna sessão autenticada
+
+**Security Features:**
+- ✅ Nonces de 32 bytes (criptograficamente seguros)
+- ✅ Assinaturas RSA-2048 de `{NodeId}|{Nonce}|{Timestamp}`
+- ✅ Desafios one-time use (invalidados após verificação)
+- ✅ Timestamp validation (±5 minutos)
+- ✅ Challenge TTL (5 minutos máximo)
+- ✅ Session TTL (1 hora padrão, configurável)
+
+**Testing Strategy:**
+- Unit tests: `AuthenticationServiceTests.cs`
+- Integration tests: `Phase3AuthenticationTests.cs`
+- Security tests: `Phase3SecurityTests.cs` (replay attacks, signature forgery)
+
+**Documentation:** Ver plano detalhado em `docs/development/phase3-authentication-plan.md`
 
 ### Fase 4: Estabelecimento de Sessão (Planejada)
 

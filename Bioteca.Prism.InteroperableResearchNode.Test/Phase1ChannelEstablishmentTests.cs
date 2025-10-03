@@ -1,9 +1,7 @@
 using System.Net;
-using System.Net.Http.Json;
 using Bioteca.Prism.Core.Security.Cryptography.Interfaces;
 using Bioteca.Prism.Domain.Requests.Node;
 using Bioteca.Prism.Domain.Responses.Node;
-using Bioteca.Prism.Service.Interfaces.Node;
 using FluentAssertions;
 
 namespace Bioteca.Prism.InteroperableResearchNode.Test;

@@ -2,7 +2,7 @@ using Bioteca.Prism.Domain.Errors.Node;
 using Bioteca.Prism.Domain.Requests.Node;
 using Bioteca.Prism.Domain.Responses.Node;
 
-namespace Bioteca.Prism.Service.Interfaces.Node;
+namespace Bioteca.Prism.Core.Middleware.Node;
 
 /// <summary>
 /// Client service for initiating channel handshake with remote nodes

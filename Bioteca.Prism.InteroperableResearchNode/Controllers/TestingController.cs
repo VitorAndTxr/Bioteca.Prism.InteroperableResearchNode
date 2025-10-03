@@ -1,10 +1,7 @@
 using Bioteca.Prism.Core.Middleware.Channel;
+using Bioteca.Prism.Core.Security.Certificate;
 using Bioteca.Prism.Core.Security.Cryptography.Interfaces;
-using Bioteca.Prism.Data.Cache.Channel;
-using Bioteca.Prism.Service.Interfaces.Node;
-using Bioteca.Prism.Service.Services.Node;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
 
 namespace Bioteca.Prism.InteroperableResearchNode.Controllers;

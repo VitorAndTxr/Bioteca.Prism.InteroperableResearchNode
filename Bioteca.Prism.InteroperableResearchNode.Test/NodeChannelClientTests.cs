@@ -1,7 +1,7 @@
+using Bioteca.Prism.Core.Middleware.Node;
+using Bioteca.Prism.Core.Security.Certificate;
 using Bioteca.Prism.Domain.Requests.Node;
-using Bioteca.Prism.Service.Interfaces.Node;
 using FluentAssertions;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Bioteca.Prism.InteroperableResearchNode.Test;
 
@@ -86,11 +86,11 @@ public class NodeChannelClientTests : IClassFixture<TestWebApplicationFactory>
             var channelResult = await _channelClient.OpenChannelAsync(remoteUrl);
 
             // Generate certificate
-            var certificate = Service.Services.Node.CertificateHelper.GenerateSelfSignedCertificate(
+            var certificate = CertificateHelper.GenerateSelfSignedCertificate(
                 "client-test-node-001",
                 1);
 
-            var certBase64 = Service.Services.Node.CertificateHelper.ExportCertificateToBase64(certificate);
+            var certBase64 = CertificateHelper.ExportCertificateToBase64(certificate);
 
             var registrationRequest = new NodeRegistrationRequest
             {
@@ -139,15 +139,15 @@ public class NodeChannelClientTests : IClassFixture<TestWebApplicationFactory>
             var channelResult = await _channelClient.OpenChannelAsync(remoteUrl);
 
             // Generate certificate and sign data
-            var certificate = Service.Services.Node.CertificateHelper.GenerateSelfSignedCertificate(
+            var certificate = CertificateHelper.GenerateSelfSignedCertificate(
                 "unknown-client-node",
                 1);
 
-            var certBase64 = Service.Services.Node.CertificateHelper.ExportCertificateToBase64(certificate);
+            var certBase64 = CertificateHelper.ExportCertificateToBase64(certificate);
 
             var timestamp = DateTime.UtcNow;
             var signedData = $"{channelResult.ChannelId}unknown-client-node{timestamp:O}";
-            var signature = Service.Services.Node.CertificateHelper.SignData(signedData, certificate);
+            var signature = CertificateHelper.SignData(signedData, certificate);
 
             var identifyRequest = new NodeIdentifyRequest
             {
@@ -188,11 +188,11 @@ public class NodeChannelClientTests : IClassFixture<TestWebApplicationFactory>
         {
             var channelResult = await _channelClient.OpenChannelAsync(remoteUrl);
 
-            var certificate = Service.Services.Node.CertificateHelper.GenerateSelfSignedCertificate(
+            var certificate = CertificateHelper.GenerateSelfSignedCertificate(
                 "pending-client-node",
                 1);
 
-            var certBase64 = Service.Services.Node.CertificateHelper.ExportCertificateToBase64(certificate);
+            var certBase64 = CertificateHelper.ExportCertificateToBase64(certificate);
 
             // Register first
             var registrationRequest = new NodeRegistrationRequest
@@ -213,7 +213,7 @@ public class NodeChannelClientTests : IClassFixture<TestWebApplicationFactory>
             // Generate signature for identification
             var timestamp = DateTime.UtcNow;
             var signedData = $"{channelResult.ChannelId}pending-client-node{timestamp:O}";
-            var signature = Service.Services.Node.CertificateHelper.SignData(signedData, certificate);
+            var signature = CertificateHelper.SignData(signedData, certificate);
 
             var identifyRequest = new NodeIdentifyRequest
             {
@@ -270,11 +270,11 @@ public class NodeChannelClientTests : IClassFixture<TestWebApplicationFactory>
         channelResult.Success.Should().BeTrue();
 
         // Step 2: Generate certificate
-        var certificate = Service.Services.Node.CertificateHelper.GenerateSelfSignedCertificate(
+        var certificate = CertificateHelper.GenerateSelfSignedCertificate(
             nodeId,
             1);
 
-        var certBase64 = Service.Services.Node.CertificateHelper.ExportCertificateToBase64(certificate);
+        var certBase64 = CertificateHelper.ExportCertificateToBase64(certificate);
 
         // Step 3: Register
         var registrationRequest = new NodeRegistrationRequest
@@ -298,7 +298,7 @@ public class NodeChannelClientTests : IClassFixture<TestWebApplicationFactory>
         // Step 4: Identify (should be Pending)
         var timestamp1 = DateTime.UtcNow;
         var signedData1 = $"{channelResult.ChannelId}{nodeId}{timestamp1:O}";
-        var signature1 = Service.Services.Node.CertificateHelper.SignData(signedData1, certificate);
+        var signature1 = CertificateHelper.SignData(signedData1, certificate);
 
         var identifyRequest1 = new NodeIdentifyRequest
         {
@@ -328,7 +328,7 @@ public class NodeChannelClientTests : IClassFixture<TestWebApplicationFactory>
         // Step 6: Identify again (should be Authorized)
         var timestamp2 = DateTime.UtcNow;
         var signedData2 = $"{channelResult.ChannelId}{nodeId}{timestamp2:O}";
-        var signature2 = Service.Services.Node.CertificateHelper.SignData(signedData2, certificate);
+        var signature2 = CertificateHelper.SignData(signedData2, certificate);
 
         var identifyRequest2 = new NodeIdentifyRequest
         {

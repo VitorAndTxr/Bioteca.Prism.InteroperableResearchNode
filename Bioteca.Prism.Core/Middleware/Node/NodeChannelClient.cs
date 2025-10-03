@@ -1,5 +1,3 @@
-
-using Bioteca.Prism.Service.Interfaces.Node;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
@@ -7,11 +5,11 @@ using System.Net.Http.Json;
 using Bioteca.Prism.Domain.Requests.Node;
 using Bioteca.Prism.Domain.Errors.Node;
 using Bioteca.Prism.Domain.Responses.Node;
-using Bioteca.Prism.Data.Cache.Channel;
 using Bioteca.Prism.Core.Security.Cryptography.Interfaces;
 using Bioteca.Prism.Core.Middleware.Channel;
+using System.Net.Http;
 
-namespace Bioteca.Prism.Service.Services.Node;
+namespace Bioteca.Prism.Core.Middleware.Node;
 
 /// <summary>
 /// Client implementation for initiating channel handshake with remote nodes

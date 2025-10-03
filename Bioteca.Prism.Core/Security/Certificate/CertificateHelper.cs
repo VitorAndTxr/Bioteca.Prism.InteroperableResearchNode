@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 
-namespace Bioteca.Prism.Service.Services.Node;
+namespace Bioteca.Prism.Core.Security.Certificate;
 
 /// <summary>
 /// Helper class for certificate generation and signing (for testing purposes)

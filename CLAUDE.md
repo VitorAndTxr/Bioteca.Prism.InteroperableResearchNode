@@ -19,10 +19,17 @@ Bioteca.Prism.Domain/          # Domain layer (entities, DTOs)
 ├── Responses/Node/            # Response DTOs
 └── Errors/Node/               # Error models
 
+Bioteca.Prism.Core/            # Core layer (middleware, attributes)
+├── Middleware/Channel/        # Channel validation attributes
+│   ├── PrismChannelConnectionAttribute.cs        # Channel validation (commented out)
+│   ├── PrismEncryptedChannelConnectionAttribute.cs  # Encrypted payload handling
+│   ├── ChannelContext.cs      # Channel state
+│   └── IChannelStore.cs       # Channel storage interface
+├── Middleware/Node/           # Node-specific middleware
+└── Security/                  # Security utilities
+
 Bioteca.Prism.Service/         # Service layer (business logic)
 └── Services/Node/             # Node-specific services
-    ├── EphemeralKeyService.cs           # ECDH P-384 ephemeral keys
-    ├── ChannelEncryptionService.cs      # HKDF + AES-256-GCM
     ├── NodeChannelClient.cs             # HTTP client for handshake
     ├── NodeRegistryService.cs           # Node registry (in-memory)
     └── CertificateHelper.cs             # X.509 utilities
@@ -30,6 +37,7 @@ Bioteca.Prism.Service/         # Service layer (business logic)
 Bioteca.Prism.InteroperableResearchNode/  # API layer
 ├── Controllers/
 │   ├── ChannelController.cs    # Phases 1-2 endpoints
+│   ├── NodeConnectionController.cs  # Node registration/management
 │   └── TestingController.cs    # Dev/test utilities
 └── Program.cs                  # DI container
 ```
@@ -47,6 +55,7 @@ Bioteca.Prism.InteroperableResearchNode/  # API layer
 - X.509 certificate-based identification
 - RSA-2048 digital signatures
 - Node registry with approval workflow (Unknown → Pending → Authorized/Revoked)
+- **Encrypted payload handling via `PrismEncryptedChannelConnectionAttribute<T>`**
 - Endpoints: `/api/channel/identify`, `/api/node/register`, `/api/node/{nodeId}/status`
 
 **Phase 3: Mutual Authentication (📋 Planned)**
@@ -57,18 +66,39 @@ Bioteca.Prism.InteroperableResearchNode/  # API layer
 - Session tokens and capabilities
 - Rate limiting and metrics
 
-### Critical Security Requirement
+### Attribute-Based Request Processing (Phase 2+)
 
-⚠️ **IMPORTANT**: Once a channel is established (Phase 1), **ALL subsequent communications (Phases 2-4) MUST be encrypted** using the channel's symmetric key. This is currently NOT implemented.
+**`PrismEncryptedChannelConnectionAttribute<T>`** - Resource filter for encrypted channel communications:
 
-See implementation plan: `docs/development/channel-encryption-plan.md`
+- **Type**: `IAsyncResourceFilter` (runs before model binding)
+- **Purpose**: Validates channel, decrypts payload, verifies signatures
+- **Location**: `Bioteca.Prism.Core/Middleware/Channel/`
 
-Current implementation incorrectly sends Phase 2+ payloads in plaintext. The payload format should be:
+**Flow**:
+1. Validates `X-Channel-Id` header exists
+2. Retrieves `ChannelContext` from `IChannelStore`
+3. Reads encrypted request body (enables buffering with `EnableBuffering()`)
+4. Decrypts `EncryptedPayload` using channel's symmetric key
+5. For `NodeIdentifyRequest`: verifies RSA signature
+6. Stores decrypted request in `HttpContext.Items["DecryptedRequest"]`
+
+**Payload Format** (all Phase 2+ requests):
 ```json
 {
   "encryptedData": "base64-encoded-ciphertext",
   "iv": "base64-encoded-iv",
   "authTag": "base64-encoded-auth-tag"
+}
+```
+
+**Usage Example**:
+```csharp
+[HttpPost("identify")]
+[PrismEncryptedChannelConnection<NodeIdentifyRequest>]
+public async Task<IActionResult> Identify()
+{
+    var request = HttpContext.Items["DecryptedRequest"] as NodeIdentifyRequest;
+    // ... process request
 }
 ```
 

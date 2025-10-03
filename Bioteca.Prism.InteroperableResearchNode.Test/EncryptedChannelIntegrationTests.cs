@@ -1,9 +1,9 @@
 using System.Net;
 using System.Net.Http.Json;
+using Bioteca.Prism.Core.Security.Certificate;
 using Bioteca.Prism.Core.Security.Cryptography.Interfaces;
 using Bioteca.Prism.Domain.Requests.Node;
 using Bioteca.Prism.Domain.Responses.Node;
-using Bioteca.Prism.Service.Interfaces.Node;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -271,11 +271,11 @@ public class EncryptedChannelIntegrationTests
 
     private (System.Security.Cryptography.X509Certificates.X509Certificate2 certificate, string certBase64) GenerateTestCertificate(string nodeId)
     {
-        var cert = Service.Services.Node.CertificateHelper.GenerateSelfSignedCertificate(
+        var cert = CertificateHelper.GenerateSelfSignedCertificate(
             nodeId,
             1);
 
-        var certBase64 = Service.Services.Node.CertificateHelper.ExportCertificateToBase64(cert);
+        var certBase64 = CertificateHelper.ExportCertificateToBase64(cert);
         return (cert, certBase64);
     }
 
@@ -284,7 +284,7 @@ public class EncryptedChannelIntegrationTests
         // Generate real signature using the provided certificate
         var timestamp = DateTime.UtcNow;
         var signedData = $"{channelId}{nodeId}{timestamp:O}";
-        var signature = Service.Services.Node.CertificateHelper.SignData(signedData, certificate);
+        var signature = CertificateHelper.SignData(signedData, certificate);
 
         return (signature, timestamp, signedData);
     }

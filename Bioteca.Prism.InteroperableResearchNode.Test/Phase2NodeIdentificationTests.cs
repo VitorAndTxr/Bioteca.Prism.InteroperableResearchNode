@@ -1,12 +1,10 @@
 using System.Net;
-using System.Net.Http.Json;
 using System.Security.Cryptography.X509Certificates;
+using Bioteca.Prism.Core.Security.Certificate;
 using Bioteca.Prism.Core.Security.Cryptography.Interfaces;
 using Bioteca.Prism.Domain.Requests.Node;
 using Bioteca.Prism.Domain.Responses.Node;
-using Bioteca.Prism.Service.Interfaces.Node;
 using FluentAssertions;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Bioteca.Prism.InteroperableResearchNode.Test;
 
@@ -33,8 +31,8 @@ public class Phase2NodeIdentificationTests : IClassFixture<TestWebApplicationFac
         var encryptionService = _factory.Services.GetRequiredService<IChannelEncryptionService>();
 
         // Generate certificate for test node
-        var cert = Service.Services.Node.CertificateHelper.GenerateSelfSignedCertificate("test-node-001", 1);
-        var certificate = Service.Services.Node.CertificateHelper.ExportCertificateToBase64(cert);
+        var cert = CertificateHelper.GenerateSelfSignedCertificate("test-node-001", 1);
+        var certificate = CertificateHelper.ExportCertificateToBase64(cert);
 
         var registrationRequest = new NodeRegistrationRequest
         {
@@ -79,8 +77,8 @@ public class Phase2NodeIdentificationTests : IClassFixture<TestWebApplicationFac
         var encryptionService = _factory.Services.GetRequiredService<IChannelEncryptionService>();
 
         // Generate certificate and signature
-        var cert = Service.Services.Node.CertificateHelper.GenerateSelfSignedCertificate("unknown-node-999", 1);
-        var certificate = Service.Services.Node.CertificateHelper.ExportCertificateToBase64(cert);
+        var cert = CertificateHelper.GenerateSelfSignedCertificate("unknown-node-999", 1);
+        var certificate = CertificateHelper.ExportCertificateToBase64(cert);
         var (signature, timestamp, signedData) = SignData(channelId, "unknown-node-999", cert);
 
         var identifyRequest = new NodeIdentifyRequest
@@ -123,8 +121,8 @@ public class Phase2NodeIdentificationTests : IClassFixture<TestWebApplicationFac
         var encryptionService = _factory.Services.GetRequiredService<IChannelEncryptionService>();
 
         // Generate signature
-        var cert = Service.Services.Node.CertificateHelper.GenerateSelfSignedCertificate(nodeId, 1);
-        var certificate = Service.Services.Node.CertificateHelper.ExportCertificateToBase64(cert);
+        var cert = CertificateHelper.GenerateSelfSignedCertificate(nodeId, 1);
+        var certificate = CertificateHelper.ExportCertificateToBase64(cert);
         var (signature, timestamp, signedData) = SignData(channelId, nodeId, cert);
 
         var identifyRequest = new NodeIdentifyRequest
@@ -168,8 +166,8 @@ public class Phase2NodeIdentificationTests : IClassFixture<TestWebApplicationFac
         var encryptionService = _factory.Services.GetRequiredService<IChannelEncryptionService>();
 
         // Generate signature
-        var cert = Service.Services.Node.CertificateHelper.GenerateSelfSignedCertificate(nodeId, 1);
-        var certificate = Service.Services.Node.CertificateHelper.ExportCertificateToBase64(cert);
+        var cert = CertificateHelper.GenerateSelfSignedCertificate(nodeId, 1);
+        var certificate = CertificateHelper.ExportCertificateToBase64(cert);
         var (signature, timestamp, signedData) = SignData(channelId, nodeId, cert);
 
         var identifyRequest = new NodeIdentifyRequest
@@ -308,8 +306,8 @@ public class Phase2NodeIdentificationTests : IClassFixture<TestWebApplicationFac
     {
         var encryptionService = _factory.Services.GetRequiredService<IChannelEncryptionService>();
 
-        var cert = Service.Services.Node.CertificateHelper.GenerateSelfSignedCertificate(nodeId, 1);
-        var certificate = Service.Services.Node.CertificateHelper.ExportCertificateToBase64(cert);
+        var cert = CertificateHelper.GenerateSelfSignedCertificate(nodeId, 1);
+        var certificate = CertificateHelper.ExportCertificateToBase64(cert);
 
         var registrationRequest = new NodeRegistrationRequest
         {
@@ -348,7 +346,7 @@ public class Phase2NodeIdentificationTests : IClassFixture<TestWebApplicationFac
         // Generate real signature using the provided certificate
         var timestamp = DateTime.UtcNow;
         var signedData = $"{channelId}{nodeId}{timestamp:O}";
-        var signature = Service.Services.Node.CertificateHelper.SignData(signedData, certificate);
+        var signature = CertificateHelper.SignData(signedData, certificate);
 
         return (signature, timestamp, signedData);
     }

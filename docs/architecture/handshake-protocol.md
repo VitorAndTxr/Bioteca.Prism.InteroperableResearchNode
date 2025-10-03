@@ -1,7 +1,7 @@
 # Protocolo de Handshake entre Nós IRN
 
-**Status**: 📋 Planejado
-**Última atualização**: 2025-10-01
+**Status**: ✅ Fase 2 Completa | 📋 Fase 3 Planejada
+**Última atualização**: 2025-10-03
 **Responsável**: Desenvolvimento inicial
 
 ## Visão Geral
@@ -67,15 +67,17 @@ Nó A (Iniciador)                    Nó B (Receptor)
 - As **chaves efêmeras são descartadas** ao final da sessão
 - Isto proporciona **Perfect Forward Secrecy (PFS)**: mesmo que chaves privadas permanentes sejam comprometidas no futuro, sessões passadas permanecem seguras
 
-**⚠️ REQUISITO CRÍTICO DE SEGURANÇA**: A partir deste ponto, **TODAS as mensagens** subsequentes (Fases 2, 3 e 4) **DEVEM ser criptografadas** usando as chaves simétricas derivadas do canal estabelecido na Fase 1.
+**✅ IMPLEMENTADO - REQUISITO CRÍTICO DE SEGURANÇA**: A partir deste ponto, **TODAS as mensagens** subsequentes (Fases 2, 3 e 4) **SÃO criptografadas** usando as chaves simétricas derivadas do canal estabelecido na Fase 1.
 
-**Implementação Obrigatória**:
-- O `ChannelId` retornado no header `X-Channel-Id` da resposta `CHANNEL_READY` deve ser incluído em **todas** as requisições subsequentes
-- Cada requisição deve incluir no header: `X-Channel-Id: {channelId}`
-- O payload de todas as mensagens das Fases 2-4 deve ser criptografado com AES-256-GCM usando a chave simétrica derivada
-- O servidor deve validar que o `ChannelId` existe e não está expirado antes de processar qualquer requisição
-- O servidor deve descriptografar o payload usando a chave simétrica associada ao canal
-- Respostas devem ser igualmente criptografadas antes de serem enviadas
+**Implementação via `PrismEncryptedChannelConnectionAttribute<T>`** (`IAsyncResourceFilter`):
+- O `ChannelId` retornado no header `X-Channel-Id` da resposta `CHANNEL_READY` é incluído em **todas** as requisições subsequentes
+- Cada requisição inclui no header: `X-Channel-Id: {channelId}`
+- O payload de todas as mensagens das Fases 2-4 é criptografado com AES-256-GCM usando a chave simétrica derivada
+- O atributo valida que o `ChannelId` existe e não está expirado antes de processar qualquer requisição
+- O atributo descriptografa automaticamente o payload usando a chave simétrica associada ao canal
+- Para `NodeIdentifyRequest`, o atributo também verifica a assinatura RSA do nó
+- O request descriptografado é armazenado em `HttpContext.Items["DecryptedRequest"]`
+- Respostas são criptografadas usando `ChannelEncryptionService.EncryptPayload()`
 
 **Formato do Payload Criptografado**:
 ```json

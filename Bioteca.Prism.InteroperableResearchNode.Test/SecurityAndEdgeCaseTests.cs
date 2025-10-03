@@ -1,11 +1,9 @@
 using System.Net;
-using System.Net.Http.Json;
+using Bioteca.Prism.Core.Security.Certificate;
 using Bioteca.Prism.Core.Security.Cryptography.Interfaces;
 using Bioteca.Prism.Domain.Requests.Node;
 using Bioteca.Prism.Domain.Responses.Node;
-using Bioteca.Prism.Service.Interfaces.Node;
 using FluentAssertions;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Bioteca.Prism.InteroperableResearchNode.Test;
 
@@ -590,7 +588,7 @@ public class SecurityAndEdgeCaseTests : IClassFixture<TestWebApplicationFactory>
 
     private string GenerateTestCertificate(string nodeId)
     {
-        var cert = Service.Services.Node.CertificateHelper.GenerateSelfSignedCertificate(
+        var cert = CertificateHelper.GenerateSelfSignedCertificate(
             nodeId,
             1);
 
