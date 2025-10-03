@@ -28,9 +28,10 @@ public interface IChallengeService
     /// Generate authentication result and session token
     /// </summary>
     /// <param name="nodeId">Node ID</param>
+    /// <param name="channelId">Channel ID</param>
     /// <param name="grantedCapabilities">List of capabilities to grant</param>
     /// <returns>Authentication response with session token</returns>
-    Task<AuthenticationResponse> GenerateAuthenticationResultAsync(string nodeId, List<string> grantedCapabilities);
+    Task<AuthenticationResponse> GenerateAuthenticationResultAsync(string nodeId, string channelId, List<string> grantedCapabilities);
 
     /// <summary>
     /// Invalidate a challenge (cleanup after successful authentication or timeout)

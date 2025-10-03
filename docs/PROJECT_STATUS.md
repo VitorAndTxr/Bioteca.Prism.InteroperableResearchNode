@@ -1,26 +1,29 @@
 # Project Status Report - IRN
 
-**Data:** 2025-10-03 - 06:00
-**Versão:** 0.5.1
-**Status Geral:** ✅ Fase 3 Completa (Autenticação Mútua) | 📋 Fase 4 Planejada
+**Data:** 2025-10-03 - 12:00
+**Versão:** 0.6.0
+**Status Geral:** ✅ Fase 4 Completa (Protocolo de Handshake Finalizado)
 
 ---
 
 ## 📊 Resumo Executivo
 
-O projeto **Interoperable Research Node (IRN)** está com as **Fases 1, 2 e 3** do protocolo de handshake **completamente implementadas, testadas e validadas**. O sistema é capaz de:
+O projeto **Interoperable Research Node (IRN)** está com **todas as 4 Fases** do protocolo de handshake **completamente implementadas, testadas e validadas**. O sistema é capaz de:
 
-1. ✅ Estabelecer canais criptografados seguros entre nós usando chaves efêmeras (Fase 1)
-2. ✅ Identificar e autorizar nós usando certificados X.509 e assinaturas digitais (Fase 2)
-3. ✅ Processar payloads criptografados via `PrismEncryptedChannelConnectionAttribute<T>` (Fases 2-3)
-4. ✅ **NOVO**: Autenticar nós usando challenge-response com prova de posse de chave privada (Fase 3)
-5. ✅ **NOVO**: Gerar e gerenciar session tokens com TTL de 1 hora (Fase 3)
-6. ✅ Gerenciar registro de nós desconhecidos com workflow de aprovação
-7. ✅ Rodar em containers Docker com configuração multi-nó
-8. ✅ Validar rigorosamente todos os inputs com proteção contra ataques
-9. ✅ Proteger contra replay attacks com validação de timestamp
-10. ✅ 100% de cobertura de testes (61/61 testes passando)
-11. 📋 **PRÓXIMO**: Fase 4 - Estabelecimento de Sessão e Capacidades
+1. ✅ Estabelecer canais criptografados seguros entre nós usando chaves efêmeras ECDH P-384 (Fase 1)
+2. ✅ Identificar e autorizar nós usando certificados X.509 e assinaturas digitais RSA-2048 (Fase 2)
+3. ✅ Processar payloads criptografados via AES-256-GCM com `PrismEncryptedChannelConnectionAttribute<T>` (Fases 2-4)
+4. ✅ Autenticar nós usando challenge-response com prova de posse de chave privada (Fase 3)
+5. ✅ Gerar e gerenciar session tokens com TTL configurável (Fase 3-4)
+6. ✅ **NOVO (Fase 4)**: Gerenciar ciclo de vida de sessões autenticadas (whoami, renew, revoke, metrics)
+7. ✅ **NOVO (Fase 4)**: Autorização baseada em capacidades (query:read, data:write, admin:node, etc.)
+8. ✅ **NOVO (Fase 4)**: Rate limiting por sessão (60 req/min) com token bucket algorithm
+9. ✅ **NOVO (Fase 4)**: Todos endpoints de sessão criptografados via canal AES-256-GCM
+10. ✅ Gerenciar registro de nós desconhecidos com workflow de aprovação
+11. ✅ Rodar em containers Docker com configuração multi-nó
+12. ✅ Validar rigorosamente todos os inputs com proteção contra ataques
+13. ✅ Proteger contra replay attacks com validação de timestamp
+14. 🎉 **Protocolo de Handshake Completo - Pronto para Federated Queries (Fase 5)**
 
 ---
 
@@ -535,89 +538,98 @@ docker-compose down
 
 **Documentation:** Ver plano detalhado em `docs/development/phase3-authentication-plan.md`
 
-### 📋 Fase 4: Estabelecimento de Sessão e Controle de Acesso (Próximo Passo)
+### ✅ Fase 4: Gerenciamento de Sessão e Controle de Acesso (COMPLETA - 2025-10-03 12:00)
 
-**Status:** Pronto para implementação | Session tokens já gerados na Fase 3
+**Status:** ✅ Implementado, Testado e Documentado
 
-**Objetivo:** Validar e utilizar session tokens para controlar acesso a recursos protegidos baseado em capabilities.
+**Objetivo:** Gerenciar ciclo de vida de sessões autenticadas com autorização baseada em capacidades e rate limiting.
 
-**Componentes a Implementar:**
+**IMPORTANTE:** Todos os endpoints de Fase 4 usam criptografia AES-256-GCM via canal (igual Fases 2-3). Session token vai **dentro** do payload criptografado, **NÃO** em headers HTTP.
 
-1. **`ISessionService` e `SessionService`**
+**Componentes Implementados:**
+
+1. **✅ `ISessionService` e `SessionService`** (`Bioteca.Prism.Service/Services/Session/`)
    - `ValidateSessionAsync(token)` - Valida token e retorna contexto de sessão
-   - `RenewSessionAsync(token)` - Estende TTL da sessão (antes de expirar)
+   - `RenewSessionAsync(token, additionalSeconds)` - Estende TTL da sessão
    - `RevokeSessionAsync(token)` - Invalida sessão (logout)
    - `GetSessionMetricsAsync(nodeId)` - Métricas de uso
-   - `CleanupExpiredSessionsAsync()` - Background job para limpeza
+   - `CleanupExpiredSessionsAsync()` - Limpeza de sessões expiradas
+   - `RecordRequestAsync(token)` - Rate limiting (60 req/min)
 
-2. **`PrismAuthenticatedSessionAttribute`** (Middleware/Filter)
-   - Valida header `Authorization: Bearer {sessionToken}`
-   - Verifica se sessão não expirou
+2. **✅ `PrismAuthenticatedSessionAttribute`** (`Bioteca.Prism.InteroperableResearchNode/Middleware/`)
+   - Extrai session token do **payload descriptografado** (usa reflexão)
+   - Verifica se sessão não expirou (TTL de 1 hora padrão)
    - Carrega `SessionContext` com capabilities do nó
    - Armazena contexto em `HttpContext.Items["SessionContext"]`
    - Rejeita requisições sem token ou com token inválido/expirado
+   - Enforces rate limiting (60 req/min) com token bucket algorithm
+   - Suporta autorização por capacidade: `[PrismAuthenticatedSession(RequiredCapability = "admin:node")]`
 
-3. **`SessionContext`** (Domain Model)
-   ```csharp
-   public class SessionContext
-   {
-       public string SessionToken { get; set; }
-       public string NodeId { get; set; }
-       public string ChannelId { get; set; }
-       public List<string> GrantedCapabilities { get; set; }
-       public DateTime CreatedAt { get; set; }
-       public DateTime ExpiresAt { get; set; }
-       public DateTime? LastActivityAt { get; set; }
-       public int RequestCount { get; set; }
+3. **✅ Domain Models**
+   - `SessionData` (`Bioteca.Prism.Domain/Entities/Session/`) - Entidade armazenada
+   - `SessionContext` (`Bioteca.Prism.Core/Middleware/Session/`) - Contexto em runtime
+   - `SessionMetrics` - Métricas agregadas
 
-       public bool HasCapability(string capability)
-           => GrantedCapabilities.Contains(capability);
-   }
-   ```
+4. **✅ Request DTOs** (Todos com `SessionToken`, `ChannelId`, `Timestamp`)
+   - `WhoAmIRequest`
+   - `RenewSessionRequest`
+   - `RevokeSessionRequest`
+   - `GetMetricsRequest`
 
-**Capabilities Planejadas:**
+**Capabilities Implementadas:**
 - `query:read` - Executar queries federadas (leitura)
 - `query:aggregate` - Queries de agregação cross-node
 - `data:write` - Submeter dados de pesquisa
 - `data:delete` - Deletar dados próprios
 - `admin:node` - Administração do nó
 
-**Endpoints a Implementar:**
+**Endpoints Implementados:**
 
-**Session Management:**
-- `GET /api/session/whoami` - Info da sessão atual (teste)
-  - Requires: `[PrismAuthenticatedSession]`
-  - Returns: `{nodeId, capabilities, expiresAt, ...}`
-- `POST /api/session/renew` - Renova sessão (estende TTL)
-  - Requires: `[PrismAuthenticatedSession]`
-  - Returns: `{newExpiresAt}`
-- `POST /api/session/revoke` - Revoga sessão (logout)
-  - Requires: `[PrismAuthenticatedSession]`
-  - Returns: `{success: true}`
+**Session Management** (todos usam canal criptografado):
+- ✅ `POST /api/session/whoami` - Info da sessão atual
+  - Attributes: `[PrismEncryptedChannelConnection<WhoAmIRequest>]` + `[PrismAuthenticatedSession]`
+  - Request: `{channelId, sessionToken, timestamp}` (encrypted)
+  - Response: `{sessionToken, nodeId, capabilities, expiresAt, ...}` (encrypted)
 
-**Protected Resources (Examples):**
-- `POST /api/query/execute` - Executa query federada
-  - Requires: `[PrismAuthenticatedSession]` + capability `query:read`
-  - Payload: Criptografado via canal (Fase 1)
-- `POST /api/data/submit` - Submete dados
-  - Requires: `[PrismAuthenticatedSession]` + capability `data:write`
-  - Payload: Criptografado via canal (Fase 1)
+- ✅ `POST /api/session/renew` - Renova sessão (estende TTL)
+  - Attributes: `[PrismEncryptedChannelConnection<RenewSessionRequest>]` + `[PrismAuthenticatedSession]`
+  - Request: `{channelId, sessionToken, additionalSeconds, timestamp}` (encrypted)
+  - Response: `{sessionToken, expiresAt, remainingSeconds, ...}` (encrypted)
+
+- ✅ `POST /api/session/revoke` - Revoga sessão (logout)
+  - Attributes: `[PrismEncryptedChannelConnection<RevokeSessionRequest>]` + `[PrismAuthenticatedSession]`
+  - Request: `{channelId, sessionToken, timestamp}` (encrypted)
+  - Response: `{revoked: true, message}` (encrypted)
+
+- ✅ `POST /api/session/metrics` - Métricas de sessão (requer `admin:node`)
+  - Attributes: `[PrismEncryptedChannelConnection<GetMetricsRequest>]` + `[PrismAuthenticatedSession(RequiredCapability = "admin:node")]`
+  - Request: `{channelId, sessionToken, nodeId?, timestamp}` (encrypted)
+  - Response: `{nodeId, activeSessions, totalRequests, ...}` (encrypted)
+
+**Formato de Payload** (todos endpoints):
+```json
+HTTP Body: {
+  "encryptedData": "base64-AES-256-GCM-ciphertext",
+  "iv": "base64-iv",
+  "authTag": "base64-auth-tag"
+}
+```
 
 **Rate Limiting & Metrics:**
-- Track requests per session (counter em `SessionContext.RequestCount`)
-- Limites por capability (ex: 100 queries/minuto para `query:read`)
-- Prometheus metrics: `irn_session_active_total`, `irn_session_requests_total`
-- Audit log para todas operações autenticadas
+- ✅ Token bucket algorithm: 60 requests/minute per session
+- ✅ Track requests per session (`RequestCount`)
+- ✅ Returns HTTP 429 quando limite excedido
+- ✅ Métricas: active sessions, total requests, used capabilities
 
 **Testing:**
-- Unit tests para `SessionService`
-- Integration tests para `PrismAuthenticatedSessionAttribute`
-- End-to-end test com session token obtido da Fase 3
-- Rate limiting tests
+- ✅ `Phase4SessionManagementTests.cs` - 8 integration tests
+- ✅ `test-phase4.sh` - End-to-end script completo (Phases 1+2+3+4)
+- ✅ Build bem-sucedido (0 erros)
 
 **Documentação:**
-- `docs/architecture/phase4-session-management.md` - Arquitetura detalhada
-- Update `docs/testing/manual-testing-guide.md` com Fase 4
+- ✅ `CLAUDE.md` - Atualizado com Phase 4
+- ✅ `docs/architecture/handshake-protocol.md` - Phase 4 adicionada
+- ✅ `docs/architecture/phase4-session-management.md` - Arquitetura detalhada
 
 ### Melhorias Técnicas
 

@@ -1,9 +1,11 @@
 using Bioteca.Prism.Core.Middleware.Channel;
 using Bioteca.Prism.Core.Middleware.Node;
+using Bioteca.Prism.Core.Middleware.Session;
 using Bioteca.Prism.Core.Security.Cryptography;
 using Bioteca.Prism.Core.Security.Cryptography.Interfaces;
 using Bioteca.Prism.Data.Cache.Channel;
 using Bioteca.Prism.Service.Services.Node;
+using Bioteca.Prism.Service.Services.Session;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -35,6 +37,9 @@ builder.Services.AddSingleton<Bioteca.Prism.Core.Middleware.Node.INodeRegistrySe
 
 // Register Phase 3 services (Mutual Authentication)
 builder.Services.AddSingleton<IChallengeService, ChallengeService>();
+
+// Register Phase 4 services (Session Management)
+builder.Services.AddSingleton<ISessionService, SessionService>();
 
 var app = builder.Build();
 

@@ -10,7 +10,8 @@
       "Bash(dotnet test:*)",
       "Bash(ConvertFrom-Json)",
       "Bash(ConvertTo-Json -Depth 10)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(Select-String -Pattern \"Error Message|Stack Trace|Failed|at Bioteca\" -Context 0,3)"
     ],
     "deny": [],
     "ask": []

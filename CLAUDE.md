@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Interoperable Research Node (IRN)** - Core component of the PRISM framework for federated biomedical research data. Enables secure, standardized communication between research nodes using cryptographic handshakes, node authentication, and federated queries.
 
-**Current Status**: Phase 3 Complete (Encrypted Channel + Node Identification + Mutual Authentication)
+**Current Status**: Phase 4 Complete (Encrypted Channel + Node Identification + Mutual Authentication + Session Management)
 
 ## Architecture
 
@@ -29,17 +29,22 @@ Bioteca.Prism.Core/            # Core layer (middleware, attributes)
 └── Security/                  # Security utilities
 
 Bioteca.Prism.Service/         # Service layer (business logic)
-└── Services/Node/             # Node-specific services
-    ├── NodeChannelClient.cs             # HTTP client for handshake
-    ├── NodeRegistryService.cs           # Node registry (in-memory)
-    ├── ChallengeService.cs              # Challenge-response authentication
-    └── CertificateHelper.cs             # X.509 utilities
+├── Services/Node/             # Node-specific services
+│   ├── NodeChannelClient.cs             # HTTP client for handshake
+│   ├── NodeRegistryService.cs           # Node registry (in-memory)
+│   ├── ChallengeService.cs              # Challenge-response authentication
+│   └── CertificateHelper.cs             # X.509 utilities
+└── Services/Session/          # Session management services
+    └── SessionService.cs                # Session lifecycle (Phase 4)
 
 Bioteca.Prism.InteroperableResearchNode/  # API layer
 ├── Controllers/
 │   ├── ChannelController.cs    # Phase 1 endpoints
 │   ├── NodeConnectionController.cs  # Phases 2-3 endpoints (registration, identification, authentication)
+│   ├── SessionController.cs    # Phase 4 endpoints (whoami, renew, revoke, metrics)
 │   └── TestingController.cs    # Dev/test utilities
+├── Middleware/
+│   └── PrismAuthenticatedSessionAttribute.cs  # Session validation filter
 └── Program.cs                  # DI container
 ```
 
@@ -66,9 +71,13 @@ Bioteca.Prism.InteroperableResearchNode/  # API layer
 - Session token generation (1-hour TTL)
 - Endpoints: `/api/node/challenge`, `/api/node/authenticate`
 
-**Phase 4: Session Establishment (📋 Planned)**
-- Session tokens and capabilities
-- Rate limiting and metrics
+**Phase 4: Session Management (✅ Complete)**
+- Bearer token authentication
+- Capability-based authorization
+- Session lifecycle (whoami, renew, revoke)
+- Rate limiting (60 requests/minute)
+- Session metrics and monitoring
+- Endpoints: `/api/session/whoami`, `/api/session/renew`, `/api/session/revoke`, `/api/session/metrics`
 
 ### Attribute-Based Request Processing (Phase 2+)
 
@@ -198,6 +207,7 @@ All services are registered as **Singleton** (shared state across requests):
 - `INodeChannelClient` - HTTP client for initiating handshakes
 - `INodeRegistryService` - Node registry (in-memory, will need DB in production)
 - `IChallengeService` - Challenge-response authentication (Phase 3)
+- `ISessionService` - Session lifecycle management (Phase 4)
 
 ### Channel Flow
 
@@ -241,6 +251,86 @@ All services are registered as **Singleton** (shared state across requests):
 - `/api/testing/authenticate` - Client-side wrapper for authentication
 - `test-phase3.sh` - Complete end-to-end automated test script
 
+### Phase 4: Session Management Flow
+
+**IMPORTANT**: All Phase 4 requests **MUST** be encrypted via the channel (like Phases 2-3). Session token is sent **inside** the encrypted payload, NOT in HTTP headers.
+
+1. **Session Creation** (automatic after Phase 3 authentication):
+   - `SessionService.CreateSessionAsync()` called by `ChallengeService`
+   - Generates GUID session token
+   - Sets 1-hour TTL (3600 seconds)
+   - Stores granted capabilities
+   - Returns session token in encrypted authentication response
+
+2. **Session Validation** (`PrismAuthenticatedSessionAttribute`):
+   - Runs AFTER `PrismEncryptedChannelConnection` middleware
+   - Extracts session token from **decrypted request payload** (NOT from HTTP header)
+   - Validates session exists and hasn't expired
+   - Checks required capability (if specified)
+   - Enforces rate limiting (60 requests/minute)
+   - Stores `SessionContext` in `HttpContext.Items`
+
+3. **Session Operations** (all encrypted via channel):
+   - **WhoAmI**: POST `/api/session/whoami` - Get current session info
+   - **Renew**: POST `/api/session/renew` - Extend session TTL
+   - **Revoke**: POST `/api/session/revoke` - Logout/invalidate session
+   - **Metrics**: POST `/api/session/metrics` - Get session metrics (requires `admin:node` capability)
+
+4. **Request Format** (all endpoints):
+```json
+{
+  "encryptedData": "base64-encoded-ciphertext",
+  "iv": "base64-encoded-iv",
+  "authTag": "base64-encoded-auth-tag"
+}
+```
+
+**Decrypted Payload Example** (WhoAmI):
+```json
+{
+  "channelId": "channel-id",
+  "sessionToken": "session-token-guid",
+  "timestamp": "2025-10-03T10:30:00Z"
+}
+```
+
+5. **Capability-Based Authorization**:
+   - `query:read` - Read/query federated data
+   - `query:aggregate` - Aggregate queries across nodes
+   - `data:write` - Submit research data
+   - `data:delete` - Delete owned data
+   - `admin:node` - Node administration
+
+6. **Rate Limiting**:
+   - Token bucket algorithm
+   - 60 requests per minute per session
+   - Returns `429 Too Many Requests` when exceeded
+
+**Usage Example**:
+```csharp
+[HttpPost("protected-endpoint")]
+[PrismEncryptedChannelConnection<ProtectedRequest>]  // REQUIRED: Decrypt request
+[PrismAuthenticatedSession(RequiredCapability = "query:read")]  // REQUIRED: Validate session
+public IActionResult ProtectedEndpoint()
+{
+    var channelContext = HttpContext.Items["ChannelContext"] as ChannelContext;
+    var sessionContext = HttpContext.Items["SessionContext"] as SessionContext;
+    var request = HttpContext.Items["DecryptedRequest"] as ProtectedRequest;
+
+    // Process request
+    var response = new { data = "encrypted response" };
+
+    // Encrypt response
+    var encrypted = _encryptionService.EncryptPayload(response, channelContext.SymmetricKey);
+    return Ok(encrypted);
+}
+```
+
+**Testing**:
+- `test-phase4.sh` - Complete end-to-end test script (Phases 1+2+3+4)
+- Tests: WhoAmI, authorization validation, renewal, revocation, rate limiting
+- All requests encrypted via AES-256-GCM channel
+
 ### Certificate Management
 
 **Development**: Auto-generated self-signed certificates
@@ -265,8 +355,9 @@ All services are registered as **Singleton** (shared state across requests):
 - `docs/PROJECT_STATUS.md` - Detailed status report
 
 ### Testing Scripts
-- `test-phase3.sh` - Complete end-to-end manual test (Phases 1+2+3) with Bash
-- `test-phase3-manual.ps1` - PowerShell version (has formatting issues, use .sh instead)
+- `test-phase4.sh` - **Complete end-to-end test (Phases 1+2+3+4)** with Bash - **Use this!**
+- `test-phase3.sh` - End-to-end test (Phases 1+2+3) - deprecated, use phase4
+- `test-phase3-manual.ps1` - PowerShell version (has formatting issues) - deprecated
 - `test-phase2-full.ps1` - Complete automated test (Phases 1+2) - deprecated
 - `test-docker.ps1` - Phase 1 only - deprecated
 
@@ -321,59 +412,46 @@ All 61 tests are now passing (56 from Phases 1-2, 5 new from Phase 3). Previous 
 
 ## Next Steps
 
-### ✅ Phase 3 Complete - Ready for Phase 4
+### ✅ Phase 4 Complete - Core Handshake Protocol Finished!
 
-All Phase 3 features are implemented and tested (61/61 tests passing):
-- ✅ Encrypted channel establishment (Phase 1)
-- ✅ Node identification and registration (Phase 2)
-- ✅ Challenge-response mutual authentication (Phase 3)
-- ✅ Certificate-based identity verification
-- ✅ RSA signature verification for authentication
-- ✅ Session token generation (1-hour TTL)
-- ✅ Complete validation suite (timestamps, nonces, certificates, fields, challenges)
-- ✅ Security hardening (replay protection, input validation, one-time challenges)
+All 4 phases of the handshake protocol are now implemented:
+- ✅ **Phase 1**: Encrypted channel establishment (ECDH + AES-256-GCM)
+- ✅ **Phase 2**: Node identification and registration (X.509 certificates)
+- ✅ **Phase 3**: Challenge-response mutual authentication (RSA signatures)
+- ✅ **Phase 4**: Session management and access control (Bearer tokens + capabilities)
 
-### Phase 4 (Next - Ready to Implement)
+**Phase 4 Features Implemented:**
+- ✅ `SessionService` - Session lifecycle management (create, validate, renew, revoke)
+- ✅ `PrismAuthenticatedSessionAttribute` - Bearer token validation middleware
+- ✅ `SessionController` - Session endpoints (whoami, renew, revoke, metrics)
+- ✅ Capability-based authorization (query:read, data:write, admin:node, etc.)
+- ✅ Rate limiting (60 requests/minute per session)
+- ✅ Session metrics and monitoring
+- ✅ End-to-end testing (`test-phase4.sh`)
 
-**Session Management and Access Control**
+### Phase 5 (Next - Federated Queries)
 
-Session tokens are already being generated in Phase 3. Phase 4 will implement:
+**Implement federated query endpoints using Phase 4 session management:**
 
-1. **Session Validation Middleware**
-   - `PrismAuthenticatedSessionAttribute` - Validate Bearer tokens
-   - Extract and validate session from `Authorization: Bearer {token}` header
-   - Verify session hasn't expired (1-hour TTL)
-   - Load node capabilities into request context
+1. **Query Endpoints**
+   - `POST /api/query/execute` - Execute federated query (requires `query:read`)
+   - `POST /api/query/aggregate` - Aggregate query across nodes (requires `query:aggregate`)
+   - `GET /api/query/{queryId}/status` - Get query status
+   - `GET /api/query/{queryId}/results` - Get query results
 
-2. **Session Service** (`ISessionService`)
-   - `ValidateSessionAsync(token)` - Validate session token
-   - `RenewSessionAsync(token)` - Extend session before expiration
-   - `RevokeSessionAsync(token)` - Logout/invalidate session
-   - `GetSessionMetricsAsync(nodeId)` - Usage statistics
-   - `CleanupExpiredSessionsAsync()` - Background cleanup
+2. **Data Submission Endpoints**
+   - `POST /api/data/submit` - Submit research data (requires `data:write`)
+   - `GET /api/data/{dataId}` - Get data by ID (requires `query:read`)
+   - `DELETE /api/data/{dataId}` - Delete owned data (requires `data:delete`)
 
-3. **Protected Endpoints**
-   - `/api/session/whoami` - Get current session info (test endpoint)
-   - `/api/session/renew` - Renew session token
-   - `/api/session/revoke` - Logout
-   - `/api/query/execute` - Federated query (requires `query:read` capability)
-   - `/api/data/submit` - Submit research data (requires `data:write` capability)
+3. **Query Federation**
+   - Forward queries to connected nodes
+   - Aggregate results from multiple nodes
+   - Handle node failures and timeouts
+   - Cache federated query results
 
-4. **Capabilities-Based Authorization**
-   - `query:read` - Read/query federated data
-   - `query:aggregate` - Aggregate queries across nodes
-   - `data:write` - Submit research data
-   - `data:delete` - Delete owned data
-   - `admin:node` - Node administration
-
-5. **Rate Limiting and Metrics**
-   - Track requests per session
-   - Implement rate limits per capability
-   - Prometheus metrics for monitoring
-   - Audit logging for all authenticated operations
-
-**Architecture Documents:**
-- See `docs/architecture/phase4-session-management.md` (to be created)
+**Reference Architecture:**
+- See `docs/architecture/phase4-session-management.md`
 
 ### Infrastructure Improvements
 - Replace in-memory storage with database (PostgreSQL/SQL Server)

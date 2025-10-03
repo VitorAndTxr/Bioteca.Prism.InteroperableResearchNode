@@ -1,4 +1,5 @@
 using Bioteca.Prism.Core.Middleware.Node;
+using Bioteca.Prism.Core.Middleware.Session;
 using Bioteca.Prism.Domain.Requests.Node;
 using Bioteca.Prism.Domain.Responses.Node;
 using Microsoft.Extensions.Logging;
@@ -11,18 +12,21 @@ namespace Bioteca.Prism.Service.Services.Node;
 
 /// <summary>
 /// In-memory implementation of challenge service for Phase 3 authentication
+/// Integrated with SessionService (Phase 4)
 /// </summary>
 public class ChallengeService : IChallengeService
 {
     private readonly ILogger<ChallengeService> _logger;
+    private readonly ISessionService _sessionService;
     private readonly ConcurrentDictionary<string, ChallengeData> _activeChallenges = new();
-    private readonly ConcurrentDictionary<string, string> _sessionTokens = new();
     private const int ChallengeTtlSeconds = 300; // 5 minutes
-    private const int SessionTtlSeconds = 3600; // 1 hour
 
-    public ChallengeService(ILogger<ChallengeService> logger)
+    public ChallengeService(
+        ILogger<ChallengeService> logger,
+        ISessionService sessionService)
     {
         _logger = logger;
+        _sessionService = sessionService;
     }
 
     public Task<ChallengeResponse> GenerateChallengeAsync(string channelId, string nodeId)
@@ -126,30 +130,34 @@ public class ChallengeService : IChallengeService
         }
     }
 
-    public Task<AuthenticationResponse> GenerateAuthenticationResultAsync(string nodeId, List<string> grantedCapabilities)
+    public async Task<AuthenticationResponse> GenerateAuthenticationResultAsync(string nodeId, string channelId, List<string> grantedCapabilities)
     {
         try
         {
-            // Generate session token (simple GUID for now, in production use JWT)
-            var sessionToken = Guid.NewGuid().ToString("N");
-            var expiresAt = DateTime.UtcNow.AddSeconds(SessionTtlSeconds);
+            // Create session using SessionService (Phase 4)
+            var sessionData = await _sessionService.CreateSessionAsync(
+                nodeId,
+                channelId,
+                grantedCapabilities,
+                ttlSeconds: 3600);
 
-            // Store session token
-            _sessionTokens[sessionToken] = nodeId;
+            _logger.LogInformation(
+                "Generated session for node {NodeId} on channel {ChannelId}: {SessionToken}",
+                nodeId,
+                channelId,
+                sessionData.SessionToken);
 
-            _logger.LogInformation("Generated session token for node {NodeId}", nodeId);
-
-            return Task.FromResult(new AuthenticationResponse
+            return new AuthenticationResponse
             {
                 Authenticated = true,
                 NodeId = nodeId,
-                SessionToken = sessionToken,
-                SessionExpiresAt = expiresAt,
+                SessionToken = sessionData.SessionToken,
+                SessionExpiresAt = sessionData.ExpiresAt,
                 GrantedCapabilities = grantedCapabilities,
                 Message = "Authentication successful",
                 NextPhase = "phase4_session",
                 Timestamp = DateTime.UtcNow
-            });
+            };
         }
         catch (Exception ex)
         {

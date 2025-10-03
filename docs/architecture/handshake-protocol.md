@@ -1,7 +1,7 @@
 # Protocolo de Handshake entre Nós IRN
 
-**Status**: ✅ Fase 3 Completa | 📋 Fase 4 Planejada
-**Última atualização**: 2025-10-03 - 06:00
+**Status**: ✅ Fase 4 Completa (Handshake Protocol Finalizado)
+**Última atualização**: 2025-10-03 - 12:00
 **Responsável**: Desenvolvimento inicial
 
 ## Visão Geral
@@ -578,6 +578,195 @@ docs/architecture/handshake-protocol.md:
 Garantir que todas as comunicações após a Fase 1 sejam criptografadas através
 do canal estabelecido.
 ```
+
+### Fase 4: Gerenciamento de Sessão (✅ COMPLETO)
+
+```
+Nó A (Cliente)                    Nó B (Servidor)
+     |                                    |
+     |==== Canal Criptografado Ativo ====|
+     |                                    |
+     |------ SESSION_WHOAMI ------------->|
+     |       (encryptedPayload)           |
+     |       {sessionToken, channelId}    |
+     |                                    |
+     |<----- SESSION_INFO ----------------|
+     |       (encryptedPayload)           |
+     |       {nodeId, capabilities, ...}  |
+     |                                    |
+     |------ SESSION_RENEW -------------->|
+     |       (encryptedPayload)           |
+     |                                    |
+     |<----- SESSION_RENEWED --------------|
+     |       (encryptedPayload)           |
+     |                                    |
+```
+
+**Objetivo**: Gerenciar o ciclo de vida da sessão autenticada com suporte a capacidades, rate limiting e operações de manutenção.
+
+**IMPORTANTE**: Todos os endpoints de Phase 4 **DEVEM** usar o canal criptografado estabelecido na Phase 1. O session token é enviado **dentro** do payload criptografado, **NÃO** em headers HTTP.
+
+#### Endpoints de Sessão
+
+**1. WhoAmI (Informações da Sessão)**
+
+Endpoint: `POST /api/session/whoami`
+
+Request (encrypted):
+```json
+{
+  "channelId": "channel-id",
+  "sessionToken": "session-token-guid",
+  "timestamp": "2025-10-03T10:30:00Z"
+}
+```
+
+Response (encrypted):
+```json
+{
+  "sessionToken": "session-token-guid",
+  "nodeId": "node-id",
+  "channelId": "channel-id",
+  "expiresAt": "2025-10-03T11:30:00Z",
+  "remainingSeconds": 3600,
+  "capabilities": ["query:read", "data:write"],
+  "requestCount": 5,
+  "timestamp": "2025-10-03T10:30:01Z"
+}
+```
+
+**2. Renovar Sessão**
+
+Endpoint: `POST /api/session/renew`
+
+Request (encrypted):
+```json
+{
+  "channelId": "channel-id",
+  "sessionToken": "session-token-guid",
+  "additionalSeconds": 1800,
+  "timestamp": "2025-10-03T10:30:00Z"
+}
+```
+
+Response (encrypted):
+```json
+{
+  "sessionToken": "session-token-guid",
+  "nodeId": "node-id",
+  "expiresAt": "2025-10-03T12:00:00Z",
+  "remainingSeconds": 5400,
+  "message": "Session renewed for 1800 seconds",
+  "timestamp": "2025-10-03T10:30:01Z"
+}
+```
+
+**3. Revogar Sessão (Logout)**
+
+Endpoint: `POST /api/session/revoke`
+
+Request (encrypted):
+```json
+{
+  "channelId": "channel-id",
+  "sessionToken": "session-token-guid",
+  "timestamp": "2025-10-03T10:30:00Z"
+}
+```
+
+Response (encrypted):
+```json
+{
+  "sessionToken": "session-token-guid",
+  "nodeId": "node-id",
+  "revoked": true,
+  "message": "Session revoked successfully",
+  "timestamp": "2025-10-03T10:30:01Z"
+}
+```
+
+**4. Métricas de Sessão (requer `admin:node`)**
+
+Endpoint: `POST /api/session/metrics`
+
+Request (encrypted):
+```json
+{
+  "channelId": "channel-id",
+  "sessionToken": "session-token-guid",
+  "nodeId": "optional-target-node-id",
+  "timestamp": "2025-10-03T10:30:00Z"
+}
+```
+
+Response (encrypted):
+```json
+{
+  "nodeId": "node-id",
+  "activeSessions": 3,
+  "totalRequests": 150,
+  "lastAccessedAt": "2025-10-03T10:29:55Z",
+  "usedCapabilities": ["query:read", "data:write"]
+}
+```
+
+#### Capacidades (Capabilities)
+
+- `query:read` - Ler/consultar dados federados
+- `query:aggregate` - Agregações entre nós
+- `data:write` - Submeter dados de pesquisa
+- `data:delete` - Deletar dados próprios
+- `admin:node` - Administração do nó
+
+#### Rate Limiting
+
+- **Algoritmo**: Token bucket
+- **Limite**: 60 requisições por minuto por sessão
+- **Resposta**: HTTP 429 (Too Many Requests) quando excedido
+
+#### Implementação de Segurança
+
+1. **Atributos Encadeados**:
+```csharp
+[HttpPost("whoami")]
+[PrismEncryptedChannelConnection<WhoAmIRequest>]  // 1º: Descriptografa payload
+[PrismAuthenticatedSession]                        // 2º: Valida sessão
+public IActionResult WhoAmI() { ... }
+```
+
+2. **Extração do Session Token**:
+   - Token extraído do payload descriptografado via reflexão
+   - Validação de existência e formato
+   - Verificação de expiração (TTL de 1 hora)
+
+3. **Autorização por Capacidades**:
+```csharp
+[PrismAuthenticatedSession(RequiredCapability = "admin:node")]
+```
+
+4. **Criptografia de Respostas**:
+```csharp
+var response = new { /* dados */ };
+var encrypted = _encryptionService.EncryptPayload(response, channelContext.SymmetricKey);
+return Ok(encrypted);
+```
+
+#### Formato de Payload Criptografado
+
+Todos os endpoints usam o mesmo formato de Phase 2-3:
+
+Request/Response (HTTP Body):
+```json
+{
+  "encryptedData": "base64-encoded-AES-256-GCM-ciphertext",
+  "iv": "base64-encoded-initialization-vector",
+  "authTag": "base64-encoded-authentication-tag"
+}
+```
+
+#### Helpers de Teste (somente desenvolvimento)
+
+Não há helpers específicos para Phase 4. Use o script `test-phase4.sh` para testes end-to-end automatizados.
 
 ### Dependências
 - Este documento depende de: `node-communication.md`

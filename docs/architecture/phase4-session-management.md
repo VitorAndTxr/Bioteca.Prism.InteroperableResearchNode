@@ -1,14 +1,42 @@
 # Fase 4: Session Management and Access Control
 
-**Status:** 📋 Planejado
-**Última atualização:** 2025-10-03 - 06:00
+**Status:** ✅ Completo e Implementado
+**Última atualização:** 2025-10-03 - 12:00
 **Pré-requisito:** Fase 3 completa (session token gerado)
+
+---
+
+## ⚠️ IMPORTANTE: Criptografia de Canal Obrigatória
+
+**TODOS os endpoints de Phase 4 DEVEM usar o canal criptografado AES-256-GCM estabelecido na Phase 1.**
+
+- ❌ **NÃO** enviar session token em headers HTTP (`Authorization: Bearer`)
+- ✅ **SIM** enviar session token **dentro** do payload criptografado
+- ✅ Usar `[PrismEncryptedChannelConnection<T>]` ANTES de `[PrismAuthenticatedSession]`
+- ✅ Session token extraído do payload descriptografado via reflexão
+
+**Formato de Request:**
+```json
+HTTP Body: {
+  "encryptedData": "base64-AES-256-GCM-ciphertext",
+  "iv": "base64-iv",
+  "authTag": "base64-auth-tag"
+}
+
+// Payload descriptografado contém:
+{
+  "channelId": "channel-id",
+  "sessionToken": "session-token-guid",
+  "timestamp": "2025-10-03T10:30:00Z",
+  // ... outros campos específicos do endpoint
+}
+```
 
 ---
 
 ## Visão Geral
 
-A Fase 4 implementa o **gerenciamento de sessões autenticadas** e **controle de acesso baseado em capabilities** para recursos protegidos do IRN. Session tokens gerados na Fase 3 são validados e utilizados para autorizar operações específicas.
+A Fase 4 implementa o **gerenciamento de sessões autenticadas** e **controle de acesso baseado em capabilities** para recursos protegidos do IRN. Session tokens gerados na Fase 3 são validados **do payload criptografado** e utilizados para autorizar operações específicas.
 
 ## Objetivos
 
@@ -26,37 +54,74 @@ A Fase 4 implementa o **gerenciamento de sessões autenticadas** e **controle de
 ### Componentes
 
 ```
+Client Request (HTTP POST)
+         │
+         ↓
 ┌─────────────────────────────────────────────────────────────┐
-│                     Protected Endpoint                       │
-│  [PrismEncryptedChannelConnection<T>]                       │
-│  [PrismAuthenticatedSession(RequiredCapability="query:read")]│
-│                          ↓                                    │
-│  1. Decrypt payload (via channel key)                        │
-│  2. Validate session token (Bearer token)                    │
-│  3. Check capability authorization                           │
-│  4. Load SessionContext into HttpContext.Items               │
-│  5. Execute business logic                                   │
-│  6. Track request metrics                                    │
-│  7. Encrypt response (via channel key)                       │
+│              HTTP Body: EncryptedPayload                     │
+│  {                                                           │
+│    "encryptedData": "base64-AES-256-GCM...",                │
+│    "iv": "base64...",                                       │
+│    "authTag": "base64..."                                   │
+│  }                                                           │
 └─────────────────────────────────────────────────────────────┘
-                           │
-                           ↓
-                  ┌────────────────┐
-                  │ SessionService │
-                  ├────────────────┤
-                  │ - Validate     │
-                  │ - Renew        │
-                  │ - Revoke       │
-                  │ - Metrics      │
-                  │ - Cleanup      │
-                  └────────────────┘
-                           │
-                           ↓
-          ┌─────────────────────────────────┐
-          │  Session Storage (In-Memory)    │
-          │  ConcurrentDictionary<string,   │
-          │     SessionData>                │
-          └─────────────────────────────────┘
+         │
+         ↓
+┌─────────────────────────────────────────────────────────────┐
+│  [PrismEncryptedChannelConnection<WhoAmIRequest>]          │
+│  ↓                                                           │
+│  1. Valida X-Channel-Id header                              │
+│  2. Recupera ChannelContext (com chave simétrica)           │
+│  3. Descriptografa payload AES-256-GCM                      │
+│  4. Armazena em HttpContext.Items["DecryptedRequest"]       │
+│     → {channelId, sessionToken, timestamp, ...}             │
+└─────────────────────────────────────────────────────────────┘
+         │
+         ↓
+┌─────────────────────────────────────────────────────────────┐
+│  [PrismAuthenticatedSession(RequiredCapability="...")]      │
+│  ↓                                                           │
+│  1. Extrai sessionToken do DecryptedRequest (via reflexão)  │
+│  2. Valida sessão via SessionService.ValidateSessionAsync() │
+│  3. Verifica expiração (TTL 1 hora)                         │
+│  4. Verifica capability requerida (se especificada)         │
+│  5. Rate limiting (60 req/min) via RecordRequestAsync()     │
+│  6. Armazena SessionContext em HttpContext.Items            │
+└─────────────────────────────────────────────────────────────┘
+         │
+         ↓
+┌─────────────────────────────────────────────────────────────┐
+│                  Controller Action                           │
+│  ↓                                                           │
+│  1. Recupera SessionContext de HttpContext.Items            │
+│  2. Executa lógica de negócio                               │
+│  3. Cria response object                                    │
+│  4. Criptografa response com channelContext.SymmetricKey    │
+│  5. Retorna EncryptedPayload                                │
+└─────────────────────────────────────────────────────────────┘
+         │
+         ↓
+    ┌────────────────┐
+    │ SessionService │
+    ├────────────────┤
+    │ - ValidateSessionAsync(token)                            │
+    │ - RenewSessionAsync(token, seconds)                      │
+    │ - RevokeSessionAsync(token)                              │
+    │ - GetSessionMetricsAsync(nodeId)                         │
+    │ - CleanupExpiredSessionsAsync()                          │
+    │ - RecordRequestAsync(token) // Rate limiting             │
+    └────────────────┘
+         │
+         ↓
+  ┌─────────────────────────────────┐
+  │  Session Storage (In-Memory)    │
+  │  ConcurrentDictionary<string,   │
+  │     SessionData>                │
+  │                                 │
+  │  + Rate Limiting Queues         │
+  │  ConcurrentDictionary<string,   │
+  │     Queue<DateTime>>            │
+  └─────────────────────────────────┘
 ```
 
 ### Session Data Model
