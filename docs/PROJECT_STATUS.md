@@ -1,7 +1,7 @@
 # Project Status Report - IRN
 
-**Data:** 2025-10-03
-**Versão:** 0.5.0
+**Data:** 2025-10-03 - 06:00
+**Versão:** 0.5.1
 **Status Geral:** ✅ Fase 3 Completa (Autenticação Mútua) | 📋 Fase 4 Planejada
 
 ---
@@ -97,6 +97,9 @@ O projeto **Interoperable Research Node (IRN)** está com as **Fases 1, 2 e 3** 
 - `POST /api/testing/sign-data` - Assina dados com certificado
 - `POST /api/testing/verify-signature` - Verifica assinatura
 - `POST /api/testing/generate-node-identity` - Gera identidade completa
+- `POST /api/testing/encrypt-payload` - Criptografa payload com chave do canal
+- `POST /api/testing/decrypt-payload` - Descriptografa payload com chave do canal
+- `GET /api/testing/channel-info/{channelId}` - Informações do canal (sem keys sensíveis)
 
 **Fluxo de Autorização:**
 
@@ -152,9 +155,17 @@ Nó Desconhecido
 - `NodeConnectionController.cs` - Endpoints `/challenge` e `/authenticate`
 - `NodeChannelClient.cs` - Métodos cliente para Fase 3
 
-**Endpoints:**
+**Production Endpoints:**
 - `POST /api/node/challenge` - Solicita challenge (requer nó autorizado)
 - `POST /api/node/authenticate` - Submete resposta ao challenge
+
+**Testing Helper Endpoints (apenas Dev/NodeA/NodeB):**
+- `POST /api/testing/request-challenge` - Wrapper cliente para solicitar challenge
+- `POST /api/testing/sign-challenge` - Assina challenge no formato correto (elimina erros de formato manual)
+- `POST /api/testing/authenticate` - Wrapper cliente para autenticação
+
+**Manual Testing Script:**
+- `test-phase3.sh` - Script Bash completo que testa Fases 1→2→3 end-to-end
 
 **Fluxo de Autenticação:**
 ```
@@ -195,6 +206,8 @@ Nó Iniciador                          Nó Receptor
 - ✅ Storage em memória com chave `{ChannelId}:{NodeId}`
 - ✅ Apenas nós autorizados podem solicitar challenge
 - ✅ Testes automatizados passando (5 novos testes)
+- ✅ **NOVO (2025-10-03 06:00)**: Endpoint `/api/testing/sign-challenge` para facilitar testes manuais
+- ✅ **NOVO (2025-10-03 06:00)**: Script `test-phase3.sh` para teste end-to-end completo
 
 ---
 
@@ -522,22 +535,89 @@ docker-compose down
 
 **Documentation:** Ver plano detalhado em `docs/development/phase3-authentication-plan.md`
 
-### Fase 4: Estabelecimento de Sessão (Planejada)
+### 📋 Fase 4: Estabelecimento de Sessão e Controle de Acesso (Próximo Passo)
 
-**Objetivo:** Criar sessão com capabilities e permissões específicas.
+**Status:** Pronto para implementação | Session tokens já gerados na Fase 3
+
+**Objetivo:** Validar e utilizar session tokens para controlar acesso a recursos protegidos baseado em capabilities.
 
 **Componentes a Implementar:**
-- Gestão de sessões
-- Capabilities (read, write, query, etc.)
-- Tokens de sessão
-- Renovação de sessão
-- Revogação de sessão
 
-**Endpoints Planejados:**
-- `POST /api/session/create` - Cria sessão
-- `GET /api/session/{sessionId}` - Informações da sessão
-- `POST /api/session/{sessionId}/renew` - Renova sessão
-- `DELETE /api/session/{sessionId}` - Encerra sessão
+1. **`ISessionService` e `SessionService`**
+   - `ValidateSessionAsync(token)` - Valida token e retorna contexto de sessão
+   - `RenewSessionAsync(token)` - Estende TTL da sessão (antes de expirar)
+   - `RevokeSessionAsync(token)` - Invalida sessão (logout)
+   - `GetSessionMetricsAsync(nodeId)` - Métricas de uso
+   - `CleanupExpiredSessionsAsync()` - Background job para limpeza
+
+2. **`PrismAuthenticatedSessionAttribute`** (Middleware/Filter)
+   - Valida header `Authorization: Bearer {sessionToken}`
+   - Verifica se sessão não expirou
+   - Carrega `SessionContext` com capabilities do nó
+   - Armazena contexto em `HttpContext.Items["SessionContext"]`
+   - Rejeita requisições sem token ou com token inválido/expirado
+
+3. **`SessionContext`** (Domain Model)
+   ```csharp
+   public class SessionContext
+   {
+       public string SessionToken { get; set; }
+       public string NodeId { get; set; }
+       public string ChannelId { get; set; }
+       public List<string> GrantedCapabilities { get; set; }
+       public DateTime CreatedAt { get; set; }
+       public DateTime ExpiresAt { get; set; }
+       public DateTime? LastActivityAt { get; set; }
+       public int RequestCount { get; set; }
+
+       public bool HasCapability(string capability)
+           => GrantedCapabilities.Contains(capability);
+   }
+   ```
+
+**Capabilities Planejadas:**
+- `query:read` - Executar queries federadas (leitura)
+- `query:aggregate` - Queries de agregação cross-node
+- `data:write` - Submeter dados de pesquisa
+- `data:delete` - Deletar dados próprios
+- `admin:node` - Administração do nó
+
+**Endpoints a Implementar:**
+
+**Session Management:**
+- `GET /api/session/whoami` - Info da sessão atual (teste)
+  - Requires: `[PrismAuthenticatedSession]`
+  - Returns: `{nodeId, capabilities, expiresAt, ...}`
+- `POST /api/session/renew` - Renova sessão (estende TTL)
+  - Requires: `[PrismAuthenticatedSession]`
+  - Returns: `{newExpiresAt}`
+- `POST /api/session/revoke` - Revoga sessão (logout)
+  - Requires: `[PrismAuthenticatedSession]`
+  - Returns: `{success: true}`
+
+**Protected Resources (Examples):**
+- `POST /api/query/execute` - Executa query federada
+  - Requires: `[PrismAuthenticatedSession]` + capability `query:read`
+  - Payload: Criptografado via canal (Fase 1)
+- `POST /api/data/submit` - Submete dados
+  - Requires: `[PrismAuthenticatedSession]` + capability `data:write`
+  - Payload: Criptografado via canal (Fase 1)
+
+**Rate Limiting & Metrics:**
+- Track requests per session (counter em `SessionContext.RequestCount`)
+- Limites por capability (ex: 100 queries/minuto para `query:read`)
+- Prometheus metrics: `irn_session_active_total`, `irn_session_requests_total`
+- Audit log para todas operações autenticadas
+
+**Testing:**
+- Unit tests para `SessionService`
+- Integration tests para `PrismAuthenticatedSessionAttribute`
+- End-to-end test com session token obtido da Fase 3
+- Rate limiting tests
+
+**Documentação:**
+- `docs/architecture/phase4-session-management.md` - Arquitetura detalhada
+- Update `docs/testing/manual-testing-guide.md` com Fase 4
 
 ### Melhorias Técnicas
 

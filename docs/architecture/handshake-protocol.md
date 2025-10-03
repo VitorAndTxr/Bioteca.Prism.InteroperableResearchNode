@@ -1,7 +1,7 @@
 # Protocolo de Handshake entre Nós IRN
 
 **Status**: ✅ Fase 3 Completa | 📋 Fase 4 Planejada
-**Última atualização**: 2025-10-03 - 00:57
+**Última atualização**: 2025-10-03 - 06:00
 **Responsável**: Desenvolvimento inicial
 
 ## Visão Geral
@@ -235,9 +235,32 @@ Nó A (Iniciador)                    Nó B (Receptor)
 - **Challenge Storage**: In-memory `ConcurrentDictionary<string, ChallengeData>` (key: `{ChannelId}:{NodeId}`)
 - **One-time Use**: Challenge is invalidated after successful authentication or expiration
 - **Verification**: Uses node's registered certificate public key for signature verification
-- **Endpoints**:
-  - `POST /api/node/challenge` (decorated with `[PrismEncryptedChannelConnection<ChallengeRequest>]`)
-  - `POST /api/node/authenticate` (decorated with `[PrismEncryptedChannelConnection<ChallengeResponseRequest>]`)
+
+**Production Endpoints**:
+- `POST /api/node/challenge` (decorated with `[PrismEncryptedChannelConnection<ChallengeRequest>]`)
+- `POST /api/node/authenticate` (decorated with `[PrismEncryptedChannelConnection<ChallengeResponseRequest>]`)
+
+**Testing Helper Endpoints** (Development/NodeA/NodeB environments only):
+- `POST /api/testing/request-challenge` - Client-side wrapper that calls `NodeChannelClient.RequestChallengeAsync()`
+  - Input: `{channelId, nodeId}`
+  - Output: Challenge response with instructions for next step
+- `POST /api/testing/sign-challenge` - Helper to sign challenge data in correct format
+  - Input: `{challengeData, channelId, nodeId, certificateWithPrivateKey, password, timestamp}`
+  - Output: `{signature, signedData}` - signature in correct format for authentication
+  - Eliminates manual formatting errors when testing
+- `POST /api/testing/authenticate` - Client-side wrapper that calls `NodeChannelClient.AuthenticateAsync()`
+  - Input: `{channelId, nodeId, challengeData, signature, timestamp}`
+  - Output: Authentication response with session token
+
+**Manual Testing Script**:
+- `test-phase3.sh` - Complete end-to-end Bash script that tests Phases 1→2→3
+  - Establishes encrypted channel
+  - Generates certificate
+  - Registers node
+  - Approves node
+  - Requests challenge
+  - Signs challenge
+  - Authenticates and obtains session token
 
 ### Fase 4: Estabelecimento de Sessão
 

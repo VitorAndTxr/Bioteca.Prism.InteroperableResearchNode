@@ -149,7 +149,7 @@ dotnet test --verbosity detailed
 # Node B: http://localhost:5001/swagger
 ```
 
-### Test Status (Last Updated: 2025-10-03 - 00:57)
+### Test Status (Last Updated: 2025-10-03 - 06:00)
 
 **Overall: 61/61 tests passing (100% pass rate)** ✅
 
@@ -163,12 +163,14 @@ dotnet test --verbosity detailed
 | NodeChannelClient | 7/7 | 100% | ✅ |
 | Security & Edge Cases | 17/17 | 100% | ✅ |
 
-**Recent Updates (2025-10-03):**
+**Recent Updates (2025-10-03 - 06:00):**
 - ✅ **Phase 3 Implementation Complete**: Challenge-response authentication with RSA signature verification
 - ✅ Session token generation (1-hour TTL)
 - ✅ Challenge expiration (5-minute TTL)
 - ✅ Integration with encrypted channel (all Phase 3 requests encrypted via AES-256-GCM)
 - ✅ Comprehensive test coverage (5 new tests for Phase 3)
+- ✅ **New Testing Helper**: `/api/testing/sign-challenge` endpoint for simplified manual testing
+- ✅ Manual end-to-end test script (`test-phase3.sh`) for complete authentication flow verification
 
 **Previous Fixes (2025-10-02):**
 - ✅ Implemented timestamp validation (protect against replay attacks)
@@ -206,7 +208,7 @@ All services are registered as **Singleton** (shared state across requests):
 5. **Both derive**: Same symmetric key from ECDH shared secret using HKDF
 6. **Channel stored**: In-memory `ConcurrentDictionary<string, ChannelContext>` (30 min TTL)
 
-### Node Identification Flow
+### Phase 2: Node Identification Flow
 
 1. **Generate certificate**: POST `/api/testing/generate-certificate` (dev only)
 2. **Sign data**: POST `/api/testing/sign-data` with certificate + data
@@ -215,6 +217,29 @@ All services are registered as **Singleton** (shared state across requests):
    - Unknown node → `isKnown=false`, registration URL provided
    - Known, Pending → `isKnown=true`, `status=Pending`, `nextPhase=null`
    - Known, Authorized → `isKnown=true`, `status=Authorized`, `nextPhase="phase3_authenticate"`
+
+### Phase 3: Challenge-Response Authentication Flow
+
+1. **Request Challenge**: POST `/api/node/challenge` with encrypted `{channelId, nodeId, timestamp}`
+2. **Server generates**: 32-byte random challenge, stores with 5-minute TTL
+3. **Response**: `{challengeData, expiresAt, ttlSeconds}`
+4. **Client signs**: Data format = `{challengeData}{channelId}{nodeId}{timestamp:O}`
+   - Use `/api/testing/sign-challenge` helper for manual testing
+   - Signature generated with RSA-2048 private key
+5. **Authenticate**: POST `/api/node/authenticate` with encrypted `{channelId, nodeId, challengeData, signature, timestamp}`
+6. **Server validates**:
+   - Challenge exists and hasn't expired
+   - Challenge data matches stored value
+   - RSA signature is valid
+   - Node status is `Authorized`
+7. **Response**: `{authenticated: true, sessionToken, sessionExpiresAt, grantedCapabilities, nextPhase: "phase4_session"}`
+8. **Challenge invalidated**: One-time use only
+
+**Testing Helpers**:
+- `/api/testing/request-challenge` - Client-side wrapper for requesting challenges
+- `/api/testing/sign-challenge` - Sign challenge data in correct format
+- `/api/testing/authenticate` - Client-side wrapper for authentication
+- `test-phase3.sh` - Complete end-to-end automated test script
 
 ### Certificate Management
 
@@ -240,8 +265,10 @@ All services are registered as **Singleton** (shared state across requests):
 - `docs/PROJECT_STATUS.md` - Detailed status report
 
 ### Testing Scripts
-- `test-phase2-full.ps1` - Complete automated test (Phases 1+2)
-- `test-docker.ps1` - Phase 1 only
+- `test-phase3.sh` - Complete end-to-end manual test (Phases 1+2+3) with Bash
+- `test-phase3-manual.ps1` - PowerShell version (has formatting issues, use .sh instead)
+- `test-phase2-full.ps1` - Complete automated test (Phases 1+2) - deprecated
+- `test-docker.ps1` - Phase 1 only - deprecated
 
 ## Development Guidelines (from .cursorrules)
 
@@ -306,10 +333,47 @@ All Phase 3 features are implemented and tested (61/61 tests passing):
 - ✅ Complete validation suite (timestamps, nonces, certificates, fields, challenges)
 - ✅ Security hardening (replay protection, input validation, one-time challenges)
 
-### Phase 4 (Planned)
-- Session management with capabilities
-- Token-based access control
-- Rate limiting and metrics
+### Phase 4 (Next - Ready to Implement)
+
+**Session Management and Access Control**
+
+Session tokens are already being generated in Phase 3. Phase 4 will implement:
+
+1. **Session Validation Middleware**
+   - `PrismAuthenticatedSessionAttribute` - Validate Bearer tokens
+   - Extract and validate session from `Authorization: Bearer {token}` header
+   - Verify session hasn't expired (1-hour TTL)
+   - Load node capabilities into request context
+
+2. **Session Service** (`ISessionService`)
+   - `ValidateSessionAsync(token)` - Validate session token
+   - `RenewSessionAsync(token)` - Extend session before expiration
+   - `RevokeSessionAsync(token)` - Logout/invalidate session
+   - `GetSessionMetricsAsync(nodeId)` - Usage statistics
+   - `CleanupExpiredSessionsAsync()` - Background cleanup
+
+3. **Protected Endpoints**
+   - `/api/session/whoami` - Get current session info (test endpoint)
+   - `/api/session/renew` - Renew session token
+   - `/api/session/revoke` - Logout
+   - `/api/query/execute` - Federated query (requires `query:read` capability)
+   - `/api/data/submit` - Submit research data (requires `data:write` capability)
+
+4. **Capabilities-Based Authorization**
+   - `query:read` - Read/query federated data
+   - `query:aggregate` - Aggregate queries across nodes
+   - `data:write` - Submit research data
+   - `data:delete` - Delete owned data
+   - `admin:node` - Node administration
+
+5. **Rate Limiting and Metrics**
+   - Track requests per session
+   - Implement rate limits per capability
+   - Prometheus metrics for monitoring
+   - Audit logging for all authenticated operations
+
+**Architecture Documents:**
+- See `docs/architecture/phase4-session-management.md` (to be created)
 
 ### Infrastructure Improvements
 - Replace in-memory storage with database (PostgreSQL/SQL Server)
