@@ -1,4 +1,5 @@
 using Bioteca.Prism.Core.Middleware.Session;
+using Bioteca.Prism.Domain.Enumerators.Node;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using System.Reflection;
@@ -16,10 +17,10 @@ public class PrismAuthenticatedSessionAttribute : Attribute, IAsyncActionFilter
 {
     /// <summary>
     /// Optional capability required to access this endpoint
-    /// Examples: "query:read", "data:write", "admin:node"
+    /// Examples: NodeAccessTypeEnum.ReadOnly, NodeAccessTypeEnum.ReadWrite, NodeAccessTypeEnum.Admin
     /// If null, only validates session existence
     /// </summary>
-    public string? RequiredCapability { get; set; }
+    public NodeAccessTypeEnum RequiredCapability { get; set; } = NodeAccessTypeEnum.ReadOnly;
 
     public async Task OnActionExecutionAsync(
         ActionExecutingContext context,
@@ -92,20 +93,21 @@ public class PrismAuthenticatedSessionAttribute : Attribute, IAsyncActionFilter
             sessionContext.GetRemainingSeconds());
 
         // 3. Check capability if required
-        if (!string.IsNullOrEmpty(RequiredCapability))
+        if (RequiredCapability!= null)
         {
-            if (!sessionContext.HasCapability(RequiredCapability))
+            if (sessionContext.NodeAccessLevel < RequiredCapability)
             {
                 logger.LogWarning(
-                    "Node {NodeId} lacks required capability: {Capability}",
+                    "Node {NodeId} lacks required capability: {Capability} (has {CurrentLevel})",
                     sessionContext.NodeId,
-                    RequiredCapability);
+                    RequiredCapability.ToString(),
+                    sessionContext.NodeAccessLevel.ToString());
 
                 context.Result = new ObjectResult(new
                 {
                     error = "ERR_INSUFFICIENT_PERMISSIONS",
-                    message = $"This endpoint requires capability: {RequiredCapability}",
-                    grantedCapabilities = sessionContext.Capabilities
+                    message = $"This endpoint requires capability: {RequiredCapability.ToString()}",
+                    grantedCapabilities = sessionContext.NodeAccessLevel
                 })
                 {
                     StatusCode = 403 // Forbidden

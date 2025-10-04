@@ -1,3 +1,5 @@
+using Bioteca.Prism.Domain.Enumerators.Node;
+
 namespace Bioteca.Prism.Domain.Requests.Node;
 
 /// <summary>
@@ -38,7 +40,7 @@ public class NodeRegistrationRequest
     /// <summary>
     /// Requested capabilities/permissions
     /// </summary>
-    public List<string> RequestedCapabilities { get; set; } = new();
+    public NodeAccessTypeEnum RequestedNodeAccessLevel { get; set; }
 
     /// <summary>
     /// Timestamp of registration request

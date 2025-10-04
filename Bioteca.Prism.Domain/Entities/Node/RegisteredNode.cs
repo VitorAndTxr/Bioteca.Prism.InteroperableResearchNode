@@ -1,3 +1,4 @@
+using Bioteca.Prism.Domain.Enumerators.Node;
 using Bioteca.Prism.Domain.Responses.Node;
 
 namespace Bioteca.Prism.Domain.Entities.Node;
@@ -40,7 +41,7 @@ public class RegisteredNode
     /// <summary>
     /// Capabilities granted to this node
     /// </summary>
-    public List<string> Capabilities { get; set; } = new();
+    public NodeAccessTypeEnum NodeAccessLevel { get; set; }
 
     /// <summary>
     /// Contact information

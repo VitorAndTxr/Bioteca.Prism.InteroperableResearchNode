@@ -322,7 +322,7 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
                 var authResponse = await _challengeService.GenerateAuthenticationResultAsync(
                     request.NodeId,
                     channelId!,
-                    registeredNode.Capabilities);
+                    registeredNode.NodeAccessLevel);
 
                 // Update last authentication timestamp
                 await _nodeRegistry.UpdateLastAuthenticationAsync(request.NodeId);

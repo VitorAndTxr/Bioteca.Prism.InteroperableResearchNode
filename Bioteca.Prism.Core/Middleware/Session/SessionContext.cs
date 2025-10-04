@@ -1,3 +1,5 @@
+using Bioteca.Prism.Domain.Enumerators.Node;
+
 namespace Bioteca.Prism.Core.Middleware.Session;
 
 /// <summary>
@@ -29,8 +31,7 @@ public class SessionContext
     /// <summary>
     /// Capabilities granted to this session
     /// </summary>
-    public List<string> Capabilities { get; set; } = new();
-
+    public NodeAccessTypeEnum NodeAccessLevel { get; set; }
     /// <summary>
     /// Request count for this session
     /// </summary>
@@ -39,25 +40,9 @@ public class SessionContext
     /// <summary>
     /// Check if session has a specific capability
     /// </summary>
-    public bool HasCapability(string capability)
+    public bool HasCapability(NodeAccessTypeEnum capability)
     {
-        return Capabilities.Contains(capability, StringComparer.OrdinalIgnoreCase);
-    }
-
-    /// <summary>
-    /// Check if session has ANY of the specified capabilities
-    /// </summary>
-    public bool HasAnyCapability(params string[] capabilities)
-    {
-        return capabilities.Any(c => HasCapability(c));
-    }
-
-    /// <summary>
-    /// Check if session has ALL of the specified capabilities
-    /// </summary>
-    public bool HasAllCapabilities(params string[] capabilities)
-    {
-        return capabilities.All(c => HasCapability(c));
+        return NodeAccessLevel == capability;
     }
 
     /// <summary>

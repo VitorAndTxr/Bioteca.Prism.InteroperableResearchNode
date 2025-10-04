@@ -172,13 +172,18 @@ public class NodeRegistryService : INodeRegistryService
                         _nodesByCertificate.Remove(existingNode.CertificateFingerprint);
                     }
 
+                    if(existingNode.NodeAccessLevel < request.RequestedNodeAccessLevel)
+                    {
+                        existingNode.Status = AuthorizationStatus.Pending; // Require re-approval for increased access level
+                    }
+
                     existingNode.NodeName = request.NodeName;
                     existingNode.Certificate = request.Certificate;
                     existingNode.CertificateFingerprint = fingerprint;
                     existingNode.NodeUrl = request.NodeUrl;
                     existingNode.ContactInfo = request.ContactInfo;
                     existingNode.InstitutionDetails = request.InstitutionDetails;
-                    existingNode.Capabilities = request.RequestedCapabilities;
+                    existingNode.NodeAccessLevel = request.RequestedNodeAccessLevel;
                     existingNode.UpdatedAt = DateTime.UtcNow;
 
                     _nodesByCertificate[fingerprint] = existingNode;
@@ -217,7 +222,7 @@ public class NodeRegistryService : INodeRegistryService
                     ContactInfo = request.ContactInfo,
                     InstitutionDetails = request.InstitutionDetails,
                     Status = AuthorizationStatus.Pending,
-                    Capabilities = request.RequestedCapabilities,
+                    NodeAccessLevel = request.RequestedNodeAccessLevel,
                     RegisteredAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
                 };

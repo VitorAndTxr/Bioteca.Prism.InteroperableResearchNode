@@ -1,9 +1,10 @@
-using System.Net;
 using Bioteca.Prism.Core.Security.Certificate;
 using Bioteca.Prism.Core.Security.Cryptography.Interfaces;
+using Bioteca.Prism.Domain.Enumerators.Node;
 using Bioteca.Prism.Domain.Requests.Node;
 using Bioteca.Prism.Domain.Responses.Node;
 using FluentAssertions;
+using System.Net;
 
 namespace Bioteca.Prism.InteroperableResearchNode.Test;
 
@@ -230,7 +231,7 @@ public class SecurityAndEdgeCaseTests : IClassFixture<TestWebApplicationFactory>
             ContactInfo = "admin@expired.test",
             InstitutionDetails = "Test Institution",
             NodeUrl = "http://expired:8080",
-            RequestedCapabilities = new List<string> { "search" }
+            RequestedNodeAccessLevel = NodeAccessTypeEnum.ReadWrite
         };
 
         var encryptedPayload = encryptionService.EncryptPayload(registrationRequest, symmetricKey);
@@ -262,7 +263,7 @@ public class SecurityAndEdgeCaseTests : IClassFixture<TestWebApplicationFactory>
             ContactInfo = "admin@invalid.test",
             InstitutionDetails = "Test Institution",
             NodeUrl = "http://invalid:8080",
-            RequestedCapabilities = new List<string> { "search" }
+            RequestedNodeAccessLevel = NodeAccessTypeEnum.ReadWrite
         };
 
         var encryptedPayload = encryptionService.EncryptPayload(registrationRequest, symmetricKey);
@@ -323,7 +324,7 @@ public class SecurityAndEdgeCaseTests : IClassFixture<TestWebApplicationFactory>
             ContactInfo = "admin@test.test",
             InstitutionDetails = "Test Institution",
             NodeUrl = "http://test:8080",
-            RequestedCapabilities = new List<string> { "search" }
+            RequestedNodeAccessLevel = NodeAccessTypeEnum.ReadOnly
         };
 
         // Act (no X-Channel-Id header)
@@ -424,7 +425,7 @@ public class SecurityAndEdgeCaseTests : IClassFixture<TestWebApplicationFactory>
             ContactInfo = "updated@test.test", // Different contact
             InstitutionDetails = "Updated Institution",
             NodeUrl = $"http://{nodeId}:8080",
-            RequestedCapabilities = new List<string> { "search", "retrieve", "update" } // Different capabilities
+            RequestedNodeAccessLevel = NodeAccessTypeEnum.Admin // Higher access level
         };
 
         var encryptedPayload = encryptionService.EncryptPayload(registrationRequest, symmetricKey);
@@ -466,7 +467,7 @@ public class SecurityAndEdgeCaseTests : IClassFixture<TestWebApplicationFactory>
             ContactInfo = "admin@test.test",
             InstitutionDetails = "Test Institution",
             NodeUrl = "http://test:8080",
-            RequestedCapabilities = new List<string> { "search" }
+            RequestedNodeAccessLevel = NodeAccessTypeEnum.ReadOnly
         };
 
         var encryptedPayload = encryptionService.EncryptPayload(registrationRequest, symmetricKey);
@@ -498,7 +499,7 @@ public class SecurityAndEdgeCaseTests : IClassFixture<TestWebApplicationFactory>
             ContactInfo = "admin@test.test",
             InstitutionDetails = "Test Institution",
             NodeUrl = "http://test:8080",
-            RequestedCapabilities = new List<string> { "search" }
+            RequestedNodeAccessLevel = NodeAccessTypeEnum.ReadOnly
         };
 
         var encryptedPayload = encryptionService.EncryptPayload(registrationRequest, symmetricKey);
@@ -573,7 +574,7 @@ public class SecurityAndEdgeCaseTests : IClassFixture<TestWebApplicationFactory>
             ContactInfo = $"admin@{nodeId}.test",
             InstitutionDetails = "Test Institution",
             NodeUrl = $"http://{nodeId}:8080",
-            RequestedCapabilities = new List<string> { "search" }
+            RequestedNodeAccessLevel = NodeAccessTypeEnum.ReadOnly
         };
 
         var encryptedPayload = encryptionService.EncryptPayload(registrationRequest, symmetricKey);

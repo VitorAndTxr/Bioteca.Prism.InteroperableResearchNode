@@ -685,7 +685,7 @@ Response (encrypted):
 }
 ```
 
-**4. Métricas de Sessão (requer `admin:node`)**
+**4. Métricas de Sessão (requer `NodeAccessTypeEnum.Admin`)**
 
 Endpoint: `POST /api/session/metrics`
 
@@ -706,17 +706,21 @@ Response (encrypted):
   "activeSessions": 3,
   "totalRequests": 150,
   "lastAccessedAt": "2025-10-03T10:29:55Z",
-  "usedCapabilities": ["query:read", "data:write"]
+  "nodeAccessLevel": "ReadWrite"
 }
 ```
 
-#### Capacidades (Capabilities)
+#### Níveis de Acesso (NodeAccessTypeEnum)
 
-- `query:read` - Ler/consultar dados federados
-- `query:aggregate` - Agregações entre nós
-- `data:write` - Submeter dados de pesquisa
-- `data:delete` - Deletar dados próprios
-- `admin:node` - Administração do nó
+O sistema usa um enum hierárquico de níveis de acesso:
+
+- `ReadOnly` (0) - Ler/consultar dados federados (acesso básico)
+- `ReadWrite` (1) - Submeter e modificar dados de pesquisa
+- `Admin` (2) - Administração completa do nó e acesso a métricas
+
+**Hierarquia**: `Admin` > `ReadWrite` > `ReadOnly`
+
+Endpoints verificam se `sessionContext.NodeAccessLevel >= RequiredCapability`
 
 #### Rate Limiting
 
@@ -739,9 +743,9 @@ public IActionResult WhoAmI() { ... }
    - Validação de existência e formato
    - Verificação de expiração (TTL de 1 hora)
 
-3. **Autorização por Capacidades**:
+3. **Autorização por Nível de Acesso**:
 ```csharp
-[PrismAuthenticatedSession(RequiredCapability = "admin:node")]
+[PrismAuthenticatedSession(RequiredCapability = NodeAccessTypeEnum.Admin)]
 ```
 
 4. **Criptografia de Respostas**:

@@ -1,10 +1,11 @@
-using System.Net;
-using System.Security.Cryptography.X509Certificates;
 using Bioteca.Prism.Core.Security.Certificate;
 using Bioteca.Prism.Core.Security.Cryptography.Interfaces;
+using Bioteca.Prism.Domain.Enumerators.Node;
 using Bioteca.Prism.Domain.Requests.Node;
 using Bioteca.Prism.Domain.Responses.Node;
 using FluentAssertions;
+using System.Net;
+using System.Security.Cryptography.X509Certificates;
 
 namespace Bioteca.Prism.InteroperableResearchNode.Test;
 
@@ -42,7 +43,7 @@ public class Phase2NodeIdentificationTests : IClassFixture<TestWebApplicationFac
             ContactInfo = "admin@testnode.test",
             InstitutionDetails = "Test Institution",
             NodeUrl = "http://testnode:8080",
-            RequestedCapabilities = new List<string> { "search", "retrieve" }
+            RequestedNodeAccessLevel = NodeAccessTypeEnum.ReadWrite
         };
 
         // Encrypt payload
@@ -317,7 +318,7 @@ public class Phase2NodeIdentificationTests : IClassFixture<TestWebApplicationFac
             ContactInfo = $"admin@{nodeId}.test",
             InstitutionDetails = "Test Institution",
             NodeUrl = $"http://{nodeId}:8080",
-            RequestedCapabilities = new List<string> { "search" }
+            RequestedNodeAccessLevel = NodeAccessTypeEnum.ReadOnly
         };
 
         var encryptedPayload = encryptionService.EncryptPayload(registrationRequest, symmetricKey);

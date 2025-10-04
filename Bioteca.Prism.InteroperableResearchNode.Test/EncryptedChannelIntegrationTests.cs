@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using Bioteca.Prism.Core.Security.Certificate;
 using Bioteca.Prism.Core.Security.Cryptography.Interfaces;
+using Bioteca.Prism.Domain.Enumerators.Node;
 using Bioteca.Prism.Domain.Requests.Node;
 using Bioteca.Prism.Domain.Responses.Node;
 using FluentAssertions;
@@ -73,7 +74,7 @@ public class EncryptedChannelIntegrationTests
             ContactInfo = "admin@node-a.test",
             InstitutionDetails = "Test Institution A",
             NodeUrl = "http://node-a:8080",
-            RequestedCapabilities = new List<string> { "search", "retrieve" }
+            RequestedNodeAccessLevel = NodeAccessTypeEnum.ReadWrite
         };
 
         // Encrypt registration payload

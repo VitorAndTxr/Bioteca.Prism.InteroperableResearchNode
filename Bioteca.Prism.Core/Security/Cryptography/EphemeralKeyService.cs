@@ -7,7 +7,7 @@ namespace Bioteca.Prism.Core.Security.Cryptography;
 /// <summary>
 /// Implementation of ephemeral key management for ECDH
 /// </summary>
-public class EphemeralKeyService : IEphemeralKeyService
+public partial class EphemeralKeyService : IEphemeralKeyService
 {
     private readonly ILogger<EphemeralKeyService> _logger;
 
@@ -140,4 +140,5 @@ public class EphemeralKeyService : IEphemeralKeyService
         // Compare curve OIDs if available
         return curve1.Oid?.Value == curve2.Oid?.Value;
     }
+
 }

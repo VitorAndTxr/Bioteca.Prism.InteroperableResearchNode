@@ -1,9 +1,10 @@
-using System.Net;
 using Bioteca.Prism.Core.Security.Certificate;
 using Bioteca.Prism.Core.Security.Cryptography.Interfaces;
+using Bioteca.Prism.Domain.Enumerators.Node;
 using Bioteca.Prism.Domain.Requests.Node;
 using Bioteca.Prism.Domain.Responses.Node;
 using FluentAssertions;
+using System.Net;
 
 namespace Bioteca.Prism.InteroperableResearchNode.Test;
 
@@ -156,7 +157,7 @@ public class Phase3MutualAuthenticationTests : IClassFixture<TestWebApplicationF
         authResponse.SessionToken.Should().NotBeNullOrEmpty();
         authResponse.SessionExpiresAt.Should().NotBeNull();
         authResponse.SessionExpiresAt.Should().BeAfter(DateTime.UtcNow);
-        authResponse.GrantedCapabilities.Should().NotBeEmpty();
+        authResponse.GrantedNodeAccessLevel.Should().NotBe(default(NodeAccessTypeEnum));
         authResponse.NextPhase.Should().Be("phase4_session");
     }
 
@@ -320,7 +321,7 @@ public class Phase3MutualAuthenticationTests : IClassFixture<TestWebApplicationF
             ContactInfo = $"admin@{nodeId}.test",
             InstitutionDetails = "Test Institution",
             NodeUrl = $"http://{nodeId}:8080",
-            RequestedCapabilities = new List<string> { "search", "retrieve" }
+            RequestedNodeAccessLevel = NodeAccessTypeEnum.ReadWrite
         };
 
         var encryptedPayload = encryptionService.EncryptPayload(registrationRequest, symmetricKey);
@@ -349,7 +350,7 @@ public class Phase3MutualAuthenticationTests : IClassFixture<TestWebApplicationF
             ContactInfo = $"admin@{nodeId}.test",
             InstitutionDetails = "Test Institution",
             NodeUrl = $"http://{nodeId}:8080",
-            RequestedCapabilities = new List<string> { "search", "retrieve" }
+            RequestedNodeAccessLevel = NodeAccessTypeEnum.ReadWrite
         };
 
         var encryptedPayload = encryptionService.EncryptPayload(registrationRequest, symmetricKey);

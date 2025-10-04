@@ -1,3 +1,5 @@
+using Bioteca.Prism.Domain.Enumerators.Node;
+
 namespace Bioteca.Prism.Domain.Responses.Node;
 
 /// <summary>
@@ -28,7 +30,7 @@ public class AuthenticationResponse
     /// <summary>
     /// List of capabilities granted to this node
     /// </summary>
-    public List<string> GrantedCapabilities { get; set; } = new();
+    public NodeAccessTypeEnum GrantedNodeAccessLevel { get; set; } 
 
     /// <summary>
     /// Message describing authentication result

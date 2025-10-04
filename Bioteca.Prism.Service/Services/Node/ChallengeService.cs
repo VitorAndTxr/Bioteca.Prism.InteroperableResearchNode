@@ -1,5 +1,6 @@
 using Bioteca.Prism.Core.Middleware.Node;
 using Bioteca.Prism.Core.Middleware.Session;
+using Bioteca.Prism.Domain.Enumerators.Node;
 using Bioteca.Prism.Domain.Requests.Node;
 using Bioteca.Prism.Domain.Responses.Node;
 using Microsoft.Extensions.Logging;
@@ -130,7 +131,7 @@ public class ChallengeService : IChallengeService
         }
     }
 
-    public async Task<AuthenticationResponse> GenerateAuthenticationResultAsync(string nodeId, string channelId, List<string> grantedCapabilities)
+    public async Task<AuthenticationResponse> GenerateAuthenticationResultAsync(string nodeId, string channelId, NodeAccessTypeEnum nodeAccessLevel)
     {
         try
         {
@@ -138,7 +139,7 @@ public class ChallengeService : IChallengeService
             var sessionData = await _sessionService.CreateSessionAsync(
                 nodeId,
                 channelId,
-                grantedCapabilities,
+                nodeAccessLevel,
                 ttlSeconds: 3600);
 
             _logger.LogInformation(
@@ -153,7 +154,7 @@ public class ChallengeService : IChallengeService
                 NodeId = nodeId,
                 SessionToken = sessionData.SessionToken,
                 SessionExpiresAt = sessionData.ExpiresAt,
-                GrantedCapabilities = grantedCapabilities,
+                GrantedNodeAccessLevel = nodeAccessLevel,
                 Message = "Authentication successful",
                 NextPhase = "phase4_session",
                 Timestamp = DateTime.UtcNow

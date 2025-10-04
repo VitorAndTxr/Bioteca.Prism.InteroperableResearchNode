@@ -521,7 +521,7 @@ public class TestingController : ControllerBase
                     authenticated = authResponse.Authenticated,
                     sessionToken = authResponse.SessionToken,
                     sessionExpiresAt = authResponse.SessionExpiresAt,
-                    grantedCapabilities = authResponse.GrantedCapabilities,
+                    grantedCapabilities = authResponse.GrantedNodeAccessLevel,
                     message = authResponse.Message,
                     nextPhase = authResponse.NextPhase,
                     timestamp = authResponse.Timestamp
@@ -530,7 +530,7 @@ public class TestingController : ControllerBase
                 {
                     sessionToken = "Use this token in subsequent authenticated requests",
                     ttl = "Session expires in 1 hour",
-                    capabilities = authResponse.GrantedCapabilities
+                    capabilities = authResponse.GrantedNodeAccessLevel
                 }
             });
         }

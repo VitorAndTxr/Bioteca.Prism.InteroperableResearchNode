@@ -1,6 +1,7 @@
 using Bioteca.Prism.Core.Middleware.Channel;
 using Bioteca.Prism.Core.Middleware.Session;
 using Bioteca.Prism.Core.Security.Cryptography.Interfaces;
+using Bioteca.Prism.Domain.Enumerators.Node;
 using Bioteca.Prism.Domain.Errors.Node;
 using Bioteca.Prism.Domain.Requests.Session;
 using Bioteca.Prism.Domain.Responses.Node;
@@ -66,7 +67,7 @@ public class SessionController : ControllerBase
             channelId = sessionContext.ChannelId,
             expiresAt = sessionContext.ExpiresAt,
             remainingSeconds = sessionContext.GetRemainingSeconds(),
-            capabilities = sessionContext.Capabilities,
+            capabilities = sessionContext.NodeAccessLevel,
             requestCount = sessionContext.RequestCount,
             timestamp = DateTime.UtcNow
         };
@@ -195,7 +196,7 @@ public class SessionController : ControllerBase
     /// <returns>Encrypted session metrics</returns>
     [HttpPost("metrics")]
     [PrismEncryptedChannelConnection<GetMetricsRequest>]
-    [PrismAuthenticatedSession(RequiredCapability = "admin:node")]
+    [PrismAuthenticatedSession(RequiredCapability = NodeAccessTypeEnum.Admin)]
     [ProducesResponseType(typeof(EncryptedPayload), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(HandshakeError), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]

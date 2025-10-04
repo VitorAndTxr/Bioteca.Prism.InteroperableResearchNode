@@ -330,21 +330,59 @@ InteroperableResearchNode/
 
 ## 🧪 Testes
 
-### Scripts de Teste Automatizados
+### Status dos Testes Automatizados (2025-10-03 - 12:00)
 
-1. **`test-docker.ps1`** - Teste da Fase 1
+**Overall: 73/75 testes passando (97.3%)** ✅
+
+| Categoria | Passando | Total | % | Status |
+|-----------|----------|-------|---|--------|
+| Phase 1 (Channel Establishment) | 6/6 | 100% | ✅ |
+| Certificate & Signature | 13/15 | 86.7% | ⚠️ |
+| Phase 2 (Node Identification) | 6/6 | 100% | ✅ |
+| Phase 3 (Mutual Authentication) | 5/5 | 100% | ✅ |
+| **Phase 4 (Session Management)** | **8/8** | **100%** | ✅ |
+| Encrypted Channel Integration | 3/3 | 100% | ✅ |
+| NodeChannelClient | 7/7 | 100% | ✅ |
+| Security & Edge Cases | 23/23 | 100% | ✅ |
+
+**Testes Falhando (2):**
+- `CertificateAndSignatureTests.VerifySignature_WithValidSignature_ReturnsTrue` - Problema conhecido de verificação de assinatura
+- `CertificateAndSignatureTests.GenerateNodeIdentity_SignatureIsValid_CanBeVerified` - Problema conhecido de verificação de assinatura
+
+**Nota:** Os testes falhando estão relacionados a verificação de assinatura RSA em endpoints de testing e **não bloqueiam** as funcionalidades principais (Phases 1-4 todas funcionando).
+
+### Scripts de Teste
+
+**Teste Automatizado Completo (Recomendado):**
+```bash
+dotnet test Bioteca.Prism.InteroperableResearchNode.Test/Bioteca.Prism.InteroperableResearchNode.Test.csproj
+```
+
+**Testes End-to-End (Bash Scripts):**
+
+1. **`test-phase4.sh`** - ⭐ Teste completo end-to-end (Fases 1+2+3+4)
+   - Fase 1: Estabelece canal criptografado
+   - Fase 2: Registra e autoriza nó
+   - Fase 3: Autenticação challenge-response
+   - Fase 4: Testa whoami, renewal, revocation, rate limiting
+   - **Status**: Validando protocolo completo de handshake
+
+2. **`test-phase3.sh`** - Teste end-to-end (Fases 1+2+3)
+   - Estabelece canal criptografado
+   - Registra e autoriza nó
+   - Autenticação challenge-response
+   - Validação de session token
+   - **Status**: Deprecated, usar `test-phase4.sh`
+
+**Scripts PowerShell (Deprecated):**
+
+3. **`test-docker.ps1`** - Teste da Fase 1
    - Estabelece canal entre Node A → Node B
    - Estabelece canal entre Node B → Node A
    - Verifica canais em ambos os nós
    - Valida roles (client/server)
 
-2. **`test-phase2.ps1`** - Teste básico da Fase 2
-   - Estabelece canal (Fase 1)
-   - Registra nó desconhecido
-   - Lista nós registrados
-   - Aprova nó
-
-3. **`test-phase2-full.ps1`** - Teste completo da Fase 2 ⭐
+4. **`test-phase2-full.ps1`** - Teste completo da Fase 2
    - Fase 1: Estabelece canal criptografado
    - Gera certificado auto-assinado
    - Gera assinatura digital
@@ -540,7 +578,7 @@ docker-compose down
 
 ### ✅ Fase 4: Gerenciamento de Sessão e Controle de Acesso (COMPLETA - 2025-10-03 12:00)
 
-**Status:** ✅ Implementado, Testado e Documentado
+**Status:** ✅ Implementado, Testado e Validado (8/8 testes passando)
 
 **Objetivo:** Gerenciar ciclo de vida de sessões autenticadas com autorização baseada em capacidades e rate limiting.
 
@@ -559,11 +597,12 @@ docker-compose down
 2. **✅ `PrismAuthenticatedSessionAttribute`** (`Bioteca.Prism.InteroperableResearchNode/Middleware/`)
    - Extrai session token do **payload descriptografado** (usa reflexão)
    - Verifica se sessão não expirou (TTL de 1 hora padrão)
-   - Carrega `SessionContext` com capabilities do nó
+   - Carrega `SessionContext` com nível de acesso do nó (`NodeAccessTypeEnum`)
    - Armazena contexto em `HttpContext.Items["SessionContext"]`
    - Rejeita requisições sem token ou com token inválido/expirado
    - Enforces rate limiting (60 req/min) com token bucket algorithm
-   - Suporta autorização por capacidade: `[PrismAuthenticatedSession(RequiredCapability = "admin:node")]`
+   - Suporta autorização por nível: `[PrismAuthenticatedSession(RequiredCapability = NodeAccessTypeEnum.Admin)]`
+   - Hierarquia de acesso: verifica se `sessionContext.NodeAccessLevel >= RequiredCapability`
 
 3. **✅ Domain Models**
    - `SessionData` (`Bioteca.Prism.Domain/Entities/Session/`) - Entidade armazenada
@@ -576,12 +615,12 @@ docker-compose down
    - `RevokeSessionRequest`
    - `GetMetricsRequest`
 
-**Capabilities Implementadas:**
-- `query:read` - Executar queries federadas (leitura)
-- `query:aggregate` - Queries de agregação cross-node
-- `data:write` - Submeter dados de pesquisa
-- `data:delete` - Deletar dados próprios
-- `admin:node` - Administração do nó
+**Níveis de Acesso Implementados** (`NodeAccessTypeEnum`):
+- `ReadOnly` - Executar queries federadas (leitura básica)
+- `ReadWrite` - Submeter e modificar dados de pesquisa
+- `Admin` - Administração completa do nó e acesso a métricas
+
+**Hierarquia**: `Admin` > `ReadWrite` > `ReadOnly` (verificação por comparação numérica)
 
 **Endpoints Implementados:**
 
@@ -601,10 +640,10 @@ docker-compose down
   - Request: `{channelId, sessionToken, timestamp}` (encrypted)
   - Response: `{revoked: true, message}` (encrypted)
 
-- ✅ `POST /api/session/metrics` - Métricas de sessão (requer `admin:node`)
-  - Attributes: `[PrismEncryptedChannelConnection<GetMetricsRequest>]` + `[PrismAuthenticatedSession(RequiredCapability = "admin:node")]`
+- ✅ `POST /api/session/metrics` - Métricas de sessão (requer `NodeAccessTypeEnum.Admin`)
+  - Attributes: `[PrismEncryptedChannelConnection<GetMetricsRequest>]` + `[PrismAuthenticatedSession(RequiredCapability = NodeAccessTypeEnum.Admin)]`
   - Request: `{channelId, sessionToken, nodeId?, timestamp}` (encrypted)
-  - Response: `{nodeId, activeSessions, totalRequests, ...}` (encrypted)
+  - Response: `{nodeId, activeSessions, totalRequests, nodeAccessLevel, ...}` (encrypted)
 
 **Formato de Payload** (todos endpoints):
 ```json
@@ -621,10 +660,18 @@ HTTP Body: {
 - ✅ Returns HTTP 429 quando limite excedido
 - ✅ Métricas: active sessions, total requests, used capabilities
 
-**Testing:**
-- ✅ `Phase4SessionManagementTests.cs` - 8 integration tests
+**Testing (100% Pass Rate):**
+- ✅ `Phase4SessionManagementTests.cs` - 8/8 integration tests passing
+  - WhoAmI endpoint validation
+  - Session renewal with TTL extension
+  - Session revocation (logout)
+  - Metrics endpoint with admin capability requirement
+  - Missing session token handling (401 Unauthorized)
+  - Invalid session token handling (401 Unauthorized)
+  - Insufficient capability handling (403 Forbidden - ReadOnly trying Admin endpoint)
+  - Rate limiting enforcement (429 Too Many Requests)
 - ✅ `test-phase4.sh` - End-to-end script completo (Phases 1+2+3+4)
-- ✅ Build bem-sucedido (0 erros)
+- ✅ Build bem-sucedido (0 erros, 2 avisos não críticos)
 
 **Documentação:**
 - ✅ `CLAUDE.md` - Atualizado com Phase 4

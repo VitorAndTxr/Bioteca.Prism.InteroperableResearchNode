@@ -1,3 +1,4 @@
+using Bioteca.Prism.Domain.Enumerators.Node;
 using Bioteca.Prism.Domain.Requests.Node;
 using Bioteca.Prism.Domain.Responses.Node;
 
@@ -29,9 +30,9 @@ public interface IChallengeService
     /// </summary>
     /// <param name="nodeId">Node ID</param>
     /// <param name="channelId">Channel ID</param>
-    /// <param name="grantedCapabilities">List of capabilities to grant</param>
+    /// <param name="nodeAccessLevel">List of capabilities to grant</param>
     /// <returns>Authentication response with session token</returns>
-    Task<AuthenticationResponse> GenerateAuthenticationResultAsync(string nodeId, string channelId, List<string> grantedCapabilities);
+    Task<AuthenticationResponse> GenerateAuthenticationResultAsync(string nodeId, string channelId, NodeAccessTypeEnum nodeAccessLevel);
 
     /// <summary>
     /// Invalidate a challenge (cleanup after successful authentication or timeout)

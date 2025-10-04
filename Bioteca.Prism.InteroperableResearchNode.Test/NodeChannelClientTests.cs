@@ -1,5 +1,6 @@
 using Bioteca.Prism.Core.Middleware.Node;
 using Bioteca.Prism.Core.Security.Certificate;
+using Bioteca.Prism.Domain.Enumerators.Node;
 using Bioteca.Prism.Domain.Requests.Node;
 using FluentAssertions;
 
@@ -100,7 +101,7 @@ public class NodeChannelClientTests : IClassFixture<TestWebApplicationFactory>
                 ContactInfo = "admin@clienttest.test",
                 InstitutionDetails = "Client Test Institution",
                 NodeUrl = "http://clienttest:8080",
-                RequestedCapabilities = new List<string> { "search", "retrieve" }
+                RequestedNodeAccessLevel = NodeAccessTypeEnum.ReadWrite
             };
 
             // Act
@@ -203,7 +204,7 @@ public class NodeChannelClientTests : IClassFixture<TestWebApplicationFactory>
                 ContactInfo = "admin@pending.test",
                 InstitutionDetails = "Pending Test Institution",
                 NodeUrl = "http://pending:8080",
-                RequestedCapabilities = new List<string> { "search" }
+                RequestedNodeAccessLevel = NodeAccessTypeEnum.ReadWrite
             };
 
             await _channelClient.RegisterNodeAsync(
@@ -285,7 +286,7 @@ public class NodeChannelClientTests : IClassFixture<TestWebApplicationFactory>
             ContactInfo = "admin@fullworkflow.test",
             InstitutionDetails = "Full Workflow Institution",
             NodeUrl = "http://fullworkflow:8080",
-            RequestedCapabilities = new List<string> { "search", "retrieve" }
+            RequestedNodeAccessLevel = NodeAccessTypeEnum.ReadWrite
         };
 
         var regResult = await _channelClient.RegisterNodeAsync(
@@ -375,7 +376,7 @@ public class NodeChannelClientTests : IClassFixture<TestWebApplicationFactory>
             ContactInfo = "admin@test.test",
             InstitutionDetails = "Test Institution",
             NodeUrl = "http://test:8080",
-            RequestedCapabilities = new List<string> { "search" }
+            RequestedNodeAccessLevel = NodeAccessTypeEnum.ReadOnly
         };
 
         // Act & Assert

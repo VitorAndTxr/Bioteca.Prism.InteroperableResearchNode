@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using Bioteca.Prism.Core.Middleware.Session;
 using Bioteca.Prism.Domain.Entities.Session;
+using Bioteca.Prism.Domain.Enumerators.Node;
 using Microsoft.Extensions.Logging;
 
 namespace Bioteca.Prism.Service.Services.Session;
@@ -30,7 +31,7 @@ public class SessionService : ISessionService
     public Task<SessionData> CreateSessionAsync(
         string nodeId,
         string channelId,
-        List<string> capabilities,
+        NodeAccessTypeEnum accessLevel,
         int ttlSeconds = 3600)
     {
         var sessionToken = Guid.NewGuid().ToString();
@@ -44,7 +45,7 @@ public class SessionService : ISessionService
             CreatedAt = now,
             ExpiresAt = now.AddSeconds(ttlSeconds),
             LastAccessedAt = now,
-            Capabilities = capabilities,
+            AccessLevel = accessLevel,
             RequestCount = 0
         };
 
@@ -89,7 +90,7 @@ public class SessionService : ISessionService
             NodeId = sessionData.NodeId,
             ChannelId = sessionData.ChannelId,
             ExpiresAt = sessionData.ExpiresAt,
-            Capabilities = sessionData.Capabilities,
+            NodeAccessLevel = sessionData.AccessLevel,
             RequestCount = sessionData.RequestCount
         };
 
@@ -179,10 +180,9 @@ public class SessionService : ISessionService
             LastAccessedAt = sessions.Any()
                 ? sessions.Max(s => s.LastAccessedAt)
                 : null,
-            UsedCapabilities = sessions
-                .SelectMany(s => s.Capabilities)
-                .Distinct()
-                .ToList()
+            NodeAccessLevel = sessions
+                .Select(s => s.AccessLevel)
+                .Distinct().FirstOrDefault() 
         };
 
         _logger.LogDebug(

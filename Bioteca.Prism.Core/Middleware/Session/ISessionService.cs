@@ -1,4 +1,5 @@
 using Bioteca.Prism.Domain.Entities.Session;
+using Bioteca.Prism.Domain.Enumerators.Node;
 
 namespace Bioteca.Prism.Core.Middleware.Session;
 
@@ -18,7 +19,7 @@ public interface ISessionService
     Task<SessionData> CreateSessionAsync(
         string nodeId,
         string channelId,
-        List<string> capabilities,
+        NodeAccessTypeEnum accessLevel,
         int ttlSeconds = 3600);
 
     /// <summary>
@@ -80,5 +81,5 @@ public class SessionMetrics
     public int ActiveSessions { get; set; }
     public int TotalRequests { get; set; }
     public DateTime? LastAccessedAt { get; set; }
-    public List<string> UsedCapabilities { get; set; } = new();
+    public NodeAccessTypeEnum NodeAccessLevel { get; set; }
 }

@@ -1,3 +1,5 @@
+using Bioteca.Prism.Domain.Enumerators.Node;
+
 namespace Bioteca.Prism.Domain.Entities.Session;
 
 /// <summary>
@@ -42,7 +44,7 @@ public class SessionData
     /// Capabilities granted to this session
     /// Example: ["query:read", "query:aggregate", "data:write"]
     /// </summary>
-    public List<string> Capabilities { get; set; } = new();
+    public NodeAccessTypeEnum AccessLevel { get; set; }
 
     /// <summary>
     /// Number of requests made in this session
@@ -61,14 +63,6 @@ public class SessionData
     public bool IsValid()
     {
         return DateTime.UtcNow < ExpiresAt;
-    }
-
-    /// <summary>
-    /// Check if session has a specific capability
-    /// </summary>
-    public bool HasCapability(string capability)
-    {
-        return Capabilities.Contains(capability, StringComparer.OrdinalIgnoreCase);
     }
 
     /// <summary>

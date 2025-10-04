@@ -8,7 +8,6 @@
 
   <ItemGroup>
     <Folder Include="Entities\Node\" />
-    <Folder Include="Enumerators\Node\" />
     <Folder Include="Payloads\Node\" />
     <Folder Include="ViewModels\" />
   </ItemGroup>
