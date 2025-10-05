@@ -2,11 +2,52 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Documentation Standards for All LLM Providers
+
+**IMPORTANT: This section applies to ALL LLM technology providers and manufacturers (including but not limited to OpenAI, Anthropic, Google, Meta, Microsoft, Amazon, etc.)**
+
+### Primary Language Requirement
+
+**All project documentation MUST be written in English**, including:
+- Architecture documents
+- API documentation
+- Code comments and docstrings
+- README files
+- Technical specifications
+- Testing guides
+- Implementation roadmaps
+- Inline code documentation
+
+### Language Policy Exceptions
+
+The following are acceptable uses of Portuguese or other languages:
+- User-facing application interfaces (if targeting Brazilian/Portuguese markets)
+- End-user help documentation (market-specific)
+- Marketing materials
+- Business requirement documents (internal use only)
+
+### Translation Guidelines
+
+When working with this codebase:
+1. **Always write new documentation in English**
+2. **Translate existing Portuguese documentation to English when encountered**
+3. **Maintain technical terminology in English** (e.g., "handshake", "encryption", "authentication")
+4. **Preserve code examples and technical accuracy during translation**
+5. **Update cross-references and links after translation**
+
+### Rationale
+
+English documentation ensures:
+- Global accessibility for international collaborators
+- Better integration with international biomedical research networks
+- Compatibility with English-based technical standards (HL7 FHIR, X.509, OAuth, etc.)
+- Improved discoverability in academic and open-source communities
+
 ## Project Overview
 
 **Interoperable Research Node (IRN)** - Core component of the PRISM framework for federated biomedical research data. Enables secure, standardized communication between research nodes using cryptographic handshakes, node authentication, and federated queries.
 
-**Current Status**: Phase 4 Complete (Encrypted Channel + Node Identification + Mutual Authentication + Session Management)
+**Current Status**: Phase 4 Complete + Redis Persistence (Encrypted Channel + Node Identification + Mutual Authentication + Session Management + Cache Persistence)
 
 ## Architecture
 
@@ -34,8 +75,13 @@ Bioteca.Prism.Service/         # Service layer (business logic)
 │   ├── NodeRegistryService.cs           # Node registry (in-memory)
 │   ├── ChallengeService.cs              # Challenge-response authentication
 │   └── CertificateHelper.cs             # X.509 utilities
-└── Services/Session/          # Session management services
-    └── SessionService.cs                # Session lifecycle (Phase 4)
+├── Services/Session/          # Session management services
+│   └── SessionService.cs                # Session lifecycle (Phase 4)
+└── Services/Cache/            # Cache persistence services
+    ├── RedisConnectionService.cs        # Redis connection management
+    ├── RedisSessionStore.cs             # Redis session persistence
+    ├── InMemorySessionStore.cs          # In-memory session fallback
+    └── RedisChannelStore.cs             # Redis channel persistence
 
 Bioteca.Prism.InteroperableResearchNode/  # API layer
 ├── Controllers/
@@ -55,6 +101,8 @@ Bioteca.Prism.InteroperableResearchNode/  # API layer
 - HKDF-SHA256 key derivation
 - AES-256-GCM symmetric encryption
 - Perfect Forward Secrecy
+- **Redis or In-Memory storage** (configurable via feature flags)
+- Automatic TTL management (30 minutes default)
 - Endpoints: `/api/channel/open`, `/api/channel/initiate`
 
 **Phase 2: Node Identification (✅ Complete)**
@@ -75,8 +123,10 @@ Bioteca.Prism.InteroperableResearchNode/  # API layer
 - Bearer token authentication
 - Capability-based authorization
 - Session lifecycle (whoami, renew, revoke)
-- Rate limiting (60 requests/minute)
+- **Redis or In-Memory storage** (configurable via feature flags)
+- Rate limiting (60 requests/minute) using Redis Sorted Sets
 - Session metrics and monitoring
+- Automatic TTL management (1 hour default)
 - Endpoints: `/api/session/whoami`, `/api/session/renew`, `/api/session/revoke`, `/api/session/metrics`
 
 ### Attribute-Based Request Processing (Phase 2+)
@@ -129,12 +179,19 @@ dotnet run --project Bioteca.Prism.InteroperableResearchNode --launch-profile No
 # Run locally (Node B on port 5001)
 dotnet run --project Bioteca.Prism.InteroperableResearchNode --launch-profile NodeB
 
-# Docker multi-node setup
-docker-compose up -d                    # Start both nodes
-docker-compose down                     # Stop nodes
+# Docker multi-node setup (includes Redis)
+docker-compose up -d                    # Start both nodes + Redis instances
+docker-compose down                     # Stop all containers
+docker-compose down -v                  # Stop and remove volumes (clean Redis data)
 docker-compose build --no-cache         # Rebuild after code changes
 docker logs -f irn-node-a               # View Node A logs
 docker logs -f irn-node-b               # View Node B logs
+docker logs -f irn-redis-node-a         # View Redis Node A logs
+docker logs -f irn-redis-node-b         # View Redis Node B logs
+
+# Redis CLI access
+docker exec -it irn-redis-node-a redis-cli -a prism-redis-password-node-a
+docker exec -it irn-redis-node-b redis-cli -a prism-redis-password-node-b
 ```
 
 ### Testing
@@ -173,7 +230,17 @@ dotnet test --verbosity detailed
 | NodeChannelClient | 7/7 | 100% | ✅ |
 | Security & Edge Cases | 23/23 | 100% | ✅ |
 
-**Recent Updates (2025-10-03 - 12:00):**
+**Recent Updates (2025-10-05):**
+- ✅ **Redis Persistence Implementation**: Session and channel storage with automatic TTL
+- ✅ Multi-instance Redis architecture (one per node)
+- ✅ `RedisSessionStore` and `RedisChannelStore` implementations
+- ✅ Feature flags for conditional Redis usage (`UseRedisForSessions`, `UseRedisForChannels`)
+- ✅ In-memory fallback implementations (`InMemorySessionStore`, async `ChannelStore`)
+- ✅ Comprehensive Redis testing documentation
+- ✅ All IChannelStore methods migrated to async
+- ✅ 72/75 tests passing (96% - no regressions from Redis migration)
+
+**Previous Updates (2025-10-03):**
 - ✅ **Phase 4 Implementation Complete**: Session management with capability-based authorization
 - ✅ Session lifecycle endpoints (whoami, renew, revoke, metrics)
 - ✅ Rate limiting (60 requests/minute per session) using token bucket algorithm
@@ -210,6 +277,63 @@ All services are registered as **Singleton** (shared state across requests):
 - `INodeRegistryService` - Node registry (in-memory, will need DB in production)
 - `IChallengeService` - Challenge-response authentication (Phase 3)
 - `ISessionService` - Session lifecycle management (Phase 4)
+- `IRedisConnectionService` - Redis connection management (conditional)
+- `ISessionStore` - Session persistence (Redis or In-Memory based on feature flags)
+- `IChannelStore` - Channel persistence (Redis or In-Memory based on feature flags)
+
+### Redis Persistence (✅ Implemented)
+
+**Multi-Instance Architecture**: Each node has its own isolated Redis instance.
+
+```yaml
+# docker-compose.yml
+redis-node-a:
+  port: 6379
+  password: prism-redis-password-node-a
+  volume: redis-data-node-a
+
+redis-node-b:
+  port: 6380
+  password: prism-redis-password-node-b
+  volume: redis-data-node-b
+```
+
+**Feature Flags** (in `appsettings.NodeA.json` and `appsettings.NodeB.json`):
+```json
+{
+  "Redis": {
+    "ConnectionString": "localhost:6379,password=prism-redis-password-node-a,abortConnect=false",
+    "EnableRedis": false  // Set to true to enable Redis
+  },
+  "FeatureFlags": {
+    "UseRedisForSessions": false,  // Enable Redis for session storage
+    "UseRedisForChannels": false   // Enable Redis for channel storage
+  }
+}
+```
+
+**Storage Implementations**:
+
+1. **Sessions** (`ISessionStore`):
+   - **Redis**: `RedisSessionStore` - Automatic TTL, rate limiting via Sorted Sets
+   - **In-Memory**: `InMemorySessionStore` - Fallback with manual cleanup
+   - **Key Pattern**: `session:{token}`, `session:node:{nodeId}:sessions`, `session:ratelimit:{token}`
+
+2. **Channels** (`IChannelStore`):
+   - **Redis**: `RedisChannelStore` - Separates metadata (JSON) and binary keys
+   - **In-Memory**: `ChannelStore` - ConcurrentDictionary storage
+   - **Key Pattern**: `channel:{id}` (metadata), `channel:key:{id}` (binary symmetric key)
+
+**Benefits**:
+- Automatic expiration management (TTL)
+- Persistence across node restarts
+- Distributed rate limiting
+- Production-ready scalability
+- Graceful fallback to in-memory if Redis unavailable
+
+**Testing**:
+- `docs/testing/redis-testing-guide.md` - Comprehensive Redis testing guide
+- `docs/testing/docker-compose-quick-start.md` - Docker Compose quick start
 
 ### Channel Flow
 
@@ -353,7 +477,11 @@ public IActionResult ProtectedEndpoint()
 
 ### Documentation
 - `docs/architecture/handshake-protocol.md` - Complete protocol specification
-- `docs/development/channel-encryption-plan.md` - Plan to fix Phase 2+ encryption
+- `docs/architecture/phase4-session-management.md` - Phase 4 session architecture
+- `docs/development/persistence-architecture.md` - Redis and PostgreSQL persistence architecture
+- `docs/development/persistence-implementation-roadmap.md` - 15-day implementation plan
+- `docs/testing/redis-testing-guide.md` - Comprehensive Redis testing guide
+- `docs/testing/docker-compose-quick-start.md` - Docker Compose quick start guide
 - `docs/testing/manual-testing-guide.md` - Step-by-step debugging guide
 - `docs/PROJECT_STATUS.md` - Detailed status report
 
@@ -415,13 +543,13 @@ All 61 tests are now passing (56 from Phases 1-2, 5 new from Phase 3). Previous 
 
 ## Next Steps
 
-### ✅ Phase 4 Complete - Core Handshake Protocol Finished!
+### ✅ Phase 4 Complete + Redis Persistence
 
-All 4 phases of the handshake protocol are now implemented:
-- ✅ **Phase 1**: Encrypted channel establishment (ECDH + AES-256-GCM)
+All 4 phases of the handshake protocol are now implemented with Redis persistence:
+- ✅ **Phase 1**: Encrypted channel establishment (ECDH + AES-256-GCM) + Redis/In-Memory storage
 - ✅ **Phase 2**: Node identification and registration (X.509 certificates)
 - ✅ **Phase 3**: Challenge-response mutual authentication (RSA signatures)
-- ✅ **Phase 4**: Session management and access control (Bearer tokens + capabilities)
+- ✅ **Phase 4**: Session management and access control (Bearer tokens + capabilities) + Redis/In-Memory storage
 
 **Phase 4 Features Implemented:**
 - ✅ `SessionService` - Session lifecycle management (create, validate, renew, revoke)
@@ -431,6 +559,14 @@ All 4 phases of the handshake protocol are now implemented:
 - ✅ Rate limiting (60 requests/minute per session)
 - ✅ Session metrics and monitoring
 - ✅ End-to-end testing (`test-phase4.sh`)
+
+**Redis Persistence Features Implemented:**
+- ✅ Multi-instance Redis architecture (one per node)
+- ✅ `RedisSessionStore` - Session persistence with automatic TTL
+- ✅ `RedisChannelStore` - Channel persistence with automatic TTL
+- ✅ `InMemorySessionStore` - Fallback implementation
+- ✅ Feature flags for conditional Redis usage
+- ✅ Comprehensive testing documentation
 
 ### Phase 5 (Next - Federated Queries)
 
@@ -457,10 +593,12 @@ All 4 phases of the handshake protocol are now implemented:
 - See `docs/architecture/phase4-session-management.md`
 
 ### Infrastructure Improvements
-- Replace in-memory storage with database (PostgreSQL/SQL Server)
-- Add structured logging (Serilog)
-- Implement distributed tracing (OpenTelemetry)
-- Add Prometheus metrics
+- ✅ Redis persistence for sessions and channels (COMPLETED)
+- [ ] PostgreSQL for node registry persistence (Planned - see `docs/development/persistence-architecture.md`)
+- [ ] Add structured logging (Serilog)
+- [ ] Implement distributed tracing (OpenTelemetry)
+- [ ] Add Prometheus metrics
+- [ ] Redis Sentinel for high availability (production)
 
 ### Documentation Updates Needed
 - Update `docs/testing/manual-testing-guide.md` with dotnet test commands

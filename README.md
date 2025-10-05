@@ -1,6 +1,6 @@
 # Interoperable Research Node (IRN)
 
-[![Status](https://img.shields.io/badge/Status-Phase%202%20Complete-success)](https://github.com)
+[![Status](https://img.shields.io/badge/Status-Phase%204%20Complete%20%2B%20Redis-success)](https://github.com)
 [![.NET](https://img.shields.io/badge/.NET-8.0-blue)](https://dotnet.microsoft.com/)
 [![Docker](https://img.shields.io/badge/Docker-Ready-blue)](https://www.docker.com/)
 [![License](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
@@ -11,12 +11,14 @@ The Interoperable Research Node (IRN) is the core component of the PRISM (Projec
 
 | Component | Status | Description |
 |-----------|--------|-------------|
-| **Phase 1: Encrypted Channel** | ✅ Complete | ECDH ephemeral keys with Perfect Forward Secrecy |
+| **Phase 1: Encrypted Channel** | ✅ Complete | ECDH ephemeral keys with Perfect Forward Secrecy + Redis persistence |
 | **Phase 2: Node Identification** | ✅ Complete | X.509 certificates and digital signatures |
-| **Phase 3: Mutual Authentication** | 📋 Planned | Challenge/response authentication |
-| **Phase 4: Session Establishment** | 📋 Planned | Capability-based authorization |
+| **Phase 3: Mutual Authentication** | ✅ Complete | Challenge/response authentication with RSA signatures |
+| **Phase 4: Session Management** | ✅ Complete | Capability-based authorization + Redis persistence |
+| **Redis Persistence** | ✅ Complete | Multi-instance Redis for sessions and channels |
 | **Data Ingestion** | 📋 Planned | Standardized biosignal data storage |
 | **Federated Queries** | 📋 Planned | Cross-node data queries |
+| **PostgreSQL Persistence** | 📋 Planned | Node registry database persistence |
 
 ## About The Project
 Biomedical research, especially involving biosignals, often suffers from data fragmentation. Each research project tends to create its own isolated data ecosystem, making large-scale, collaborative studies difficult and inefficient.
@@ -47,10 +49,18 @@ The Interoperable Research Node (IRN) is the cornerstone of this model. It acts 
   - Multiple authorization states (Unknown, Pending, Authorized, Revoked)
   - **Fully encrypted** registration and identification endpoints
 
+- **🔴 Redis Persistence (NEW!)**
+  - Multi-instance Redis (one per node)
+  - Automatic TTL management for sessions and channels
+  - Rate limiting via Redis Sorted Sets
+  - Graceful fallback to in-memory storage
+  - Feature flags for conditional Redis usage
+
 - **🐳 Docker Deployment**
-  - Multi-container orchestration
+  - Multi-container orchestration (IRN nodes + Redis instances)
   - Environment-specific configurations
   - Health checks and monitoring
+  - Isolated Redis volumes per node
 
 - **📊 API Documentation**
   - OpenAPI/Swagger integration
@@ -77,35 +87,51 @@ The Interoperable Research Node (IRN) is the cornerstone of this model. It acts 
 git clone https://github.com/your-org/InteroperableResearchNode.git
 cd InteroperableResearchNode
 
-# Start both nodes
+# Start all containers (2 nodes + 2 Redis instances)
 docker-compose up -d
+
+# Check status
+docker-compose ps
 
 # Check health
 curl http://localhost:5000/api/channel/health  # Node A
 curl http://localhost:5001/api/channel/health  # Node B
 
+# View logs
+docker logs -f irn-node-a          # Node A logs
+docker logs -f irn-redis-node-a    # Redis Node A logs
+
 # Access Swagger UI
 # Node A: http://localhost:5000/swagger
 # Node B: http://localhost:5001/swagger
+
+# Access Redis CLI (optional)
+docker exec -it irn-redis-node-a redis-cli -a prism-redis-password-node-a
 ```
 
 ### Running Tests
 
-#### **Option 1: Automated Test (Recommended)**
+#### **Option 1: Automated Integration Tests (Recommended)**
 
-```powershell
-# Complete Phase 2 test with encrypted channel
-.\test-fase2-manual.ps1
+```bash
+# Run all automated tests
+dotnet test
+
+# Run specific test suite
+dotnet test --filter "FullyQualifiedName~Phase4SessionManagementTests"
+
+# Run with detailed output
+dotnet test --verbosity detailed
 ```
 
-**What it tests:**
-- ✅ Encrypted channel establishment (Phase 1)
-- ✅ X.509 certificate generation
-- ✅ RSA signature creation
-- ✅ AES-256-GCM payload encryption
-- ✅ Node identification (unknown → pending → authorized flow)
-- ✅ Node registration with encrypted payloads
-- ✅ Administrative approval workflow
+**Test Coverage:**
+- ✅ Phase 1: Encrypted channel establishment (6/6 tests)
+- ✅ Phase 2: Node identification and registration (6/6 tests)
+- ✅ Phase 3: Mutual authentication (5/5 tests)
+- ✅ Phase 4: Session management (8/8 tests)
+- ✅ Certificate and signature validation (13/15 tests)
+- ✅ Security and edge cases (23/23 tests)
+- **Overall: 72/75 tests passing (96%)**
 
 #### **Option 2: Manual Testing via Swagger**
 
@@ -122,30 +148,36 @@ Quick walkthrough:
 8. Approve node: `PUT /api/node/{nodeId}/status`
 9. Re-identify to get `nextPhase: "phase3_authenticate"`
 
-#### **Option 3: Integration Tests (C# xUnit)**
+#### **Option 3: End-to-End Test Script (Bash)**
 
-```powershell
-# Run all integration tests
-dotnet test Bioteca.Prism.InteroperableResearchNode.Test
-
-# Run specific test suite
-dotnet test --filter FullyQualifiedName~Phase2NodeIdentificationTests
+```bash
+# Complete end-to-end test (Phases 1→2→3→4)
+bash test-phase4.sh
 ```
+
+**What it tests:**
+- ✅ Complete handshake flow (all 4 phases)
+- ✅ Channel establishment + encryption
+- ✅ Node identification + registration
+- ✅ Challenge-response authentication
+- ✅ Session management (whoami, renew, revoke)
 
 ### Manual Testing & Debugging
 
 For detailed manual testing and debugging instructions, see:
 - [📖 Manual Testing Guide](docs/testing/manual-testing-guide.md) - Step-by-step debugging guide
+- [🔴 Redis Testing Guide](docs/testing/redis-testing-guide.md) - Redis persistence testing
+- [🐳 Docker Compose Quick Start](docs/testing/docker-compose-quick-start.md) - Docker testing scenarios
 - [📋 Phase 1 Test Plan](docs/testing/phase1-test-plan.md) - Encrypted channel tests
 - [📋 Phase 2 Test Plan](docs/testing/phase2-test-plan.md) - Node identification tests
 
 ## 🏗️ Architecture
 
-### Current Implementation (Phases 1-2)
+### Current Implementation (Phases 1-4 + Redis)
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    Interoperable Research Node               │
+│              Interoperable Research Node (IRN)              │
 ├─────────────────────────────────────────────────────────────┤
 │  Phase 1: Encrypted Channel (✅ Complete)                   │
 │  ┌──────────────────────────────────────────────────────┐  │
@@ -153,6 +185,7 @@ For detailed manual testing and debugging instructions, see:
 │  │ • HKDF-SHA256 Key Derivation                         │  │
 │  │ • AES-256-GCM Symmetric Encryption                   │  │
 │  │ • Perfect Forward Secrecy                            │  │
+│  │ • Redis/In-Memory Storage (30 min TTL)              │  │
 │  └──────────────────────────────────────────────────────┘  │
 │                                                              │
 │  Phase 2: Node Identification (✅ Complete)                 │
@@ -163,8 +196,27 @@ For detailed manual testing and debugging instructions, see:
 │  │ • Admin Approval Workflow                            │  │
 │  └──────────────────────────────────────────────────────┘  │
 │                                                              │
-│  Phase 3: Mutual Authentication (📋 Planned)                │
-│  Phase 4: Session Establishment (📋 Planned)                │
+│  Phase 3: Mutual Authentication (✅ Complete)               │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │ • Challenge-Response Protocol                        │  │
+│  │ • RSA Signature Verification                         │  │
+│  │ • Proof of Private Key Possession                    │  │
+│  └──────────────────────────────────────────────────────┘  │
+│                                                              │
+│  Phase 4: Session Management (✅ Complete)                  │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │ • Bearer Token Authentication                        │  │
+│  │ • Capability-Based Authorization                     │  │
+│  │ • Rate Limiting (60 req/min via Redis)               │  │
+│  │ • Redis/In-Memory Storage (1 hour TTL)               │  │
+│  └──────────────────────────────────────────────────────┘  │
+│                                                              │
+│  Redis Persistence (✅ Complete)                            │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │ • Multi-Instance Architecture (1 per node)           │  │
+│  │ • Automatic TTL Management                           │  │
+│  │ • Graceful Fallback to In-Memory                     │  │
+│  └──────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -176,12 +228,19 @@ See [Handshake Protocol Documentation](docs/architecture/handshake-protocol.md) 
 
 - **[📖 Documentation Index](docs/README.md)** - Complete documentation index
 - **[🔐 Handshake Protocol](docs/architecture/handshake-protocol.md)** - Detailed protocol specification
+- **[💾 Persistence Architecture](docs/development/persistence-architecture.md)** - Redis and PostgreSQL architecture
+- **[🔴 Redis Testing Guide](docs/testing/redis-testing-guide.md)** - Comprehensive Redis testing
+- **[🐳 Docker Quick Start](docs/testing/docker-compose-quick-start.md)** - Docker testing scenarios
 - **[🧪 Manual Testing Guide](docs/testing/manual-testing-guide.md)** - Step-by-step debugging guide
 - **[🏗️ Implementation Roadmap](docs/development/implementation-roadmap.md)** - Development roadmap
 
 ## 🛠️ Technology Stack
 
 - **Backend**: ASP.NET Core 8.0, C# 12
+- **Persistence**:
+  - Redis 7.2 Alpine (sessions and channels)
+  - StackExchange.Redis 2.8.16
+  - PostgreSQL 15+ (planned for node registry)
 - **Cryptography**:
   - ECDH (Elliptic Curve Diffie-Hellman) P-384
   - HKDF (HMAC-based Key Derivation Function) SHA-256
@@ -190,7 +249,7 @@ See [Handshake Protocol Documentation](docs/architecture/handshake-protocol.md) 
   - X.509 Certificates
 - **Containerization**: Docker, Docker Compose
 - **API Documentation**: Swagger/OpenAPI
-- **Testing**: PowerShell, curl, Postman
+- **Testing**: xUnit, PowerShell, Bash, Postman
 
 ## Conceptual Architecture
 The IRN facilitates the flow of information between the core components of a research project and the wider research network.

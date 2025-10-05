@@ -1,153 +1,161 @@
 # Persistence Architecture - IRN
 
-**Status:** 📋 Planning Phase
-**Data:** 2025-10-03
-**Versão:** 1.0
+**Status:** ✅ Partially Implemented (Redis Complete, PostgreSQL Planned)
+**Date:** 2025-10-05
+**Version:** 2.0
 
 ---
 
-## Visão Geral
+## Overview
 
-Este documento define a arquitetura de persistência para o Interoperable Research Node (IRN), substituindo o armazenamento in-memory atual por soluções apropriadas de persistência:
+This document defines the persistence architecture for the Interoperable Research Node (IRN), replacing the current in-memory storage with appropriate persistence solutions:
 
-1. **Redis Cache** - Para Sessions e Channels (dados temporários com TTL)
-2. **PostgreSQL** - Para Node Registry (dados permanentes)
+1. **Redis Cache** - For Sessions and Channels (temporary data with TTL) ✅ **IMPLEMENTED**
+2. **PostgreSQL** - For Node Registry (permanent data) ⏳ **PLANNED**
 
 ---
 
-## Análise do Estado Atual (In-Memory)
+## Current State Analysis (In-Memory)
 
 ### 1. Node Registry Service
-**Localização:** `Bioteca.Prism.Service/Services/Node/NodeRegistryService.cs`
+**Location:** `Bioteca.Prism.Service/Services/Node/NodeRegistryService.cs`
 
-**Armazenamento Atual:**
+**Current Storage:**
 ```csharp
 private readonly Dictionary<string, RegisteredNode> _nodes = new();
 private readonly Dictionary<string, RegisteredNode> _nodesByCertificate = new();
 private readonly object _lock = new();
 ```
 
-**Dados Armazenados:**
+**Stored Data:**
 - `RegisteredNode` entities (NodeId, Certificate, Status, etc.)
-- Indexed by: NodeId (primary) e CertificateFingerprint (secondary)
-- Acesso concorrente protegido por lock
+- Indexed by: NodeId (primary) and CertificateFingerprint (secondary)
+- Concurrent access protected by lock
 
-**Operações:**
-- `GetNodeAsync(nodeId)` - Busca por ID
-- `GetNodeByCertificateAsync(fingerprint)` - Busca por certificado
-- `RegisterNodeAsync(request)` - Criação/atualização
-- `UpdateNodeStatusAsync(nodeId, status)` - Atualização de status
-- `GetAllNodesAsync()` - Listagem completa
-- `UpdateLastAuthenticationAsync(nodeId)` - Atualização de timestamp
+**Operations:**
+- `GetNodeAsync(nodeId)` - Lookup by ID
+- `GetNodeByCertificateAsync(fingerprint)` - Lookup by certificate
+- `RegisterNodeAsync(request)` - Create/update
+- `UpdateNodeStatusAsync(nodeId, status)` - Status update
+- `GetAllNodesAsync()` - Complete listing
+- `UpdateLastAuthenticationAsync(nodeId)` - Timestamp update
 
-**Problema Atual:**
-- ❌ Dados perdidos ao reiniciar aplicação
-- ❌ Não funciona em múltiplas instâncias
-- ❌ Sem histórico de mudanças
-- ❌ Sem auditoria
+**Current Problems:**
+- ❌ Data lost on application restart
+- ❌ Does not work with multiple instances
+- ❌ No change history
+- ❌ No audit trail
 
 ---
 
 ### 2. Session Service
-**Localização:** `Bioteca.Prism.Service/Services/Session/SessionService.cs`
+**Location:** `Bioteca.Prism.Service/Services/Session/SessionService.cs`
 
-**Armazenamento Atual:**
+**Current Storage:**
 ```csharp
+// Now abstracted via ISessionStore
+// Default: InMemorySessionStore
 private readonly ConcurrentDictionary<string, SessionData> _sessions = new();
 private readonly ConcurrentDictionary<string, Queue<DateTime>> _requestHistory = new();
 ```
 
-**Dados Armazenados:**
+**Stored Data:**
 - `SessionData` (SessionToken, NodeId, ChannelId, TTL, AccessLevel)
-- Request history para rate limiting (últimos 60 segundos)
+- Request history for rate limiting (last 60 seconds)
 
-**Operações:**
-- `CreateSessionAsync()` - Criação de sessão (TTL padrão: 1 hora)
-- `ValidateSessionAsync(token)` - Validação e conversão para SessionContext
-- `RenewSessionAsync(token)` - Renovação de TTL
-- `RevokeSessionAsync(token)` - Invalidação (logout)
-- `GetNodeSessionsAsync(nodeId)` - Sessões de um nó
-- `GetSessionMetricsAsync(nodeId)` - Métricas agregadas
-- `CleanupExpiredSessionsAsync()` - Limpeza de expirados
+**Operations:**
+- `CreateSessionAsync()` - Create session (default TTL: 1 hour)
+- `ValidateSessionAsync(token)` - Validation and conversion to SessionContext
+- `RenewSessionAsync(token)` - TTL renewal
+- `RevokeSessionAsync(token)` - Invalidation (logout)
+- `GetNodeSessionsAsync(nodeId)` - Sessions for a node
+- `GetSessionMetricsAsync(nodeId)` - Aggregated metrics
+- `CleanupExpiredSessionsAsync()` - Cleanup expired sessions
 - `RecordRequestAsync(token)` - Rate limiting (60 req/min)
 
-**Características:**
-- ✅ Expiração automática (TTL)
-- ✅ Rate limiting com sliding window
-- ❌ Não funciona em múltiplas instâncias
-- ❌ Sessões perdidas ao reiniciar
+**Characteristics:**
+- ✅ **IMPLEMENTED**: Redis persistence via `RedisSessionStore`
+- ✅ Automatic expiration (TTL)
+- ✅ Rate limiting with sliding window
+- ✅ Works with multiple instances (when using Redis)
+- ✅ Sessions persist across restarts (when using Redis)
 
 ---
 
 ### 3. Channel Store
-**Localização:** `Bioteca.Prism.Data/Cache/Channel/ChannelStore.cs`
+**Location:** `Bioteca.Prism.Data/Cache/Channel/ChannelStore.cs`
 
-**Armazenamento Atual:**
+**Current Storage:**
 ```csharp
+// Now abstracted via IChannelStore (async)
+// Default: In-memory ChannelStore
 private static readonly ConcurrentDictionary<string, ChannelContext> _channels = new();
 ```
 
-**Dados Armazenados:**
+**Stored Data:**
 - `ChannelContext` (ChannelId, SymmetricKey, Role, TTL)
-- Chave simétrica AES-256-GCM (32 bytes)
-- TTL padrão: 30 minutos
+- AES-256-GCM symmetric key (32 bytes)
+- Default TTL: 30 minutes
 
-**Operações:**
-- `AddChannel(channelId, context)` - Adiciona canal
-- `GetChannel(channelId)` - Busca e valida TTL
-- `RemoveChannel(channelId)` - Remove e limpa chave (segurança)
-- `IsChannelValid(channelId)` - Valida existência e TTL
+**Operations:**
+- `AddChannelAsync(channelId, context)` - Add channel
+- `GetChannelAsync(channelId)` - Lookup and validate TTL
+- `RemoveChannelAsync(channelId)` - Remove and clear key (security)
+- `IsChannelValidAsync(channelId)` - Validate existence and TTL
 
-**Características:**
-- ✅ Expiração automática (TTL)
-- ✅ Limpeza segura de chaves (Array.Clear)
-- ❌ Não funciona em múltiplas instâncias
-- ❌ Canais perdidos ao reiniciar
+**Characteristics:**
+- ✅ **IMPLEMENTED**: Redis persistence via `RedisChannelStore`
+- ✅ Automatic expiration (TTL)
+- ✅ Secure key cleanup (Array.Clear)
+- ✅ Works with multiple instances (when using Redis)
+- ✅ Channels persist across restarts (when using Redis)
 
 ---
 
-## Arquitetura Proposta
+## Proposed Architecture
 
-### Stack Tecnológica
+### Technology Stack
 
 1. **Redis** (Distributed Cache)
-   - Versão: Redis 7.2+
-   - Biblioteca: `StackExchange.Redis` 2.7+
-   - Uso: Sessions, Channels, Rate Limiting
+   - Version: Redis 7.2+
+   - Library: `StackExchange.Redis` 2.8.16
+   - Usage: Sessions, Channels, Rate Limiting
+   - **Status:** ✅ **IMPLEMENTED**
 
 2. **PostgreSQL** (Relational Database)
-   - Versão: PostgreSQL 15+
+   - Version: PostgreSQL 15+
    - ORM: Entity Framework Core 8.0+
-   - Uso: Node Registry, Audit Logs
+   - Usage: Node Registry, Audit Logs
+   - **Status:** ⏳ **PLANNED**
 
 3. **Connection Pooling**
-   - Npgsql connection pooling para PostgreSQL
+   - Npgsql connection pooling for PostgreSQL
    - StackExchange.Redis connection multiplexing
 
 ---
 
-## Parte 1: Redis Cache (Sessions + Channels)
+## Part 1: Redis Cache (Sessions + Channels) ✅ IMPLEMENTED
 
-### Por que Redis?
+### Why Redis?
 
-✅ **TTL Nativo**: Expiração automática de chaves (não precisa de cleanup manual)
-✅ **Atômico**: Operações atômicas para rate limiting (INCR, EXPIRE)
-✅ **Distribuído**: Funciona em múltiplas instâncias (shared state)
-✅ **Rápido**: In-memory, latência <1ms
-✅ **Sliding Window**: Suporte a sorted sets para rate limiting preciso
+✅ **Native TTL**: Automatic key expiration (no manual cleanup needed)
+✅ **Atomic**: Atomic operations for rate limiting (INCR, EXPIRE)
+✅ **Distributed**: Works with multiple instances (shared state)
+✅ **Fast**: In-memory, <1ms latency
+✅ **Sliding Window**: Sorted set support for precise rate limiting
 
-### Estratégia de Cache
+### Cache Strategy
 
-#### 1. Sessions (TTL: 1 hora padrão)
+#### 1. Sessions (TTL: 1 hour default)
 
 **Key Pattern:**
 ```
 session:{sessionToken}             → SessionData (JSON)
-session:node:{nodeId}:sessions     → Set de session tokens
+session:node:{nodeId}:sessions     → Set of session tokens
 session:ratelimit:{sessionToken}   → Sorted Set (timestamps)
 ```
 
-**Estruturas Redis:**
+**Redis Structures:**
 
 ```redis
 # Session data (Hash)
@@ -163,15 +171,15 @@ EXPIRE session:abc-123-def 3600
 
 # Node sessions index (Set)
 SADD session:node:node-001:sessions "abc-123-def" "ghi-456-jkl"
-EXPIRE session:node:node-001:sessions 86400  # 24h (maior que TTL de sessão)
+EXPIRE session:node:node-001:sessions 86400  # 24h (longer than session TTL)
 
-# Rate limiting (Sorted Set - score = timestamp Unix)
+# Rate limiting (Sorted Set - score = Unix timestamp)
 ZADD session:ratelimit:abc-123-def 1696339200.123 "req-1"
 ZADD session:ratelimit:abc-123-def 1696339201.456 "req-2"
-EXPIRE session:ratelimit:abc-123-def 120  # 2 minutos
+EXPIRE session:ratelimit:abc-123-def 120  # 2 minutes
 ```
 
-**Operações:**
+**Operations:**
 
 ```csharp
 // Create Session
@@ -179,7 +187,7 @@ await redis.HashSetAsync($"session:{token}", new HashEntry[]
 {
     new("nodeId", nodeId),
     new("channelId", channelId),
-    // ... outros campos
+    // ... other fields
 });
 await redis.KeyExpireAsync($"session:{token}", ttl);
 await redis.SetAddAsync($"session:node:{nodeId}:sessions", token);
@@ -197,20 +205,20 @@ await redis.SetRemoveAsync($"session:node:{nodeId}:sessions", token);
 
 // Rate Limiting (Sliding Window)
 var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-var windowStart = now - 60; // últimos 60 segundos
+var windowStart = now - 60; // last 60 seconds
 
-// Remove requests antigos
+// Remove old requests
 await redis.SortedSetRemoveRangeByScoreAsync(
     $"session:ratelimit:{token}",
     0,
     windowStart);
 
-// Conta requests no último minuto
+// Count requests in last minute
 var count = await redis.SortedSetLengthAsync($"session:ratelimit:{token}");
 
 if (count < 60)
 {
-    // Adiciona request atual
+    // Add current request
     await redis.SortedSetAddAsync(
         $"session:ratelimit:{token}",
         Guid.NewGuid().ToString(),
@@ -220,14 +228,15 @@ if (count < 60)
 
 ---
 
-#### 2. Channels (TTL: 30 minutos padrão)
+#### 2. Channels (TTL: 30 minutes default)
 
 **Key Pattern:**
 ```
-channel:{channelId}   → ChannelContext (Hash + Binary symmetric key)
+channel:{channelId}        → ChannelContext metadata (Hash)
+channel:key:{channelId}    → Binary symmetric key (String)
 ```
 
-**Estrutura Redis:**
+**Redis Structure:**
 
 ```redis
 # Channel metadata (Hash)
@@ -240,31 +249,35 @@ HSET channel:xyz-789-abc
 EXPIRE channel:xyz-789-abc 1800
 
 # Symmetric key (Binary - stored separately for security)
-SET channel:xyz-789-abc:key <32-byte-binary-key>
-EXPIRE channel:xyz-789-abc:key 1800
+SET channel:key:xyz-789-abc <32-byte-binary-key>
+EXPIRE channel:key:xyz-789-abc 1800
 ```
 
-**Operações:**
+**Operations:**
 
 ```csharp
 // Add Channel
-var key = $"channel:{channelId}";
-await redis.HashSetAsync(key, new HashEntry[]
+var metadataKey = $"channel:{channelId}";
+var keyBinaryKey = $"channel:key:{channelId}";
+
+var transaction = redis.CreateTransaction();
+transaction.HashSetAsync(metadataKey, new HashEntry[]
 {
     new("role", context.Role.ToString()),
     new("establishedAt", context.EstablishedAt.ToString("O")),
     new("expiresAt", context.ExpiresAt.ToString("O"))
 });
-await redis.StringSetAsync($"{key}:key", context.SymmetricKey);
-await redis.KeyExpireAsync(key, ttl);
-await redis.KeyExpireAsync($"{key}:key", ttl);
+transaction.StringSetAsync(keyBinaryKey, context.SymmetricKey);
+transaction.KeyExpireAsync(metadataKey, ttl);
+transaction.KeyExpireAsync(keyBinaryKey, ttl);
+await transaction.ExecuteAsync();
 
 // Get Channel (with validation)
 var exists = await redis.KeyExistsAsync($"channel:{channelId}");
 if (exists)
 {
     var metadata = await redis.HashGetAllAsync($"channel:{channelId}");
-    var symmetricKey = await redis.StringGetAsync($"channel:{channelId}:key");
+    var symmetricKey = await redis.StringGetAsync($"channel:key:{channelId}");
 
     // Validate TTL
     var expiresAt = DateTime.Parse(metadata.First(x => x.Name == "expiresAt").Value);
@@ -275,38 +288,44 @@ if (exists)
 }
 
 // Remove Channel (secure cleanup)
-var symmetricKey = await redis.StringGetAsync($"channel:{channelId}:key");
+var symmetricKey = await redis.StringGetAsync($"channel:key:{channelId}");
 if (symmetricKey.HasValue)
 {
     // Clear key from memory before deleting from Redis
     Array.Clear(symmetricKey, 0, symmetricKey.Length);
 }
 await redis.KeyDeleteAsync($"channel:{channelId}");
-await redis.KeyDeleteAsync($"channel:{channelId}:key");
+await redis.KeyDeleteAsync($"channel:key:{channelId}");
 ```
 
 ---
 
-### Redis Configuration
+### Redis Configuration ✅ IMPLEMENTED
 
-**appsettings.json:**
+**appsettings.NodeA.json:**
 ```json
 {
   "Redis": {
-    "ConnectionString": "localhost:6379",
-    "InstanceName": "IRN:",
-    "DefaultDatabase": 0,
-    "ConnectTimeout": 5000,
-    "SyncTimeout": 5000,
-    "AbortOnConnectFail": false,
-    "Ssl": false,
-    "AllowAdmin": false
+    "ConnectionString": "irn-redis-node-a:6379,password=prism-redis-password-node-a,abortConnect=false",
+    "EnableRedis": false
   },
-  "Cache": {
-    "SessionTtlSeconds": 3600,
-    "ChannelTtlSeconds": 1800,
-    "RateLimitWindowSeconds": 60,
-    "RateLimitMaxRequests": 60
+  "FeatureFlags": {
+    "UseRedisForSessions": false,
+    "UseRedisForChannels": false
+  }
+}
+```
+
+**appsettings.NodeB.json:**
+```json
+{
+  "Redis": {
+    "ConnectionString": "irn-redis-node-b:6380,password=prism-redis-password-node-b,abortConnect=false",
+    "EnableRedis": false
+  },
+  "FeatureFlags": {
+    "UseRedisForSessions": false,
+    "UseRedisForChannels": false
   }
 }
 ```
@@ -314,16 +333,32 @@ await redis.KeyDeleteAsync($"channel:{channelId}:key");
 **Docker Compose:**
 ```yaml
 services:
-  redis:
+  redis-node-a:
     image: redis:7.2-alpine
-    container_name: irn-redis
+    container_name: irn-redis-node-a
     ports:
       - "6379:6379"
     volumes:
-      - redis-data:/data
-    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+      - redis-data-node-a:/data
+    command: redis-server --appendonly yes --requirepass prism-redis-password-node-a
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "prism-redis-password-node-a", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    networks:
+      - irn-network
+
+  redis-node-b:
+    image: redis:7.2-alpine
+    container_name: irn-redis-node-b
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis-data-node-b:/data
+    command: redis-server --appendonly yes --requirepass prism-redis-password-node-b
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "prism-redis-password-node-b", "ping"]
       interval: 10s
       timeout: 3s
       retries: 3
@@ -331,21 +366,22 @@ services:
       - irn-network
 
 volumes:
-  redis-data:
+  redis-data-node-a:
+  redis-data-node-b:
 ```
 
 ---
 
-## Parte 2: PostgreSQL (Node Registry)
+## Part 2: PostgreSQL (Node Registry) ⏳ PLANNED
 
-### Por que PostgreSQL?
+### Why PostgreSQL?
 
-✅ **ACID**: Transações garantem consistência
-✅ **Índices**: Performance em queries complexas
-✅ **JSON**: Suporte nativo a JSONB para dados flexíveis (InstitutionDetails, ContactInfo)
-✅ **Auditoria**: Triggers e tabelas de histórico
-✅ **Full-Text Search**: Busca em NodeName, InstitutionDetails
-✅ **Maduro**: Confiável, bem documentado
+✅ **ACID**: Transactions guarantee consistency
+✅ **Indexes**: Performance for complex queries
+✅ **JSON**: Native JSONB support for flexible data (InstitutionDetails, ContactInfo)
+✅ **Audit**: Triggers and history tables
+✅ **Full-Text Search**: Search in NodeName, InstitutionDetails
+✅ **Mature**: Reliable, well-documented
 
 ### Database Schema
 
@@ -382,7 +418,7 @@ CREATE TABLE registered_nodes (
     -- Soft Delete
     deleted_at TIMESTAMP,
 
-    -- Indexes
+    -- Constraints
     CONSTRAINT chk_certificate_not_empty CHECK (LENGTH(certificate) > 0)
 );
 
@@ -475,7 +511,7 @@ EXECUTE FUNCTION log_node_changes();
 
 ### Entity Framework Core Mapping
 
-**Entidade:**
+**Entity:**
 ```csharp
 // Bioteca.Prism.Domain/Entities/Node/RegisteredNode.cs
 public class RegisteredNode
@@ -500,7 +536,7 @@ public class RegisteredNode
     public DateTime? DeletedAt { get; set; }
 }
 
-// Novos tipos complexos para JSONB
+// New complex types for JSONB
 public class ContactInfo
 {
     public string? Email { get; set; }
@@ -564,7 +600,7 @@ public class PrismDbContext : DbContext
             // Soft delete query filter
             entity.HasQueryFilter(e => e.DeletedAt == null);
 
-            // Indexes (já definidos no SQL, mas úteis para migrations)
+            // Indexes (already defined in SQL, but useful for migrations)
             entity.HasIndex(e => e.Status);
             entity.HasIndex(e => e.CertificateFingerprint).IsUnique();
         });
@@ -574,33 +610,91 @@ public class PrismDbContext : DbContext
 
 ---
 
-## Comparação: In-Memory vs Redis vs PostgreSQL
+## Comparison: In-Memory vs Redis vs PostgreSQL
 
-| Aspecto | In-Memory | Redis | PostgreSQL |
+| Aspect | In-Memory | Redis | PostgreSQL |
 |---------|-----------|-------|------------|
-| **Persistência** | ❌ Volatil | ✅ Opcional (AOF/RDB) | ✅ Durável (ACID) |
-| **Multi-Instance** | ❌ Não funciona | ✅ Compartilhado | ✅ Compartilhado |
-| **TTL Automático** | ❌ Manual cleanup | ✅ Nativo | ❌ Manual (ou TTL extension) |
+| **Persistence** | ❌ Volatile | ✅ Optional (AOF/RDB) | ✅ Durable (ACID) |
+| **Multi-Instance** | ❌ Does not work | ✅ Shared | ✅ Shared |
+| **Auto TTL** | ❌ Manual cleanup | ✅ Native | ❌ Manual (or TTL extension) |
 | **Performance (read)** | ~10 ns | ~0.5 ms | ~5-20 ms |
 | **Performance (write)** | ~50 ns | ~1 ms | ~10-50 ms |
-| **Escalabilidade** | 🟡 Limited by RAM | 🟢 Sharding/Clustering | 🟢 Replication/Partitioning |
-| **Queries Complexas** | ❌ Limitado | 🟡 Básico (Lua scripts) | ✅ SQL completo |
-| **Auditoria** | ❌ Não | ❌ Não (requer app) | ✅ Triggers nativos |
-| **Transações** | 🟡 Locks | 🟡 Atômico (single key) | ✅ ACID (multi-row) |
-| **Custo Operacional** | 🟢 Nenhum | 🟡 Médio | 🔴 Alto |
+| **Scalability** | 🟡 Limited by RAM | 🟢 Sharding/Clustering | 🟢 Replication/Partitioning |
+| **Complex Queries** | ❌ Limited | 🟡 Basic (Lua scripts) | ✅ Full SQL |
+| **Audit** | ❌ No | ❌ No (requires app) | ✅ Native triggers |
+| **Transactions** | 🟡 Locks | 🟡 Atomic (single key) | ✅ ACID (multi-row) |
+| **Operational Cost** | 🟢 None | 🟡 Medium | 🔴 High |
 
 ---
 
-## Próximos Passos
+## Implementation Status
 
-Aguardando definições sobre:
-1. Configuração de Redis (local vs cloud vs Docker)
-2. Configuração de PostgreSQL (local vs Docker vs cloud)
-3. Priorização de implementação (Redis primeiro ou PostgreSQL primeiro?)
-4. Estratégia de migração (big bang ou gradual?)
+### ✅ Completed (Redis)
 
-Posso criar:
-- Plano de implementação por fases
-- Scripts de migração de dados
-- Testes de performance
-- Documentação de deployment
+1. **Redis Infrastructure**
+   - ✅ Multi-instance Redis (one per node)
+   - ✅ Docker Compose configuration
+   - ✅ Feature flags for enabling/disabling
+
+2. **Session Persistence**
+   - ✅ `ISessionStore` interface
+   - ✅ `RedisSessionStore` implementation
+   - ✅ `InMemorySessionStore` fallback
+   - ✅ Automatic TTL management
+   - ✅ Rate limiting with Sorted Sets
+
+3. **Channel Persistence**
+   - ✅ `IChannelStore` interface (async)
+   - ✅ `RedisChannelStore` implementation
+   - ✅ In-memory `ChannelStore` fallback
+   - ✅ Binary key storage separation
+   - ✅ Automatic TTL management
+
+4. **Testing & Documentation**
+   - ✅ Redis testing guide
+   - ✅ Docker Compose quick start
+   - ✅ All tests passing (72/75, 96%)
+
+### ⏳ Planned (PostgreSQL)
+
+1. **Database Setup**
+   - [ ] PostgreSQL Docker container
+   - [ ] Database schema creation
+   - [ ] Trigger implementation
+
+2. **Node Registry Persistence**
+   - [ ] `INodeRegistryRepository` interface
+   - [ ] EF Core DbContext
+   - [ ] Repository implementation
+   - [ ] Migration scripts
+
+3. **Audit & Compliance**
+   - [ ] Audit log implementation
+   - [ ] Change tracking
+   - [ ] Query optimization
+
+---
+
+## Next Steps
+
+### Phase 1: PostgreSQL Implementation (Planned)
+
+1. Add PostgreSQL Docker container to `docker-compose.yml`
+2. Create `PrismDbContext` with EF Core
+3. Implement `INodeRegistryRepository`
+4. Create migration scripts
+5. Update `NodeRegistryService` to use repository
+6. Add comprehensive testing
+
+### Phase 2: Production Readiness
+
+1. Redis Sentinel for high availability
+2. PostgreSQL replication
+3. Health check endpoints
+4. Monitoring and metrics (Prometheus)
+5. Backup and recovery procedures
+
+---
+
+**Last Update:** 2025-10-05
+**Next Review:** After PostgreSQL implementation

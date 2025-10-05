@@ -1,21 +1,21 @@
-# Endpoints de Teste para Fase 3 - Autenticação Mútua
+# Phase 3 Testing Endpoints - Mutual Authentication
 
-**Versão**: 0.5.0
-**Data**: 2025-10-03
+**Version**: 0.5.0
+**Date**: 2025-10-03
 
-Este documento demonstra como usar os endpoints de teste da TestingController para executar manualmente o fluxo completo da Fase 3.
+This document demonstrates how to use the TestingController endpoints to manually execute the complete Phase 3 flow.
 
-## 📋 Pré-requisitos
+## 📋 Prerequisites
 
-1. Nó registrado e **autorizado** (status=Authorized)
-2. Canal estabelecido (Fase 1)
-3. Certificado com chave privada (para assinatura)
-4. **Redis CLI** (opcional - para inspeção de persistência) - incluído no container Docker
-5. **Docker Compose** rodando com containers Redis (opcional)
+1. Node registered and **authorized** (status=Authorized)
+2. Channel established (Phase 1)
+3. Certificate with private key (for signing)
+4. **Redis CLI** (optional - for persistence inspection) - included in Docker container
+5. **Docker Compose** running with Redis containers (optional)
 
-## 🔄 Fluxo Completo
+## 🔄 Complete Flow
 
-### Passo 1: Estabelecer Canal (Fase 1)
+### Step 1: Establish Channel (Phase 1)
 
 ```bash
 curl -X POST http://localhost:5000/api/channel/initiate \
@@ -23,7 +23,7 @@ curl -X POST http://localhost:5000/api/channel/initiate \
   -d '{"remoteNodeUrl": "http://node-b:8080"}'
 ```
 
-**Resposta:**
+**Response:**
 ```json
 {
   "success": true,
@@ -33,11 +33,11 @@ curl -X POST http://localhost:5000/api/channel/initiate \
 }
 ```
 
-**Salvar:** `channelId` para usar nos próximos passos
+**Save:** `channelId` for subsequent steps
 
 ---
 
-### Passo 2: Gerar Certificado (se necessário)
+### Step 2: Generate Certificate (if needed)
 
 ```bash
 curl -X POST http://localhost:5000/api/testing/generate-certificate \
@@ -49,7 +49,7 @@ curl -X POST http://localhost:5000/api/testing/generate-certificate \
   }'
 ```
 
-**Resposta:**
+**Response:**
 ```json
 {
   "subjectName": "test-node-001",
@@ -65,18 +65,18 @@ curl -X POST http://localhost:5000/api/testing/generate-certificate \
 }
 ```
 
-**Salvar:**
-- `certificate` (para registro)
-- `certificateWithPrivateKey` (para assinatura)
+**Save:**
+- `certificate` (for registration)
+- `certificateWithPrivateKey` (for signing)
 - `password`
 
 ---
 
-### Passo 3: Registrar Nó (Fase 2)
+### Step 3: Register Node (Phase 2)
 
-⚠️ **IMPORTANTE**: O payload deve ser criptografado. Use o endpoint `/api/testing/encrypt-payload`.
+⚠️ **IMPORTANT**: Payload must be encrypted. Use the `/api/testing/encrypt-payload` endpoint.
 
-**3.1. Criar payload de registro:**
+**3.1. Create registration payload:**
 ```json
 {
   "nodeId": "test-node-001",
@@ -89,7 +89,7 @@ curl -X POST http://localhost:5000/api/testing/generate-certificate \
 }
 ```
 
-**3.2. Criptografar payload:**
+**3.2. Encrypt payload:**
 ```bash
 curl -X POST http://localhost:5000/api/testing/encrypt-payload \
   -H "Content-Type: application/json" \
@@ -107,7 +107,7 @@ curl -X POST http://localhost:5000/api/testing/encrypt-payload \
   }'
 ```
 
-**3.3. Registrar com payload criptografado:**
+**3.3. Register with encrypted payload:**
 ```bash
 curl -X POST http://localhost:5001/api/node/register \
   -H "Content-Type: application/json" \
@@ -121,7 +121,7 @@ curl -X POST http://localhost:5001/api/node/register \
 
 ---
 
-### Passo 4: Aprovar Nó (Admin)
+### Step 4: Approve Node (Admin)
 
 ```bash
 curl -X PUT http://localhost:5001/api/node/test-node-001/status \
@@ -129,7 +129,7 @@ curl -X PUT http://localhost:5001/api/node/test-node-001/status \
   -d '{"status": 1}'
 ```
 
-**Resposta:**
+**Response:**
 ```json
 {
   "message": "Node status updated successfully",
@@ -140,9 +140,9 @@ curl -X PUT http://localhost:5001/api/node/test-node-001/status \
 
 ---
 
-### Passo 5: ✨ Solicitar Challenge (Fase 3)
+### Step 5: ✨ Request Challenge (Phase 3)
 
-**Novo endpoint de teste:**
+**New test endpoint:**
 
 ```bash
 curl -X POST http://localhost:5000/api/testing/request-challenge \
@@ -153,7 +153,7 @@ curl -X POST http://localhost:5000/api/testing/request-challenge \
   }'
 ```
 
-**Resposta:**
+**Response:**
 ```json
 {
   "success": true,
@@ -173,22 +173,22 @@ curl -X POST http://localhost:5000/api/testing/request-challenge \
 }
 ```
 
-**Salvar:** `challengeData` para próximo passo
+**Save:** `challengeData` for next step
 
 ---
 
-### Passo 6: Assinar Challenge
+### Step 6: Sign Challenge
 
-**6.1. Construir dados para assinar:**
+**6.1. Build data to sign:**
 
-Formato: `{ChallengeData}{ChannelId}{NodeId}{Timestamp:O}`
+Format: `{ChallengeData}{ChannelId}{NodeId}{Timestamp:O}`
 
-Exemplo:
+Example:
 ```
 YXNkZmFzZGZhc2RmYXNkZgabc-123-def-456test-node-0012025-10-03T00:00:02.1234567Z
 ```
 
-**6.2. Assinar com certificado:**
+**6.2. Sign with certificate:**
 
 ```bash
 curl -X POST http://localhost:5000/api/testing/sign-data \
@@ -200,7 +200,7 @@ curl -X POST http://localhost:5000/api/testing/sign-data \
   }'
 ```
 
-**Resposta:**
+**Response:**
 ```json
 {
   "data": "YXNkZmFzZGZhc2RmYXNkZgabc-123-def-456test-node-0012025-10-03T00:00:02.1234567Z",
@@ -209,13 +209,13 @@ curl -X POST http://localhost:5000/api/testing/sign-data \
 }
 ```
 
-**Salvar:** `signature`
+**Save:** `signature`
 
 ---
 
-### Passo 7: ✨ Autenticar com Challenge Assinado
+### Step 7: ✨ Authenticate with Signed Challenge
 
-**Novo endpoint de teste:**
+**New test endpoint:**
 
 ```bash
 curl -X POST http://localhost:5000/api/testing/authenticate \
@@ -229,7 +229,7 @@ curl -X POST http://localhost:5000/api/testing/authenticate \
   }'
 ```
 
-**Resposta de Sucesso:**
+**Success Response:**
 ```json
 {
   "success": true,
@@ -252,75 +252,75 @@ curl -X POST http://localhost:5000/api/testing/authenticate \
 }
 ```
 
-**🎉 Sucesso!** Session token recebido!
+**🎉 Success!** Session token received!
 
 ---
 
-### Passo 8: 🗄️ Verificar Persistência Redis (Opcional)
+### Step 8: 🗄️ Verify Redis Persistence (Optional)
 
-**Se Redis estiver habilitado** (FeatureFlags:UseRedisForSessions=true, UseRedisForChannels=true):
+**If Redis is enabled** (FeatureFlags:UseRedisForSessions=true, UseRedisForChannels=true):
 
-#### **8.1. Verificar Channel no Redis:**
+#### **8.1. Verify Channel in Redis:**
 
 ```bash
-# Listar channels
+# List channels
 docker exec -it irn-redis-node-a redis-cli -a prism-redis-password-node-a KEYS "channel:*"
 
-# Inspecionar metadata
+# Inspect metadata
 docker exec -it irn-redis-node-a redis-cli -a prism-redis-password-node-a GET "channel:abc-123-def-456"
 
-# Verificar TTL (deve ser ~1800 segundos)
+# Check TTL (should be ~1800 seconds)
 docker exec -it irn-redis-node-a redis-cli -a prism-redis-password-node-a TTL "channel:abc-123-def-456"
 ```
 
-#### **8.2. Verificar Session no Redis:**
+#### **8.2. Verify Session in Redis:**
 
 ```bash
-# Listar sessions
+# List sessions
 docker exec -it irn-redis-node-b redis-cli -a prism-redis-password-node-b KEYS "session:*"
 
-# Inspecionar session data
+# Inspect session data
 docker exec -it irn-redis-node-b redis-cli -a prism-redis-password-node-b GET "session:{sessionToken}"
 
-# Verificar TTL (deve ser ~3600 segundos = 1 hora)
+# Check TTL (should be ~3600 seconds = 1 hour)
 docker exec -it irn-redis-node-b redis-cli -a prism-redis-password-node-b TTL "session:{sessionToken}"
 
-# Verificar rate limiting (sorted set)
+# Check rate limiting (sorted set)
 docker exec -it irn-redis-node-b redis-cli -a prism-redis-password-node-b ZRANGE "session:ratelimit:{sessionToken}" 0 -1 WITHSCORES
 ```
 
-**Resultado esperado:**
-- Channel armazenado com TTL de 30 minutos
-- Session armazenada com TTL de 1 hora
-- Rate limit sorted set criado (vazio inicialmente)
+**Expected result:**
+- Channel stored with 30-minute TTL
+- Session stored with 1-hour TTL
+- Rate limit sorted set created (empty initially)
 
-#### **8.3. Teste de Persistência:**
+#### **8.3. Persistence Test:**
 
 ```bash
-# 1. Reiniciar Node B (Redis continua rodando)
+# 1. Restart Node B (Redis keeps running)
 docker restart irn-node-b
 
-# 2. Aguardar Node B ficar online
+# 2. Wait for Node B to come online
 docker logs -f irn-node-b | grep "Now listening"
 
-# 3. Verificar se session ainda existe
+# 3. Verify session still exists
 docker exec -it irn-redis-node-b redis-cli -a prism-redis-password-node-b EXISTS "session:{sessionToken}"
 
-# Resultado: 1 (existe) - Session sobreviveu ao restart!
+# Result: 1 (exists) - Session survived restart!
 ```
 
-**💡 Observações sobre Redis:**
-- Cada nó tem sua própria instância Redis isolada
-- Sessions e channels têm TTL automático gerenciado pelo Redis
-- Rate limiting usa Sorted Sets com sliding window (60 req/min)
-- Dados persistem mesmo se o nó reiniciar (desde que Redis continue rodando)
-- Para mais detalhes, consulte [Redis Testing Guide](./redis-testing-guide.md)
+**💡 Redis Observations:**
+- Each node has its own isolated Redis instance
+- Sessions and channels have automatic TTL managed by Redis
+- Rate limiting uses Sorted Sets with sliding window (60 req/min)
+- Data persists even if node restarts (as long as Redis keeps running)
+- For more details, see [Redis Testing Guide](./redis-testing-guide.md)
 
 ---
 
-## ❌ Tratamento de Erros
+## ❌ Error Handling
 
-### Erro: Nó Não Autorizado
+### Error: Node Not Authorized
 
 ```json
 {
@@ -331,11 +331,11 @@ docker exec -it irn-redis-node-b redis-cli -a prism-redis-password-node-b EXISTS
 }
 ```
 
-**Solução:** Aprovar o nó via `PUT /api/node/{nodeId}/status` com `status: 1`
+**Solution:** Approve node via `PUT /api/node/{nodeId}/status` with `status: 1`
 
 ---
 
-### Erro: Challenge Expirado
+### Error: Challenge Expired
 
 ```json
 {
@@ -351,37 +351,37 @@ docker exec -it irn-redis-node-b redis-cli -a prism-redis-password-node-b EXISTS
 }
 ```
 
-**Solução:** Solicitar novo challenge via `POST /api/testing/request-challenge`
+**Solution:** Request new challenge via `POST /api/testing/request-challenge`
 
 ---
 
-### Erro: Assinatura Inválida
+### Error: Invalid Signature
 
-**Causas comuns:**
+**Common causes:**
 
-1. **Formato do timestamp incorreto:** Deve ser `{DateTime:O}` (ISO 8601 com offset)
-   - ✅ Correto: `2025-10-03T00:00:02.1234567Z`
-   - ❌ Errado: `2025-10-03 00:00:02`
+1. **Incorrect timestamp format:** Must be `{DateTime:O}` (ISO 8601 with offset)
+   - ✅ Correct: `2025-10-03T00:00:02.1234567Z`
+   - ❌ Wrong: `2025-10-03 00:00:02`
 
-2. **Ordem dos campos incorreta:**
-   - ✅ Correto: `{ChallengeData}{ChannelId}{NodeId}{Timestamp:O}`
-   - ❌ Errado: `{NodeId}{ChallengeData}{ChannelId}{Timestamp}`
+2. **Incorrect field order:**
+   - ✅ Correct: `{ChallengeData}{ChannelId}{NodeId}{Timestamp:O}`
+   - ❌ Wrong: `{NodeId}{ChallengeData}{ChannelId}{Timestamp}`
 
-3. **Certificado errado:** Certifique-se de usar `certificateWithPrivateKey` (PFX com chave privada)
+3. **Wrong certificate:** Make sure to use `certificateWithPrivateKey` (PFX with private key)
 
-4. **Timestamp diferente:** O timestamp usado na assinatura deve ser **exatamente** o mesmo enviado no request
+4. **Different timestamp:** The timestamp used in signing must be **exactly** the same as sent in request
 
 ---
 
-## 🔧 Endpoints Auxiliares
+## 🔧 Helper Endpoints
 
-### Verificar Informações do Canal
+### Verify Channel Information
 
 ```bash
 curl http://localhost:5000/api/testing/channel-info/abc-123-def-456
 ```
 
-### Descriptografar Payload (Debug)
+### Decrypt Payload (Debug)
 
 ```bash
 curl -X POST http://localhost:5000/api/testing/decrypt-payload \
@@ -398,10 +398,10 @@ curl -X POST http://localhost:5000/api/testing/decrypt-payload \
 
 ---
 
-## 📝 Script PowerShell Completo
+## 📝 Complete PowerShell Script
 
 ```powershell
-# Fase 1: Estabelecer Canal
+# Phase 1: Establish Channel
 $channel = Invoke-RestMethod -Uri "http://localhost:5000/api/channel/initiate" `
   -Method Post -ContentType "application/json" `
   -Body '{"remoteNodeUrl": "http://node-b:8080"}'
@@ -409,20 +409,20 @@ $channel = Invoke-RestMethod -Uri "http://localhost:5000/api/channel/initiate" `
 $channelId = $channel.channelId
 Write-Host "Channel ID: $channelId"
 
-# Fase 2: Gerar Certificado
+# Phase 2: Generate Certificate
 $cert = Invoke-RestMethod -Uri "http://localhost:5000/api/testing/generate-certificate" `
   -Method Post -ContentType "application/json" `
   -Body '{"subjectName": "test-node-001", "validityYears": 2, "password": "test123"}'
 
-# Fase 2: Registrar Nó (simplificado - requer criptografia)
-# ... (ver documentação completa)
+# Phase 2: Register Node (simplified - requires encryption)
+# ... (see complete documentation)
 
-# Fase 2: Aprovar Nó
+# Phase 2: Approve Node
 Invoke-RestMethod -Uri "http://localhost:5001/api/node/test-node-001/status" `
   -Method Put -ContentType "application/json" `
   -Body '{"status": 1}'
 
-# Fase 3: Solicitar Challenge
+# Phase 3: Request Challenge
 $challenge = Invoke-RestMethod -Uri "http://localhost:5000/api/testing/request-challenge" `
   -Method Post -ContentType "application/json" `
   -Body (@{
@@ -433,7 +433,7 @@ $challenge = Invoke-RestMethod -Uri "http://localhost:5000/api/testing/request-c
 $challengeData = $challenge.challengeResponse.challengeData
 Write-Host "Challenge Data: $challengeData"
 
-# Fase 3: Assinar Challenge
+# Phase 3: Sign Challenge
 $timestamp = Get-Date -Format "o"
 $dataToSign = "$challengeData$channelId" + "test-node-001$timestamp"
 
@@ -447,7 +447,7 @@ $signResult = Invoke-RestMethod -Uri "http://localhost:5000/api/testing/sign-dat
 
 $signature = $signResult.signature
 
-# Fase 3: Autenticar
+# Phase 3: Authenticate
 $authResult = Invoke-RestMethod -Uri "http://localhost:5000/api/testing/authenticate" `
   -Method Post -ContentType "application/json" `
   -Body (@{
@@ -466,40 +466,40 @@ Write-Host "Capabilities: $($authResult.authenticationResponse.grantedCapabiliti
 
 ---
 
-## 🎯 Resumo dos Endpoints da Fase 3
+## 🎯 Phase 3 Endpoints Summary
 
-| Endpoint | Método | Descrição |
+| Endpoint | Method | Description |
 |----------|--------|-----------|
-| `/api/testing/request-challenge` | POST | Solicita challenge para autenticação |
-| `/api/testing/authenticate` | POST | Autentica com challenge assinado |
-| `/api/testing/sign-data` | POST | Assina dados com certificado |
-| `/api/testing/encrypt-payload` | POST | Criptografa payload para canal |
-| `/api/testing/decrypt-payload` | POST | Descriptografa payload (debug) |
+| `/api/testing/request-challenge` | POST | Request challenge for authentication |
+| `/api/testing/authenticate` | POST | Authenticate with signed challenge |
+| `/api/testing/sign-data` | POST | Sign data with certificate |
+| `/api/testing/encrypt-payload` | POST | Encrypt payload for channel |
+| `/api/testing/decrypt-payload` | POST | Decrypt payload (debug) |
 
 ---
 
-## ✅ Checklist de Teste
+## ✅ Testing Checklist
 
-- [ ] Canal estabelecido (Fase 1)
-- [ ] Nó registrado (Fase 2)
-- [ ] Nó autorizado (status=Authorized)
-- [ ] Challenge solicitado via `/api/testing/request-challenge`
-- [ ] Challenge recebido com `challengeData` e TTL de 5 minutos
-- [ ] Dados construídos corretamente: `{ChallengeData}{ChannelId}{NodeId}{Timestamp:O}`
-- [ ] Assinatura gerada com certificado correto
-- [ ] Autenticação realizada via `/api/testing/authenticate`
-- [ ] Session token recebido com TTL de 1 hora
-- [ ] Capabilities incluídas na resposta
-- [ ] **(Opcional)** Channel verificado no Redis com TTL correto
-- [ ] **(Opcional)** Session verificada no Redis com TTL correto
-- [ ] **(Opcional)** Teste de persistência executado (restart do nó)
+- [ ] Channel established (Phase 1)
+- [ ] Node registered (Phase 2)
+- [ ] Node authorized (status=Authorized)
+- [ ] Challenge requested via `/api/testing/request-challenge`
+- [ ] Challenge received with `challengeData` and 5-minute TTL
+- [ ] Data built correctly: `{ChallengeData}{ChannelId}{NodeId}{Timestamp:O}`
+- [ ] Signature generated with correct certificate
+- [ ] Authentication performed via `/api/testing/authenticate`
+- [ ] Session token received with 1-hour TTL
+- [ ] Capabilities included in response
+- [ ] **(Optional)** Channel verified in Redis with correct TTL
+- [ ] **(Optional)** Session verified in Redis with correct TTL
+- [ ] **(Optional)** Persistence test executed (node restart)
 
 ---
 
-## 📚 Documentação Relacionada
+## 📚 Related Documentation
 
-- [Manual Testing Guide](./manual-testing-guide.md) - Guia completo de testes manuais
-- [Handshake Protocol](../architecture/handshake-protocol.md) - Especificação do protocolo
-- [Phase 3 Implementation Plan](../development/phase3-authentication-plan.md) - Plano de implementação
-- [Redis Testing Guide](./redis-testing-guide.md) - **🆕 Guia completo de testes de persistência Redis**
-- [Docker Compose Quick Start](./docker-compose-quick-start.md) - Guia rápido Docker Compose
+- [Manual Testing Guide](./manual-testing-guide.md) - Complete manual testing guide
+- [Handshake Protocol](../architecture/handshake-protocol.md) - Protocol specification
+- [Phase 3 Implementation Plan](../development/phase3-authentication-plan.md) - Implementation plan
+- [Redis Testing Guide](./redis-testing-guide.md) - **🆕 Complete Redis persistence testing guide**
+- [Docker Compose Quick Start](./docker-compose-quick-start.md) - Docker Compose quick start guide

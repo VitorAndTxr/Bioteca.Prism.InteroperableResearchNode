@@ -30,10 +30,12 @@ Este guia fornece um roteiro passo a passo para testar e entender manualmente o 
 1. **Visual Studio 2022** ou **Visual Studio Code** com extensão C# Dev Kit
 2. **Docker Desktop** rodando
 3. **Postman**, **Insomnia**, ou **curl** para testes de API
-4. **Conhecimento básico de**:
+4. **Redis CLI** (para inspeção de persistência) - incluído no container Docker
+5. **Conhecimento básico de**:
    - Criptografia assimétrica (ECDH, RSA)
    - Certificados X.509
    - REST APIs
+   - Redis (opcional, para testes de persistência)
 
 ## 🎯 Objetivo
 
@@ -86,7 +88,25 @@ curl http://localhost:5001/api/channel/health
 }
 ```
 
-### Passo 1.3: Acessar Swagger UI
+### Passo 1.3: Verificar Conectividade Redis (Opcional - Persistência)
+
+**Verificar Redis Node A:**
+```powershell
+docker exec -it irn-redis-node-a redis-cli -a prism-redis-password-node-a PING
+```
+
+**Resultado esperado:** `PONG`
+
+**Verificar Redis Node B:**
+```powershell
+docker exec -it irn-redis-node-b redis-cli -a prism-redis-password-node-b PING
+```
+
+**Resultado esperado:** `PONG`
+
+**💡 Nota:** Se Redis não estiver habilitado (FeatureFlags:UseRedisForSessions=false), os containers Redis não estarão rodando e o sistema usará armazenamento in-memory.
+
+### Passo 1.4: Acessar Swagger UI
 
 Abra no navegador:
 - **Node A**: http://localhost:5000/swagger
@@ -282,6 +302,60 @@ info: Bioteca.Prism.Service.Services.Node.EphemeralKeyService[0]
       Derived shared secret (48 bytes)
 info: Bioteca.Prism.InteroperableResearchNode.Controllers.ChannelController[0]
       Channel {channelId} established successfully with cipher AES-256-GCM
+```
+
+### Passo 2.7: 🗄️ Verificar Persistência Redis do Canal (Opcional)
+
+**Se Redis estiver habilitado** (FeatureFlags:UseRedisForChannels=true):
+
+**No Node A - Listar channels armazenados:**
+```powershell
+docker exec -it irn-redis-node-a redis-cli -a prism-redis-password-node-a KEYS "channel:*"
+```
+
+**Resultado esperado:**
+```
+1) "channel:{channelId}"
+2) "channel:key:{channelId}"
+```
+
+**Inspecionar metadata do channel:**
+```powershell
+docker exec -it irn-redis-node-a redis-cli -a prism-redis-password-node-a GET "channel:{channelId}"
+```
+
+**Resultado esperado:** JSON com ChannelId, SelectedCipher, RemoteNodeUrl, CreatedAt, ExpiresAt, Role
+
+**Verificar TTL (Time To Live) do channel:**
+```powershell
+docker exec -it irn-redis-node-a redis-cli -a prism-redis-password-node-a TTL "channel:{channelId}"
+```
+
+**Resultado esperado:** ~1800 segundos (30 minutos)
+
+**No Node B - Verificar channel do lado servidor:**
+```powershell
+docker exec -it irn-redis-node-b redis-cli -a prism-redis-password-node-b KEYS "channel:*"
+```
+
+**💡 Observação:**
+- O **mesmo channelId** existe em **ambas as instâncias Redis** (uma por nó)
+- Cada nó tem sua própria instância Redis isolada (redis-node-a, redis-node-b)
+- A chave simétrica binária está armazenada em `channel:key:{channelId}` (32 bytes AES-256)
+- Após 30 minutos, o canal expira automaticamente (TTL gerenciado pelo Redis)
+
+**Teste de persistência** (opcional):
+```powershell
+# 1. Reiniciar APENAS o Node A (Redis continua rodando)
+docker restart irn-node-a
+
+# 2. Aguardar Node A ficar online
+docker logs -f irn-node-a
+
+# 3. Verificar se o canal ainda existe no Redis
+docker exec -it irn-redis-node-a redis-cli -a prism-redis-password-node-a EXISTS "channel:{channelId}"
+
+# Resultado: 1 (existe) - Canal sobreviveu ao restart do Node A!
 ```
 
 ---
@@ -1148,7 +1222,84 @@ _sessionTokens[sessionToken] = nodeId;
 // - Token → NodeId mapping
 ```
 
-### Passo 4.11: Testar Fluxo Completo com Testes Automatizados
+### Passo 4.11: 🗄️ Verificar Persistência Redis da Session (Opcional)
+
+**Se Redis estiver habilitado** (FeatureFlags:UseRedisForSessions=true):
+
+**Listar sessions armazenadas:**
+```powershell
+docker exec -it irn-redis-node-b redis-cli -a prism-redis-password-node-b KEYS "session:*"
+```
+
+**Resultado esperado:**
+```
+1) "session:{sessionToken}"
+2) "session:node:{nodeId}:sessions"
+3) "session:ratelimit:{sessionToken}"
+```
+
+**Inspecionar dados da session:**
+```powershell
+docker exec -it irn-redis-node-b redis-cli -a prism-redis-password-node-b GET "session:{sessionToken}"
+```
+
+**Resultado esperado:** JSON com SessionToken, NodeId, ChannelId, CreatedAt, ExpiresAt, AccessLevel, RequestCount
+
+**Verificar TTL da session:**
+```powershell
+docker exec -it irn-redis-node-b redis-cli -a prism-redis-password-node-b TTL "session:{sessionToken}"
+```
+
+**Resultado esperado:** ~3600 segundos (1 hora)
+
+**Verificar rate limiting (Sorted Set):**
+```powershell
+docker exec -it irn-redis-node-b redis-cli -a prism-redis-password-node-b ZRANGE "session:ratelimit:{sessionToken}" 0 -1 WITHSCORES
+```
+
+**Resultado esperado:** Lista de timestamps (scores) representando requests recentes (últimos 60 segundos)
+
+**Verificar sessions por nó:**
+```powershell
+docker exec -it irn-redis-node-b redis-cli -a prism-redis-password-node-b SMEMBERS "session:node:{nodeId}:sessions"
+```
+
+**Resultado esperado:** Set com IDs de sessions ativas para este nó
+
+**💡 Observações:**
+- **Session metadata**: Armazenado em hash JSON com TTL de 1 hora
+- **Rate limiting**: Sorted Set com sliding window de 60 requests/minuto
+- **Node sessions index**: Set para rastrear todas as sessions de um nó
+- TTL automático gerenciado pelo Redis (expira após 1 hora de inatividade)
+
+**Teste de persistência de session** (opcional):
+```powershell
+# 1. Criar session (via autenticação Phase 3)
+# 2. Verificar session no Redis
+docker exec -it irn-redis-node-b redis-cli -a prism-redis-password-node-b EXISTS "session:{sessionToken}"
+
+# 3. Reiniciar APENAS o Node B (Redis continua rodando)
+docker restart irn-node-b
+
+# 4. Aguardar Node B ficar online
+docker logs -f irn-node-b
+
+# 5. Verificar se a session ainda existe
+docker exec -it irn-redis-node-b redis-cli -a prism-redis-password-node-b EXISTS "session:{sessionToken}"
+
+# Resultado: 1 (existe) - Session sobreviveu ao restart!
+# 6. Tentar usar a session (deve funcionar normalmente)
+```
+
+**Monitorar criação de session em tempo real:**
+```powershell
+# Terminal 1: Monitor Redis em tempo real
+docker exec -it irn-redis-node-b redis-cli -a prism-redis-password-node-b MONITOR
+
+# Terminal 2: Autenticar e observar comandos SET/HSET/ZADD no Monitor
+```
+
+### Passo 4.12: Testar Fluxo Completo com Testes Automatizados
 
 **Executar teste de integração:**
 ```powershell
@@ -1962,3 +2113,5 @@ Após completar este guia:
 - [Implementação de Criptografia de Canal](../development/channel-encryption-implementation.md) - Detalhes da implementação v0.3.0
 - [Plano de Criptografia de Canal](../development/channel-encryption-plan.md) - Planejamento completo
 - [Protocolo de Handshake](../architecture/handshake-protocol.md) - Especificação atualizada
+- [Redis Testing Guide](./redis-testing-guide.md) - **🆕 Guia completo de testes de persistência Redis**
+- [Docker Compose Quick Start](./docker-compose-quick-start.md) - Guia rápido Docker Compose com Redis
