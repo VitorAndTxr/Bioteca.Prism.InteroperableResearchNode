@@ -1,3 +1,4 @@
+using Bioteca.Prism.Core.Cache.Session;
 using Bioteca.Prism.Core.Middleware.Session;
 using Bioteca.Prism.Domain.Entities.Session;
 using Bioteca.Prism.Domain.Enumerators.Node;
@@ -27,6 +28,8 @@ public class Phase4SessionManagementTests
     {
         var services = new ServiceCollection();
         services.AddLogging();
+        // Register in-memory session store for tests
+        services.AddSingleton<ISessionStore, Bioteca.Prism.Service.Services.Cache.InMemorySessionStore>();
         services.AddSingleton<ISessionService, Bioteca.Prism.Service.Services.Session.SessionService>();
 
         var serviceProvider = services.BuildServiceProvider();

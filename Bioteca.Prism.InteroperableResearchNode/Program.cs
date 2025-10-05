@@ -1,9 +1,12 @@
+using Bioteca.Prism.Core.Cache;
+using Bioteca.Prism.Core.Cache.Session;
 using Bioteca.Prism.Core.Middleware.Channel;
 using Bioteca.Prism.Core.Middleware.Node;
 using Bioteca.Prism.Core.Middleware.Session;
 using Bioteca.Prism.Core.Security.Cryptography;
 using Bioteca.Prism.Core.Security.Cryptography.Interfaces;
 using Bioteca.Prism.Data.Cache.Channel;
+using Bioteca.Prism.Service.Services.Cache;
 using Bioteca.Prism.Service.Services.Node;
 using Bioteca.Prism.Service.Services.Session;
 
@@ -28,7 +31,6 @@ builder.Services.AddSwaggerGen();
 // Register Phase 1 services (Channel Establishment)
 builder.Services.AddSingleton<IEphemeralKeyService, EphemeralKeyService>();
 builder.Services.AddSingleton<IChannelEncryptionService, ChannelEncryptionService>();
-builder.Services.AddSingleton<IChannelStore, ChannelStore>(); // Centralized channel management
 builder.Services.AddHttpClient(); // Required for NodeChannelClient
 builder.Services.AddSingleton<INodeChannelClient, NodeChannelClient>();
 
@@ -37,6 +39,36 @@ builder.Services.AddSingleton<Bioteca.Prism.Core.Middleware.Node.INodeRegistrySe
 
 // Register Phase 3 services (Mutual Authentication)
 builder.Services.AddSingleton<IChallengeService, ChallengeService>();
+
+// Register Redis infrastructure (conditionally)
+var useRedisForSessions = builder.Configuration.GetValue<bool>("FeatureFlags:UseRedisForSessions");
+var useRedisForChannels = builder.Configuration.GetValue<bool>("FeatureFlags:UseRedisForChannels");
+
+if (useRedisForSessions || useRedisForChannels)
+{
+    // Redis connection service (shared between sessions and channels)
+    builder.Services.AddSingleton<IRedisConnectionService, RedisConnectionService>();
+}
+
+// Register Channel Store (Phase 1)
+if (useRedisForChannels)
+{
+    builder.Services.AddSingleton<IChannelStore, RedisChannelStore>();
+}
+else
+{
+    builder.Services.AddSingleton<IChannelStore, ChannelStore>(); // In-memory (default)
+}
+
+// Register Session Store (Phase 4)
+if (useRedisForSessions)
+{
+    builder.Services.AddSingleton<ISessionStore, RedisSessionStore>();
+}
+else
+{
+    builder.Services.AddSingleton<ISessionStore, InMemorySessionStore>(); // In-memory (default)
+}
 
 // Register Phase 4 services (Session Management)
 builder.Services.AddSingleton<ISessionService, SessionService>();

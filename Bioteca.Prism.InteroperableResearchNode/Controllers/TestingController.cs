@@ -247,14 +247,14 @@ public class TestingController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public IActionResult EncryptPayload([FromBody] EncryptPayloadRequest request)
+    public async Task<IActionResult> EncryptPayload([FromBody] EncryptPayloadRequest request)
     {
         try
         {
             _logger.LogInformation("Encrypting payload for channel {ChannelId}", request.ChannelId);
 
             // 1. Get channel from store
-            var channel = _channelStore.GetChannel(request.ChannelId);
+            var channel = await _channelStore.GetChannelAsync(request.ChannelId);
             if (channel == null)
             {
                 _logger.LogWarning("Channel {ChannelId} not found or expired", request.ChannelId);
@@ -307,14 +307,14 @@ public class TestingController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public IActionResult DecryptPayload([FromBody] DecryptPayloadRequest request)
+    public async Task<IActionResult> DecryptPayload([FromBody] DecryptPayloadRequest request)
     {
         try
         {
             _logger.LogInformation("Decrypting payload for channel {ChannelId}", request.ChannelId);
 
             // 1. Get channel from store
-            var channel = _channelStore.GetChannel(request.ChannelId);
+            var channel = await _channelStore.GetChannelAsync(request.ChannelId);
             if (channel == null)
             {
                 _logger.LogWarning("Channel {ChannelId} not found or expired", request.ChannelId);
@@ -561,13 +561,13 @@ public class TestingController : ControllerBase
     [HttpGet("channel-info/{channelId}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public IActionResult GetChannelInfo(string channelId)
+    public async Task<IActionResult> GetChannelInfo(string channelId)
     {
         try
         {
             _logger.LogInformation("Getting channel info for {ChannelId}", channelId);
 
-            var channel = _channelStore.GetChannel(channelId);
+            var channel = await _channelStore.GetChannelAsync(channelId);
             if (channel == null)
             {
                 return NotFound(new

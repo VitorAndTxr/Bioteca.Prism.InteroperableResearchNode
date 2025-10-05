@@ -5,8 +5,8 @@ using System.Collections.Concurrent;
 namespace Bioteca.Prism.Data.Cache.Channel;
 
 /// <summary>
-/// In-memory implementation of channel store
-/// In production, use distributed cache (Redis) for multi-instance deployments
+/// In-memory implementation of channel store (used when Redis is disabled)
+/// For multi-instance deployments, use RedisChannelStore instead
 /// </summary>
 public class ChannelStore : IChannelStore
 {
@@ -18,41 +18,42 @@ public class ChannelStore : IChannelStore
         _logger = logger;
     }
 
-    /// <inheritdoc/>
-    public void AddChannel(string channelId, ChannelContext context)
+    public Task<bool> AddChannelAsync(string channelId, ChannelContext context)
     {
-        if (_channels.TryAdd(channelId, context))
+        var success = _channels.TryAdd(channelId, context);
+
+        if (success)
         {
-            _logger.LogInformation("Channel {ChannelId} added to store (role: {Role}, expires: {ExpiresAt})",
+            _logger.LogInformation("Channel {ChannelId} added to in-memory store (role: {Role}, expires: {ExpiresAt})",
                 channelId, context.Role, context.ExpiresAt);
         }
         else
         {
             _logger.LogWarning("Failed to add channel {ChannelId} - already exists", channelId);
         }
+
+        return Task.FromResult(success);
     }
 
-    /// <inheritdoc/>
-    public ChannelContext? GetChannel(string channelId)
+    public Task<ChannelContext?> GetChannelAsync(string channelId)
     {
         if (_channels.TryGetValue(channelId, out var context))
         {
             if (context.ExpiresAt > DateTime.UtcNow)
             {
-                _logger.LogDebug("Retrieved valid channel {ChannelId}", channelId);
-                return context;
+                _logger.LogDebug("Retrieved valid channel {ChannelId} from in-memory store", channelId);
+                return Task.FromResult<ChannelContext?>(context);
             }
 
             // Channel expired - remove it
             _channels.TryRemove(channelId, out _);
-            _logger.LogWarning("Channel {ChannelId} expired and removed from store", channelId);
+            _logger.LogWarning("Channel {ChannelId} expired and removed from in-memory store", channelId);
         }
 
-        return null;
+        return Task.FromResult<ChannelContext?>(null);
     }
 
-    /// <inheritdoc/>
-    public bool RemoveChannel(string channelId)
+    public Task<bool> RemoveChannelAsync(string channelId)
     {
         var removed = _channels.TryRemove(channelId, out var context);
 
@@ -60,15 +61,48 @@ public class ChannelStore : IChannelStore
         {
             // Clear sensitive data
             Array.Clear(context.SymmetricKey, 0, context.SymmetricKey.Length);
-            _logger.LogInformation("Channel {ChannelId} removed from store", channelId);
+            _logger.LogInformation("Channel {ChannelId} removed from in-memory store", channelId);
         }
 
-        return removed;
+        return Task.FromResult(removed);
     }
 
-    /// <inheritdoc/>
-    public bool IsChannelValid(string channelId)
+    public async Task<bool> IsChannelValidAsync(string channelId)
     {
-        return GetChannel(channelId) != null;
+        var channel = await GetChannelAsync(channelId);
+        return channel != null;
+    }
+
+    public Task CleanupExpiredChannelsAsync()
+    {
+        var now = DateTime.UtcNow;
+        var expiredChannels = _channels
+            .Where(kvp => kvp.Value.ExpiresAt < now)
+            .Select(kvp => kvp.Key)
+            .ToList();
+
+        var count = 0;
+        foreach (var channelId in expiredChannels)
+        {
+            if (_channels.TryRemove(channelId, out var context))
+            {
+                // Clear sensitive data
+                Array.Clear(context.SymmetricKey, 0, context.SymmetricKey.Length);
+                count++;
+            }
+        }
+
+        if (count > 0)
+        {
+            _logger.LogInformation("Cleaned up {Count} expired channels from in-memory store", count);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public Task<int> GetActiveChannelCountAsync()
+    {
+        var count = _channels.Values.Count(c => c.ExpiresAt > DateTime.UtcNow);
+        return Task.FromResult(count);
     }
 }

@@ -2,6 +2,40 @@ version: '3.8'
 
 services:
 
+  redis-node-a:
+    image: redis:7.2-alpine
+    container_name: irn-redis-node-a
+    command: redis-server --appendonly yes --requirepass prism-redis-password-node-a
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data-node-a:/data
+    networks:
+      - irn-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  redis-node-b:
+    image: redis:7.2-alpine
+    container_name: irn-redis-node-b
+    command: redis-server --appendonly yes --requirepass prism-redis-password-node-b
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis-data-node-b:/data
+    networks:
+      - irn-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
   node-a:
     build:
       context: .
@@ -10,10 +44,14 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=NodeA
       - ASPNETCORE_URLS=http://+:8080
+      - Redis__ConnectionString=irn-redis-node-a:6379,password=prism-redis-password-node-a,abortConnect=false
     ports:
       - "5000:8080"
     networks:
       - irn-network
+    depends_on:
+      redis-node-a:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/api/channel/health"]
       interval: 10s
@@ -29,10 +67,14 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=NodeB
       - ASPNETCORE_URLS=http://+:8080
+      - Redis__ConnectionString=irn-redis-node-b:6379,password=prism-redis-password-node-b,abortConnect=false
     ports:
       - "5001:8080"
     networks:
       - irn-network
+    depends_on:
+      redis-node-b:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/api/channel/health"]
       interval: 10s
@@ -43,3 +85,9 @@ services:
 networks:
   irn-network:
     driver: bridge
+
+volumes:
+  redis-data-node-a:
+    driver: local
+  redis-data-node-b:
+    driver: local

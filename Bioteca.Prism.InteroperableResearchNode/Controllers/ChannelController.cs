@@ -51,7 +51,7 @@ public class ChannelController : ControllerBase
     [ProducesResponseType(typeof(ChannelReadyResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(HandshakeError), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(HandshakeError), StatusCodes.Status500InternalServerError)]
-    public IActionResult OpenChannel([FromBody] ChannelOpenRequest request)
+    public async Task<IActionResult> OpenChannel([FromBody] ChannelOpenRequest request)
     {
         try
         {
@@ -126,7 +126,7 @@ public class ChannelController : ControllerBase
                 Role = "server"
             };
 
-            _channelStore.AddChannel(channelId, channelContext);
+            await _channelStore.AddChannelAsync(channelId, channelContext);
 
             // Clean up ECDH objects
             serverEcdh.Dispose();
@@ -196,9 +196,9 @@ public class ChannelController : ControllerBase
     [HttpGet("{channelId}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public IActionResult GetChannel(string channelId)
+    public async Task<IActionResult> GetChannel(string channelId)
     {
-        var channelContext = _channelStore.GetChannel(channelId);
+        var channelContext = await _channelStore.GetChannelAsync(channelId);
         if (channelContext != null)
         {
             return Ok(new

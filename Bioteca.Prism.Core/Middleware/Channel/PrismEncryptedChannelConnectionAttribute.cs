@@ -32,7 +32,7 @@ namespace Bioteca.Prism.Core.Middleware.Channel
 
             var channelId = channelIdHeader.ToString();
             var channelStore = context.HttpContext.RequestServices.GetRequiredService<IChannelStore>();
-            var channelContext = channelStore.GetChannel(channelId);
+            var channelContext = await channelStore.GetChannelAsync(channelId);
 
             if (channelContext == null)
             {

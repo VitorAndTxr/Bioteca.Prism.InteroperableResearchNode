@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+using Bioteca.Prism.Core.Cache.Session;
 using Bioteca.Prism.Core.Middleware.Session;
 using Bioteca.Prism.Domain.Entities.Session;
 using Bioteca.Prism.Domain.Enumerators.Node;
@@ -7,28 +7,25 @@ using Microsoft.Extensions.Logging;
 namespace Bioteca.Prism.Service.Services.Session;
 
 /// <summary>
-/// In-memory session management service
-/// TODO: Replace with database storage for production
+/// Session management service with pluggable storage backend (in-memory or Redis)
 /// </summary>
 public class SessionService : ISessionService
 {
     private readonly ILogger<SessionService> _logger;
-
-    // In-memory session storage: SessionToken -> SessionData
-    private readonly ConcurrentDictionary<string, SessionData> _sessions = new();
-
-    // Rate limiting: SessionToken -> Request timestamps (last 60 seconds)
-    private readonly ConcurrentDictionary<string, Queue<DateTime>> _requestHistory = new();
+    private readonly ISessionStore _sessionStore;
 
     // Configuration
     private const int MaxRequestsPerMinute = 60;
 
-    public SessionService(ILogger<SessionService> logger)
+    public SessionService(
+        ILogger<SessionService> logger,
+        ISessionStore sessionStore)
     {
         _logger = logger;
+        _sessionStore = sessionStore;
     }
 
-    public Task<SessionData> CreateSessionAsync(
+    public async Task<SessionData> CreateSessionAsync(
         string nodeId,
         string channelId,
         NodeAccessTypeEnum accessLevel,
@@ -49,7 +46,13 @@ public class SessionService : ISessionService
             RequestCount = 0
         };
 
-        _sessions[sessionToken] = sessionData;
+        var success = await _sessionStore.CreateSessionAsync(sessionData);
+
+        if (!success)
+        {
+            _logger.LogError("Failed to create session for node {NodeId}", nodeId);
+            throw new InvalidOperationException("Failed to create session");
+        }
 
         _logger.LogInformation(
             "Session created for node {NodeId}: {SessionToken}, expires at {ExpiresAt}",
@@ -57,15 +60,17 @@ public class SessionService : ISessionService
             sessionToken,
             sessionData.ExpiresAt);
 
-        return Task.FromResult(sessionData);
+        return sessionData;
     }
 
-    public Task<SessionContext?> ValidateSessionAsync(string sessionToken)
+    public async Task<SessionContext?> ValidateSessionAsync(string sessionToken)
     {
-        if (!_sessions.TryGetValue(sessionToken, out var sessionData))
+        var sessionData = await _sessionStore.GetSessionAsync(sessionToken);
+
+        if (sessionData == null)
         {
             _logger.LogWarning("Session not found: {SessionToken}", sessionToken);
-            return Task.FromResult<SessionContext?>(null);
+            return null;
         }
 
         if (!sessionData.IsValid())
@@ -76,12 +81,13 @@ public class SessionService : ISessionService
                 sessionData.ExpiresAt);
 
             // Remove expired session
-            _sessions.TryRemove(sessionToken, out _);
-            return Task.FromResult<SessionContext?>(null);
+            await _sessionStore.RemoveSessionAsync(sessionToken);
+            return null;
         }
 
         // Update last accessed time
         sessionData.LastAccessedAt = DateTime.UtcNow;
+        await _sessionStore.UpdateSessionAsync(sessionData);
 
         // Convert to SessionContext
         var context = new SessionContext
@@ -100,15 +106,17 @@ public class SessionService : ISessionService
             sessionData.NodeId,
             context.GetRemainingSeconds());
 
-        return Task.FromResult<SessionContext?>(context);
+        return context;
     }
 
-    public Task<SessionData?> RenewSessionAsync(string sessionToken, int additionalSeconds = 3600)
+    public async Task<SessionData?> RenewSessionAsync(string sessionToken, int additionalSeconds = 3600)
     {
-        if (!_sessions.TryGetValue(sessionToken, out var sessionData))
+        var sessionData = await _sessionStore.GetSessionAsync(sessionToken);
+
+        if (sessionData == null)
         {
             _logger.LogWarning("Cannot renew - session not found: {SessionToken}", sessionToken);
-            return Task.FromResult<SessionData?>(null);
+            return null;
         }
 
         if (!sessionData.IsValid())
@@ -117,60 +125,58 @@ public class SessionService : ISessionService
                 "Cannot renew - session expired: {SessionToken}",
                 sessionToken);
 
-            _sessions.TryRemove(sessionToken, out _);
-            return Task.FromResult<SessionData?>(null);
+            await _sessionStore.RemoveSessionAsync(sessionToken);
+            return null;
         }
 
         // Extend expiration
         sessionData.ExpiresAt = sessionData.ExpiresAt.AddSeconds(additionalSeconds);
         sessionData.LastAccessedAt = DateTime.UtcNow;
 
+        var success = await _sessionStore.UpdateSessionAsync(sessionData);
+
+        if (!success)
+        {
+            _logger.LogError("Failed to renew session: {SessionToken}", sessionToken);
+            return null;
+        }
+
         _logger.LogInformation(
             "Session renewed: {SessionToken}, new expiration {ExpiresAt}",
             sessionToken,
             sessionData.ExpiresAt);
 
-        return Task.FromResult<SessionData?>(sessionData);
+        return sessionData;
     }
 
-    public Task<bool> RevokeSessionAsync(string sessionToken)
+    public async Task<bool> RevokeSessionAsync(string sessionToken)
     {
-        var removed = _sessions.TryRemove(sessionToken, out var sessionData);
+        var removed = await _sessionStore.RemoveSessionAsync(sessionToken);
 
         if (removed)
         {
-            _logger.LogInformation(
-                "Session revoked: {SessionToken}, node {NodeId}",
-                sessionToken,
-                sessionData!.NodeId);
-
-            // Clean up rate limiting history
-            _requestHistory.TryRemove(sessionToken, out _);
+            _logger.LogInformation("Session revoked: {SessionToken}", sessionToken);
         }
         else
         {
             _logger.LogWarning("Cannot revoke - session not found: {SessionToken}", sessionToken);
         }
 
-        return Task.FromResult(removed);
+        return removed;
     }
 
-    public Task<List<SessionData>> GetNodeSessionsAsync(string nodeId)
+    public async Task<List<SessionData>> GetNodeSessionsAsync(string nodeId)
     {
-        var sessions = _sessions.Values
-            .Where(s => s.NodeId == nodeId && s.IsValid())
-            .ToList();
+        var sessions = await _sessionStore.GetNodeSessionsAsync(nodeId);
 
         _logger.LogDebug("Found {Count} active sessions for node {NodeId}", sessions.Count, nodeId);
 
-        return Task.FromResult(sessions);
+        return sessions;
     }
 
-    public Task<SessionMetrics> GetSessionMetricsAsync(string nodeId)
+    public async Task<SessionMetrics> GetSessionMetricsAsync(string nodeId)
     {
-        var sessions = _sessions.Values
-            .Where(s => s.NodeId == nodeId && s.IsValid())
-            .ToList();
+        var sessions = await _sessionStore.GetNodeSessionsAsync(nodeId);
 
         var metrics = new SessionMetrics
         {
@@ -182,7 +188,7 @@ public class SessionService : ISessionService
                 : null,
             NodeAccessLevel = sessions
                 .Select(s => s.AccessLevel)
-                .Distinct().FirstOrDefault() 
+                .Distinct().FirstOrDefault()
         };
 
         _logger.LogDebug(
@@ -191,69 +197,49 @@ public class SessionService : ISessionService
             metrics.ActiveSessions,
             metrics.TotalRequests);
 
-        return Task.FromResult(metrics);
+        return metrics;
     }
 
-    public Task<int> CleanupExpiredSessionsAsync()
+    public async Task<int> CleanupExpiredSessionsAsync()
     {
-        var now = DateTime.UtcNow;
-        var expiredSessions = _sessions
-            .Where(kvp => kvp.Value.ExpiresAt < now)
-            .Select(kvp => kvp.Key)
-            .ToList();
+        await _sessionStore.CleanupExpiredSessionsAsync();
 
-        var count = 0;
-        foreach (var sessionToken in expiredSessions)
-        {
-            if (_sessions.TryRemove(sessionToken, out _))
-            {
-                _requestHistory.TryRemove(sessionToken, out _);
-                count++;
-            }
-        }
+        _logger.LogDebug("Cleanup expired sessions requested");
 
-        if (count > 0)
-        {
-            _logger.LogInformation("Cleaned up {Count} expired sessions", count);
-        }
-
-        return Task.FromResult(count);
+        // Return 0 since Redis handles cleanup automatically via TTL
+        return 0;
     }
 
-    public Task<bool> RecordRequestAsync(string sessionToken)
+    public async Task<bool> RecordRequestAsync(string sessionToken)
     {
-        if (!_sessions.TryGetValue(sessionToken, out var sessionData))
+        var sessionData = await _sessionStore.GetSessionAsync(sessionToken);
+
+        if (sessionData == null)
         {
-            return Task.FromResult(false);
+            return false;
         }
 
         // Increment request count
         sessionData.RequestCount++;
         sessionData.LastAccessedAt = DateTime.UtcNow;
+        await _sessionStore.UpdateSessionAsync(sessionData);
 
-        // Rate limiting: Token bucket algorithm
+        // Rate limiting: Check request count in last 60 seconds
         var now = DateTime.UtcNow;
-        var requestQueue = _requestHistory.GetOrAdd(sessionToken, _ => new Queue<DateTime>());
+        await _sessionStore.RecordRequestAsync(sessionToken, now);
 
-        // Remove requests older than 60 seconds
-        while (requestQueue.Count > 0 && requestQueue.Peek() < now.AddSeconds(-60))
-        {
-            requestQueue.Dequeue();
-        }
+        var requestCount = await _sessionStore.GetRequestCountAsync(sessionToken, TimeSpan.FromMinutes(1));
 
         // Check if rate limit exceeded
-        if (requestQueue.Count >= MaxRequestsPerMinute)
+        if (requestCount >= MaxRequestsPerMinute)
         {
             _logger.LogWarning(
                 "Rate limit exceeded for session {SessionToken}, node {NodeId}",
                 sessionToken,
                 sessionData.NodeId);
-            return Task.FromResult(false);
+            return false;
         }
 
-        // Record this request
-        requestQueue.Enqueue(now);
-
-        return Task.FromResult(true);
+        return true;
     }
 }

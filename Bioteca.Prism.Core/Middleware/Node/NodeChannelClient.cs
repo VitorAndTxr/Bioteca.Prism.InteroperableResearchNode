@@ -152,7 +152,7 @@ public class NodeChannelClient : INodeChannelClient
                 Role = "client"
             };
 
-            _channelStore.AddChannel(channelId, channelContext);
+            await _channelStore.AddChannelAsync(channelId, channelContext);
 
             _logger.LogInformation("Channel {ChannelId} established successfully with {RemoteNodeUrl}",
                 channelId, remoteNodeUrl);
@@ -189,16 +189,15 @@ public class NodeChannelClient : INodeChannelClient
     }
 
     /// <inheritdoc/>
-    public Task CloseChannelAsync(string channelId)
+    public async Task CloseChannelAsync(string channelId)
     {
-        _channelStore.RemoveChannel(channelId);
-        return Task.CompletedTask;
+        await _channelStore.RemoveChannelAsync(channelId);
     }
 
     /// <inheritdoc/>
     public async Task<NodeStatusResponse> IdentifyNodeAsync(string channelId, NodeIdentifyRequest request)
     {
-        var channelContext = _channelStore.GetChannel(channelId);
+        var channelContext = await _channelStore.GetChannelAsync(channelId);
         if (channelContext == null)
         {
             throw new InvalidOperationException($"Channel {channelId} not found or expired");
@@ -232,7 +231,7 @@ public class NodeChannelClient : INodeChannelClient
     /// <inheritdoc/>
     public async Task<NodeRegistrationResponse> RegisterNodeAsync(string channelId, NodeRegistrationRequest request)
     {
-        var channelContext = _channelStore.GetChannel(channelId);
+        var channelContext = await _channelStore.GetChannelAsync(channelId);
         if (channelContext == null)
         {
             throw new InvalidOperationException($"Channel {channelId} not found or expired");
@@ -266,7 +265,7 @@ public class NodeChannelClient : INodeChannelClient
     /// <inheritdoc/>
     public async Task<ChallengeResponse> RequestChallengeAsync(string channelId, string nodeId)
     {
-        var channelContext = _channelStore.GetChannel(channelId);
+        var channelContext = await _channelStore.GetChannelAsync(channelId);
         if (channelContext == null)
         {
             throw new InvalidOperationException($"Channel {channelId} not found or expired");
@@ -307,7 +306,7 @@ public class NodeChannelClient : INodeChannelClient
     /// <inheritdoc/>
     public async Task<AuthenticationResponse> AuthenticateAsync(string channelId, ChallengeResponseRequest request)
     {
-        var channelContext = _channelStore.GetChannel(channelId);
+        var channelContext = await _channelStore.GetChannelAsync(channelId);
         if (channelContext == null)
         {
             throw new InvalidOperationException($"Channel {channelId} not found or expired");
