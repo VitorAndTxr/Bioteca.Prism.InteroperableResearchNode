@@ -373,7 +373,7 @@ public class SecurityAndEdgeCaseTests : IClassFixture<TestWebApplicationFactory>
         };
 
         // Act
-        var response = await _client.PutAsJsonAsync("/api/node/non-existent-node-id/status", updateRequest);
+        var response = await _client.PutAsJsonAsync($"/api/node/{Guid.NewGuid()}/status", updateRequest);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
@@ -582,9 +582,13 @@ public class SecurityAndEdgeCaseTests : IClassFixture<TestWebApplicationFactory>
         _client.DefaultRequestHeaders.Clear();
         _client.DefaultRequestHeaders.Add("X-Channel-Id", channelId);
 
-        await _client.PostAsJsonAsync("/api/node/register", encryptedPayload);
+        var response = await _client.PostAsJsonAsync("/api/node/register", encryptedPayload);
 
-        return nodeId;
+        var encryptedResponse = await response.Content.ReadFromJsonAsync<EncryptedPayload>();
+        var registrationResponse = encryptionService.DecryptPayload<NodeRegistrationResponse>(
+            encryptedResponse!, symmetricKey);
+
+        return registrationResponse.RegistrationId;
     }
 
     private string GenerateTestCertificate(string nodeId)

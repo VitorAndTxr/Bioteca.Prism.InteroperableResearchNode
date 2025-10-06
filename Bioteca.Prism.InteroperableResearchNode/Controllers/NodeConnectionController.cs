@@ -1,5 +1,6 @@
 ﻿using Bioteca.Prism.Core.Middleware.Channel;
 using Bioteca.Prism.Core.Middleware.Node;
+using Bioteca.Prism.Core.Security.Certificate;
 using Bioteca.Prism.Core.Security.Cryptography.Interfaces;
 using Bioteca.Prism.Domain.Errors.Node;
 using Bioteca.Prism.Domain.Requests.Node;
@@ -59,8 +60,17 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
 
                 var request = HttpContext.Items["DecryptedRequest"] as NodeIdentifyRequest;
 
-                // Check if node is known
-                var registeredNode = await _nodeRegistry.GetNodeAsync(request.NodeId);
+                // Calculate certificate fingerprint
+                var certBytes = Convert.FromBase64String(request.Certificate);
+                string certificateFingerprint;
+                using (var sha256 = System.Security.Cryptography.SHA256.Create())
+                {
+                    var hash = sha256.ComputeHash(certBytes);
+                    certificateFingerprint = Convert.ToBase64String(hash);
+                }
+
+                // Check if node is known by certificate fingerprint
+                var registeredNode = await _nodeRegistry.GetNodeByCertificateAsync(certificateFingerprint);
 
                 if (registeredNode == null)
                 {
@@ -84,14 +94,21 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
                 }
 
                 // Known node - check authorization status
-                _logger.LogInformation("Known node identified: {NodeId} with status {Status}",
-                    request.NodeId, registeredNode.Status);
+                _logger.LogInformation("Known node identified: {NodeId} (DB ID: {DbId}) with status {Status}",
+                    request.NodeId, registeredNode.Id, registeredNode.Status);
+
+                // Store identified node info in channel context for subsequent operations
+                channelContext.IdentifiedNodeId = registeredNode.Id;
+                channelContext.CertificateFingerprint = registeredNode.CertificateFingerprint;
+                // Update the channel context by removing and re-adding
+                await _channelStore.RemoveChannelAsync(channelId!);
+                await _channelStore.AddChannelAsync(channelId!, channelContext);
 
                 var response = new NodeStatusResponse
                 {
                     IsKnown = true,
                     Status = registeredNode.Status,
-                    NodeId = registeredNode.NodeId,
+                    NodeId = request.NodeId, // Return the protocol NodeId from request
                     NodeName = registeredNode.NodeName,
                     Timestamp = DateTime.UtcNow
                 };
@@ -189,11 +206,11 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
         /// <summary>
         /// Update node authorization status (for admin purposes)
         /// </summary>
-        [HttpPut("/api/node/{nodeId}/status")]
+        [HttpPut("/api/node/{id}/status")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> UpdateNodeStatus(string nodeId, [FromBody] UpdateNodeStatusRequest request)
+        public async Task<IActionResult> UpdateNodeStatus(Guid id, [FromBody] UpdateNodeStatusRequest request)
         {
             // Validate status enum
             if (!Enum.IsDefined(typeof(AuthorizationStatus), request.Status))
@@ -205,14 +222,14 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
                 ));
             }
 
-            var success = await _nodeRegistry.UpdateNodeStatusAsync(nodeId, request.Status);
+            var success = await _nodeRegistry.UpdateNodeStatusAsync(id, request.Status);
 
             if (!success)
             {
                 return NotFound(new { message = "Node not found" });
             }
 
-            return Ok(new { message = "Node status updated successfully", nodeId, status = request.Status });
+            return Ok(new { message = "Node status updated successfully", id, status = request.Status });
         }
 
         /// <summary>
@@ -230,8 +247,18 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
                 var channelContext = HttpContext.Items["ChannelContext"] as ChannelContext;
                 var request = HttpContext.Items["DecryptedRequest"] as ChallengeRequest;
 
+                // Get identified node from channel context (set during Phase 2 identification)
+                if (channelContext!.IdentifiedNodeId == null)
+                {
+                    return BadRequest(CreateError(
+                        "ERR_NODE_NOT_IDENTIFIED",
+                        "Node must complete Phase 2 identification before requesting challenge",
+                        retryable: false
+                    ));
+                }
+
                 // Verify node is authorized
-                var registeredNode = await _nodeRegistry.GetNodeAsync(request!.NodeId);
+                var registeredNode = await _nodeRegistry.GetNodeAsync(channelContext.IdentifiedNodeId.Value);
                 if (registeredNode == null)
                 {
                     return BadRequest(CreateError(
@@ -284,8 +311,18 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
                 var channelContext = HttpContext.Items["ChannelContext"] as ChannelContext;
                 var request = HttpContext.Items["DecryptedRequest"] as ChallengeResponseRequest;
 
+                // Get identified node from channel context (set during Phase 2 identification)
+                if (channelContext!.IdentifiedNodeId == null)
+                {
+                    return BadRequest(CreateError(
+                        "ERR_NODE_NOT_IDENTIFIED",
+                        "Node must complete Phase 2 identification before authentication",
+                        retryable: false
+                    ));
+                }
+
                 // Get node information
-                var registeredNode = await _nodeRegistry.GetNodeAsync(request!.NodeId);
+                var registeredNode = await _nodeRegistry.GetNodeAsync(channelContext.IdentifiedNodeId.Value);
                 if (registeredNode == null)
                 {
                     return BadRequest(CreateError(
@@ -320,12 +357,12 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
 
                 // Generate authentication result
                 var authResponse = await _challengeService.GenerateAuthenticationResultAsync(
-                    request.NodeId,
+                    registeredNode.Id,
                     channelId!,
                     registeredNode.NodeAccessLevel);
 
                 // Update last authentication timestamp
-                await _nodeRegistry.UpdateLastAuthenticationAsync(request.NodeId);
+                await _nodeRegistry.UpdateLastAuthenticationAsync(registeredNode.Id);
 
                 // Invalidate challenge (one-time use)
                 await _challengeService.InvalidateChallengeAsync(channelId!, request.NodeId);

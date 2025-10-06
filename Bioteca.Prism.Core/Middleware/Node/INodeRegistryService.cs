@@ -10,18 +10,18 @@ namespace Bioteca.Prism.Core.Middleware.Node;
 public interface INodeRegistryService
 {
     /// <summary>
-    /// Check if a node is known and authorized
+    /// Get a node by its Guid ID
     /// </summary>
-    /// <param name="nodeId">Node identifier</param>
+    /// <param name="id">Node Guid identifier</param>
     /// <returns>Node information if found, null otherwise</returns>
-    Task<RegisteredNode?> GetNodeAsync(string nodeId);
+    Task<ResearchNode?> GetNodeAsync(Guid id);
 
     /// <summary>
     /// Check if a node is known by certificate fingerprint
     /// </summary>
     /// <param name="certificateFingerprint">SHA-256 fingerprint of certificate</param>
     /// <returns>Node information if found, null otherwise</returns>
-    Task<RegisteredNode?> GetNodeByCertificateAsync(string certificateFingerprint);
+    Task<ResearchNode?> GetNodeByCertificateAsync(string certificateFingerprint);
 
     /// <summary>
     /// Verify node's certificate signature
@@ -40,21 +40,21 @@ public interface INodeRegistryService
     /// <summary>
     /// Update node status (approve/revoke)
     /// </summary>
-    /// <param name="nodeId">Node identifier</param>
+    /// <param name="id">Node Guid identifier</param>
     /// <param name="status">New authorization status</param>
     /// <returns>True if updated successfully</returns>
-    Task<bool> UpdateNodeStatusAsync(string nodeId, AuthorizationStatus status);
+    Task<bool> UpdateNodeStatusAsync(Guid id, AuthorizationStatus status);
 
     /// <summary>
     /// Get all registered nodes
     /// </summary>
     /// <returns>List of all registered nodes</returns>
-    Task<List<RegisteredNode>> GetAllNodesAsync();
+    Task<List<ResearchNode>> GetAllNodesAsync();
 
     /// <summary>
     /// Update last authentication timestamp
     /// </summary>
-    /// <param name="nodeId">Node identifier</param>
+    /// <param name="id">Node Guid identifier</param>
     /// <returns>True if updated successfully</returns>
-    Task<bool> UpdateLastAuthenticationAsync(string nodeId);
+    Task<bool> UpdateLastAuthenticationAsync(Guid id);
 }

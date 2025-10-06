@@ -31,7 +31,7 @@ public interface ISessionStore
     /// <summary>
     /// Gets all active sessions for a specific node
     /// </summary>
-    Task<List<SessionData>> GetNodeSessionsAsync(string nodeId);
+    Task<List<SessionData>> GetNodeSessionsAsync(Guid nodeId);
 
     /// <summary>
     /// Records a request for rate limiting

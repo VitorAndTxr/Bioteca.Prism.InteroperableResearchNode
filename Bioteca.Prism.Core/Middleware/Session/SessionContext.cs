@@ -14,9 +14,9 @@ public class SessionContext
     public string SessionToken { get; set; } = string.Empty;
 
     /// <summary>
-    /// Authenticated node ID
+    /// Authenticated node Guid
     /// </summary>
-    public string NodeId { get; set; } = string.Empty;
+    public Guid NodeId { get; set; }
 
     /// <summary>
     /// Channel ID used during authentication

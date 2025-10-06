@@ -188,7 +188,7 @@ public class RedisSessionStore : ISessionStore
         }
     }
 
-    public async Task<List<SessionData>> GetNodeSessionsAsync(string nodeId)
+    public async Task<List<SessionData>> GetNodeSessionsAsync(Guid nodeId)
     {
         try
         {
@@ -308,6 +308,6 @@ public class RedisSessionStore : ISessionStore
 
     // Helper methods for key generation
     private static string GetSessionKey(string sessionToken) => $"{SessionKeyPrefix}{sessionToken}";
-    private static string GetNodeSessionsKey(string nodeId) => $"{NodeSessionsKeyPrefix}{nodeId}:sessions";
+    private static string GetNodeSessionsKey(Guid nodeId) => $"{NodeSessionsKeyPrefix}{nodeId}:sessions";
     private static string GetRateLimitKey(string sessionToken) => $"{RateLimitKeyPrefix}{sessionToken}";
 }

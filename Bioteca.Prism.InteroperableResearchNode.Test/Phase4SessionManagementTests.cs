@@ -40,7 +40,7 @@ public class Phase4SessionManagementTests
     public async Task CreateSession_WithValidParameters_ReturnsSessionData()
     {
         // Arrange
-        var nodeId = "test-node-001";
+        var nodeId = Guid.NewGuid();
         var channelId = "test-channel-001";
         var accessLevel = NodeAccessTypeEnum.ReadWrite;
 
@@ -63,8 +63,9 @@ public class Phase4SessionManagementTests
     public async Task ValidateSession_WithValidToken_ReturnsSessionContext()
     {
         // Arrange
+        var nodeId = Guid.NewGuid();
         var session = await _sessionService.CreateSessionAsync(
-            "test-node-002",
+            nodeId,
             "test-channel-002",
             NodeAccessTypeEnum.Admin);
 
@@ -74,7 +75,7 @@ public class Phase4SessionManagementTests
         // Assert
         context.Should().NotBeNull();
         context!.SessionToken.Should().Be(session.SessionToken);
-        context.NodeId.Should().Be("test-node-002");
+        context.NodeId.Should().Be(nodeId);
         context.ChannelId.Should().Be("test-channel-002");
         context.NodeAccessLevel.Should().Be(NodeAccessTypeEnum.Admin);
         context.GetRemainingSeconds().Should().BeGreaterThan(0);
@@ -98,7 +99,7 @@ public class Phase4SessionManagementTests
     {
         // Arrange
         var session = await _sessionService.CreateSessionAsync(
-            "test-node-003",
+            Guid.NewGuid(),
             "test-channel-003",
             NodeAccessTypeEnum.ReadOnly);
 
@@ -132,7 +133,7 @@ public class Phase4SessionManagementTests
     {
         // Arrange
         var session = await _sessionService.CreateSessionAsync(
-            "test-node-004",
+            Guid.NewGuid(),
             "test-channel-004",
             NodeAccessTypeEnum.ReadWrite);
 
@@ -164,10 +165,11 @@ public class Phase4SessionManagementTests
     public async Task GetNodeSessions_ReturnsAllActiveSessionsForNode()
     {
         // Arrange
-        var nodeId = "test-node-005";
+        var nodeId = Guid.NewGuid();
+        var otherNodeId = Guid.NewGuid();
         await _sessionService.CreateSessionAsync(nodeId, "channel-1", NodeAccessTypeEnum.ReadOnly);
         await _sessionService.CreateSessionAsync(nodeId, "channel-2", NodeAccessTypeEnum.ReadWrite);
-        await _sessionService.CreateSessionAsync("other-node", "channel-3", NodeAccessTypeEnum.Admin);
+        await _sessionService.CreateSessionAsync(otherNodeId, "channel-3", NodeAccessTypeEnum.Admin);
 
         // Act
         var sessions = await _sessionService.GetNodeSessionsAsync(nodeId);
@@ -181,7 +183,7 @@ public class Phase4SessionManagementTests
     public async Task GetSessionMetrics_ReturnsCorrectMetrics()
     {
         // Arrange
-        var nodeId = "test-node-006";
+        var nodeId = Guid.NewGuid();
         var session1 = await _sessionService.CreateSessionAsync(nodeId, "channel-1", NodeAccessTypeEnum.ReadWrite);
         var session2 = await _sessionService.CreateSessionAsync(nodeId, "channel-2", NodeAccessTypeEnum.ReadWrite);
 
@@ -206,7 +208,7 @@ public class Phase4SessionManagementTests
     public async Task CleanupExpiredSessions_RemovesExpiredSessions()
     {
         // Arrange
-        var nodeId = "test-node-007";
+        var nodeId = Guid.NewGuid();
 
         // Create session with 1 second TTL
         var shortSession = await _sessionService.CreateSessionAsync(
@@ -244,7 +246,7 @@ public class Phase4SessionManagementTests
     {
         // Arrange
         var session = await _sessionService.CreateSessionAsync(
-            "test-node-008",
+            Guid.NewGuid(),
             "test-channel-008",
             NodeAccessTypeEnum.ReadWrite);
 
@@ -269,7 +271,7 @@ public class Phase4SessionManagementTests
     {
         // Arrange
         var session = await _sessionService.CreateSessionAsync(
-            "test-node-009",
+            Guid.NewGuid(),
             "test-channel-009",
             NodeAccessTypeEnum.ReadWrite);
 
@@ -289,7 +291,7 @@ public class Phase4SessionManagementTests
         var validSession = new SessionData
         {
             SessionToken = "token-1",
-            NodeId = "node-1",
+            NodeId = Guid.NewGuid(),
             ChannelId = "channel-1",
             CreatedAt = DateTime.UtcNow,
             ExpiresAt = DateTime.UtcNow.AddHours(1),
@@ -300,7 +302,7 @@ public class Phase4SessionManagementTests
         var expiredSession = new SessionData
         {
             SessionToken = "token-2",
-            NodeId = "node-2",
+            NodeId = Guid.NewGuid(),
             ChannelId = "channel-2",
             CreatedAt = DateTime.UtcNow.AddHours(-2),
             ExpiresAt = DateTime.UtcNow.AddHours(-1),
@@ -320,7 +322,7 @@ public class Phase4SessionManagementTests
         var session = new SessionData
         {
             SessionToken = "token-1",
-            NodeId = "node-1",
+            NodeId = Guid.NewGuid(),
             ChannelId = "channel-1",
             CreatedAt = DateTime.UtcNow,
             ExpiresAt = DateTime.UtcNow.AddMinutes(10),

@@ -32,7 +32,7 @@ public interface IChallengeService
     /// <param name="channelId">Channel ID</param>
     /// <param name="nodeAccessLevel">List of capabilities to grant</param>
     /// <returns>Authentication response with session token</returns>
-    Task<AuthenticationResponse> GenerateAuthenticationResultAsync(string nodeId, string channelId, NodeAccessTypeEnum nodeAccessLevel);
+    Task<AuthenticationResponse> GenerateAuthenticationResultAsync(Guid nodeId, string channelId, NodeAccessTypeEnum nodeAccessLevel);
 
     /// <summary>
     /// Invalidate a challenge (cleanup after successful authentication or timeout)

@@ -6,9 +6,12 @@ using Bioteca.Prism.Core.Middleware.Session;
 using Bioteca.Prism.Core.Security.Cryptography;
 using Bioteca.Prism.Core.Security.Cryptography.Interfaces;
 using Bioteca.Prism.Data.Cache.Channel;
+using Bioteca.Prism.Data.Persistence.Contexts;
+using Bioteca.Prism.Data.Repositories.Node;
 using Bioteca.Prism.Service.Services.Cache;
 using Bioteca.Prism.Service.Services.Node;
 using Bioteca.Prism.Service.Services.Session;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -34,8 +37,33 @@ builder.Services.AddSingleton<IChannelEncryptionService, ChannelEncryptionServic
 builder.Services.AddHttpClient(); // Required for NodeChannelClient
 builder.Services.AddSingleton<INodeChannelClient, NodeChannelClient>();
 
-// Register Phase 2 services (Node Identification and Authorization)
-builder.Services.AddSingleton<Bioteca.Prism.Core.Middleware.Node.INodeRegistryService, NodeRegistryService>();
+// Register PostgreSQL infrastructure (conditionally)
+var usePostgreSqlForNodes = builder.Configuration.GetValue<bool>("FeatureFlags:UsePostgreSqlForNodes");
+
+if (usePostgreSqlForNodes)
+{
+    // Register DbContext with PostgreSQL
+    var connectionString = builder.Configuration.GetConnectionString("PrismDatabase");
+    builder.Services.AddDbContext<PrismDbContext>(options =>
+        options.UseNpgsql(connectionString, npgsqlOptions =>
+        {
+            npgsqlOptions.EnableRetryOnFailure(
+                maxRetryCount: 3,
+                maxRetryDelay: TimeSpan.FromSeconds(5),
+                errorCodesToAdd: null);
+        }));
+
+    // Register repository
+    builder.Services.AddScoped<INodeRepository, NodeRepository>();
+
+    // Register PostgreSQL-backed node registry service
+    builder.Services.AddScoped<Bioteca.Prism.Core.Middleware.Node.INodeRegistryService, PostgreSqlNodeRegistryService>();
+}
+else
+{
+    // Register in-memory node registry service (default)
+    builder.Services.AddSingleton<Bioteca.Prism.Core.Middleware.Node.INodeRegistryService, NodeRegistryService>();
+}
 
 // Register Phase 3 services (Mutual Authentication)
 builder.Services.AddSingleton<IChallengeService, ChallengeService>();
@@ -74,6 +102,24 @@ else
 builder.Services.AddSingleton<ISessionService, SessionService>();
 
 var app = builder.Build();
+
+// Apply database migrations on startup (if using PostgreSQL)
+if (usePostgreSqlForNodes)
+{
+    using (var scope = app.Services.CreateScope())
+    {
+        var dbContext = scope.ServiceProvider.GetRequiredService<PrismDbContext>();
+        try
+        {
+            dbContext.Database.Migrate();
+            app.Logger.LogInformation("Database migrations applied successfully");
+        }
+        catch (Exception ex)
+        {
+            app.Logger.LogError(ex, "Error applying database migrations");
+        }
+    }
+}
 
 // Configure the HTTP request pipeline.
 // Enable Swagger in Development, NodeA, and NodeB environments

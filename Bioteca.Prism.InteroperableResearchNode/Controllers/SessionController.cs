@@ -211,8 +211,16 @@ public class SessionController : ControllerBase
             return Unauthorized(new { error = "ERR_NO_SESSION_CONTEXT" });
         }
 
-        // Use requested NodeId or default to current session's node
-        var targetNodeId = request?.NodeId ?? sessionContext.NodeId;
+        // Use requested NodeId (parse from string) or default to current session's node
+        Guid targetNodeId;
+        if (request?.NodeId != null && Guid.TryParse(request.NodeId, out var parsedGuid))
+        {
+            targetNodeId = parsedGuid;
+        }
+        else
+        {
+            targetNodeId = sessionContext.NodeId;
+        }
 
         _logger.LogInformation(
             "Getting metrics for node {NodeId} (requested by {SessionNodeId})",

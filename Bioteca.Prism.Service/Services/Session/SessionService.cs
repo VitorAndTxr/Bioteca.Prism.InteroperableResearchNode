@@ -26,7 +26,7 @@ public class SessionService : ISessionService
     }
 
     public async Task<SessionData> CreateSessionAsync(
-        string nodeId,
+        Guid nodeId,
         string channelId,
         NodeAccessTypeEnum accessLevel,
         int ttlSeconds = 3600)
@@ -165,7 +165,7 @@ public class SessionService : ISessionService
         return removed;
     }
 
-    public async Task<List<SessionData>> GetNodeSessionsAsync(string nodeId)
+    public async Task<List<SessionData>> GetNodeSessionsAsync(Guid nodeId)
     {
         var sessions = await _sessionStore.GetNodeSessionsAsync(nodeId);
 
@@ -174,7 +174,7 @@ public class SessionService : ISessionService
         return sessions;
     }
 
-    public async Task<SessionMetrics> GetSessionMetricsAsync(string nodeId)
+    public async Task<SessionMetrics> GetSessionMetricsAsync(Guid nodeId)
     {
         var sessions = await _sessionStore.GetNodeSessionsAsync(nodeId);
 

@@ -117,12 +117,12 @@ public class Phase2NodeIdentificationTests : IClassFixture<TestWebApplicationFac
     {
         // Arrange - Establish channel and register node
         var (channelId, symmetricKey) = await EstablishChannelAsync();
-        var nodeId = await RegisterTestNodeAsync(channelId, symmetricKey, "pending-node-001");
+        var nodeId = "pending-node-001";
+        var (registrationId, cert) = await RegisterTestNodeAsync(channelId, symmetricKey, nodeId);
 
         var encryptionService = _factory.Services.GetRequiredService<IChannelEncryptionService>();
 
-        // Generate signature
-        var cert = CertificateHelper.GenerateSelfSignedCertificate(nodeId, 1);
+        // Use the same certificate that was registered
         var certificate = CertificateHelper.ExportCertificateToBase64(cert);
         var (signature, timestamp, signedData) = SignData(channelId, nodeId, cert);
 
@@ -161,13 +161,13 @@ public class Phase2NodeIdentificationTests : IClassFixture<TestWebApplicationFac
     {
         // Arrange - Establish channel, register, and authorize node
         var (channelId, symmetricKey) = await EstablishChannelAsync();
-        var nodeId = await RegisterTestNodeAsync(channelId, symmetricKey, "authorized-node-001");
-        await AuthorizeNodeAsync(nodeId);
+        var nodeId = "authorized-node-001";
+        var (registrationId, cert) = await RegisterTestNodeAsync(channelId, symmetricKey, nodeId);
+        await AuthorizeNodeAsync(registrationId);
 
         var encryptionService = _factory.Services.GetRequiredService<IChannelEncryptionService>();
 
-        // Generate signature
-        var cert = CertificateHelper.GenerateSelfSignedCertificate(nodeId, 1);
+        // Use the same certificate that was registered
         var certificate = CertificateHelper.ExportCertificateToBase64(cert);
         var (signature, timestamp, signedData) = SignData(channelId, nodeId, cert);
 
@@ -220,7 +220,7 @@ public class Phase2NodeIdentificationTests : IClassFixture<TestWebApplicationFac
     }
 
     [Fact]
-    public async Task GetAllNodes_ReturnsRegisteredNodes()
+    public async Task GetAllNodes_ReturnsResearchNodes()
     {
         // Arrange - Register a few nodes
         var (channelId, symmetricKey) = await EstablishChannelAsync();
@@ -244,7 +244,8 @@ public class Phase2NodeIdentificationTests : IClassFixture<TestWebApplicationFac
     {
         // Arrange - Register node
         var (channelId, symmetricKey) = await EstablishChannelAsync();
-        var nodeId = await RegisterTestNodeAsync(channelId, symmetricKey, "status-test-node");
+        var nodeId = "status-test-node";
+        var (registrationId, cert) = await RegisterTestNodeAsync(channelId, symmetricKey, nodeId);
 
         var updateRequest = new UpdateNodeStatusRequest
         {
@@ -252,7 +253,7 @@ public class Phase2NodeIdentificationTests : IClassFixture<TestWebApplicationFac
         };
 
         // Act
-        var response = await _client.PutAsJsonAsync($"/api/node/{nodeId}/status", updateRequest);
+        var response = await _client.PutAsJsonAsync($"/api/node/{registrationId}/status", updateRequest);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -303,7 +304,7 @@ public class Phase2NodeIdentificationTests : IClassFixture<TestWebApplicationFac
         return (channelId, symmetricKey);
     }
 
-    private async Task<string> RegisterTestNodeAsync(string channelId, byte[] symmetricKey, string nodeId)
+    private async Task<(string registrationId, X509Certificate2 certificate)> RegisterTestNodeAsync(string channelId, byte[] symmetricKey, string nodeId)
     {
         var encryptionService = _factory.Services.GetRequiredService<IChannelEncryptionService>();
 
@@ -326,9 +327,13 @@ public class Phase2NodeIdentificationTests : IClassFixture<TestWebApplicationFac
         _client.DefaultRequestHeaders.Clear();
         _client.DefaultRequestHeaders.Add("X-Channel-Id", channelId);
 
-        await _client.PostAsJsonAsync("/api/node/register", encryptedPayload);
+        var response = await _client.PostAsJsonAsync("/api/node/register", encryptedPayload);
 
-        return nodeId;
+        var encryptedResponse = await response.Content.ReadFromJsonAsync<EncryptedPayload>();
+        var registrationResponse = encryptionService.DecryptPayload<NodeRegistrationResponse>(
+            encryptedResponse!, symmetricKey);
+
+        return (registrationResponse.RegistrationId, cert);
     }
 
     private async Task AuthorizeNodeAsync(string nodeId)

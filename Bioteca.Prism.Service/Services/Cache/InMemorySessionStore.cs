@@ -57,7 +57,7 @@ public class InMemorySessionStore : ISessionStore
         return Task.FromResult(removed);
     }
 
-    public Task<List<SessionData>> GetNodeSessionsAsync(string nodeId)
+    public Task<List<SessionData>> GetNodeSessionsAsync(Guid nodeId)
     {
         var sessions = _sessions.Values
             .Where(s => s.NodeId == nodeId && s.IsValid())

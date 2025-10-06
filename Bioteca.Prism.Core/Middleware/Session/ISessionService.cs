@@ -11,13 +11,13 @@ public interface ISessionService
     /// <summary>
     /// Create a new session for an authenticated node
     /// </summary>
-    /// <param name="nodeId">Node identifier</param>
+    /// <param name="nodeId">Node Guid identifier</param>
     /// <param name="channelId">Channel ID used during authentication</param>
     /// <param name="capabilities">Capabilities to grant to this session</param>
     /// <param name="ttlSeconds">Session TTL in seconds (default: 3600 = 1 hour)</param>
     /// <returns>Created session data</returns>
     Task<SessionData> CreateSessionAsync(
-        string nodeId,
+        Guid nodeId,
         string channelId,
         NodeAccessTypeEnum accessLevel,
         int ttlSeconds = 3600);
@@ -47,16 +47,16 @@ public interface ISessionService
     /// <summary>
     /// Get all active sessions for a node
     /// </summary>
-    /// <param name="nodeId">Node identifier</param>
+    /// <param name="nodeId">Node Guid identifier</param>
     /// <returns>List of active sessions</returns>
-    Task<List<SessionData>> GetNodeSessionsAsync(string nodeId);
+    Task<List<SessionData>> GetNodeSessionsAsync(Guid nodeId);
 
     /// <summary>
     /// Get session metrics for a node
     /// </summary>
-    /// <param name="nodeId">Node identifier</param>
+    /// <param name="nodeId">Node Guid identifier</param>
     /// <returns>Session metrics (total sessions, total requests, etc.)</returns>
-    Task<SessionMetrics> GetSessionMetricsAsync(string nodeId);
+    Task<SessionMetrics> GetSessionMetricsAsync(Guid nodeId);
 
     /// <summary>
     /// Cleanup expired sessions (background job)
@@ -77,7 +77,7 @@ public interface ISessionService
 /// </summary>
 public class SessionMetrics
 {
-    public string NodeId { get; set; } = string.Empty;
+    public Guid NodeId { get; set; }
     public int ActiveSessions { get; set; }
     public int TotalRequests { get; set; }
     public DateTime? LastAccessedAt { get; set; }

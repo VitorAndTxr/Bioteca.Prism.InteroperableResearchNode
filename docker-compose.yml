@@ -1,6 +1,63 @@
-version: '3.8'
-
 services:
+
+  postgres-node-a:
+    image: postgres:18-alpine
+    container_name: irn-postgres-node-a
+    environment:
+      - POSTGRES_DB=prism_node_a_registry
+      - POSTGRES_USER=prism_user_a
+      - POSTGRES_PASSWORD=prism_secure_password_2025_a
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data-node-a:/var/lib/postgresql/data
+    networks:
+      - irn-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U prism_user_a -d prism_node_a_registry"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  postgres-node-b:
+    image: postgres:18-alpine
+    container_name: irn-postgres-node-b
+    environment:
+      - POSTGRES_DB=prism_node_b_registry
+      - POSTGRES_USER=prism_user_b
+      - POSTGRES_PASSWORD=prism_secure_password_2025_b
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres-data-node-b:/var/lib/postgresql/data
+    networks:
+      - irn-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U prism_user_b -d prism_node_b_registry"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: irn-pgadmin
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=admin@prism.com
+      - PGADMIN_DEFAULT_PASSWORD=admin123
+      - PGADMIN_CONFIG_SERVER_MODE=False
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+    networks:
+      - irn-network
+    depends_on:
+      postgres-node-a:
+        condition: service_healthy
+      postgres-node-b:
+        condition: service_healthy
 
   redis-node-a:
     image: redis:7.2-alpine
@@ -45,11 +102,14 @@ services:
       - ASPNETCORE_ENVIRONMENT=NodeA
       - ASPNETCORE_URLS=http://+:8080
       - Redis__ConnectionString=irn-redis-node-a:6379,password=prism-redis-password-node-a,abortConnect=false
+      - ConnectionStrings__PrismDatabase=Host=irn-postgres-node-a;Port=5432;Database=prism_node_a_registry;Username=prism_user_a;Password=prism_secure_password_2025_a
     ports:
       - "5000:8080"
     networks:
       - irn-network
     depends_on:
+      postgres-node-a:
+        condition: service_healthy
       redis-node-a:
         condition: service_healthy
     healthcheck:
@@ -68,11 +128,14 @@ services:
       - ASPNETCORE_ENVIRONMENT=NodeB
       - ASPNETCORE_URLS=http://+:8080
       - Redis__ConnectionString=irn-redis-node-b:6379,password=prism-redis-password-node-b,abortConnect=false
+      - ConnectionStrings__PrismDatabase=Host=irn-postgres-node-b;Port=5432;Database=prism_node_b_registry;Username=prism_user_b;Password=prism_secure_password_2025_b
     ports:
       - "5001:8080"
     networks:
       - irn-network
     depends_on:
+      postgres-node-b:
+        condition: service_healthy
       redis-node-b:
         condition: service_healthy
     healthcheck:
@@ -87,6 +150,12 @@ networks:
     driver: bridge
 
 volumes:
+  postgres-data-node-a:
+    driver: local
+  postgres-data-node-b:
+    driver: local
+  pgadmin-data:
+    driver: local
   redis-data-node-a:
     driver: local
   redis-data-node-b:

@@ -295,6 +295,7 @@ public class NodeChannelClientTests : IClassFixture<TestWebApplicationFactory>
 
         regResult.Success.Should().BeTrue();
         regResult.Status.Should().Be(Domain.Responses.Node.AuthorizationStatus.Pending);
+        var registrationId = regResult.RegistrationId;
 
         // Step 4: Identify (should be Pending)
         var timestamp1 = DateTime.UtcNow;
@@ -322,7 +323,7 @@ public class NodeChannelClientTests : IClassFixture<TestWebApplicationFactory>
             status = 1 // Authorized
         };
 
-        var approveResponse = await nodeBClient.PutAsJsonAsync($"/api/node/{nodeId}/status", updateRequest);
+        var approveResponse = await nodeBClient.PutAsJsonAsync($"/api/node/{registrationId}/status", updateRequest);
         approveResponse.Should().NotBeNull();
         approveResponse.IsSuccessStatusCode.Should().BeTrue();
 

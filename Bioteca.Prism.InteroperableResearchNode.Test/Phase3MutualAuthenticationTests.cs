@@ -69,7 +69,8 @@ public class Phase3MutualAuthenticationTests : IClassFixture<TestWebApplicationF
     {
         // Arrange - Establish channel and register node (but don't authorize)
         var (channelId, symmetricKey) = await EstablishChannelAsync();
-        var nodeId = await RegisterTestNodeAsync(channelId, symmetricKey, "unauthorized-challenge-node");
+        var nodeId = "unauthorized-challenge-node";
+        var (registrationId, cert) = await RegisterTestNodeAsync(channelId, symmetricKey, nodeId);
 
         var encryptionService = _factory.Services.GetRequiredService<IChannelEncryptionService>();
 
@@ -306,7 +307,7 @@ public class Phase3MutualAuthenticationTests : IClassFixture<TestWebApplicationF
         return (channelId, symmetricKey);
     }
 
-    private async Task<string> RegisterTestNodeAsync(string channelId, byte[] symmetricKey, string nodeId)
+    private async Task<(string registrationId, System.Security.Cryptography.X509Certificates.X509Certificate2 certificate)> RegisterTestNodeAsync(string channelId, byte[] symmetricKey, string nodeId)
     {
         var encryptionService = _factory.Services.GetRequiredService<IChannelEncryptionService>();
 
@@ -329,9 +330,13 @@ public class Phase3MutualAuthenticationTests : IClassFixture<TestWebApplicationF
         _client.DefaultRequestHeaders.Clear();
         _client.DefaultRequestHeaders.Add("X-Channel-Id", channelId);
 
-        await _client.PostAsJsonAsync("/api/node/register", encryptedPayload);
+        var response = await _client.PostAsJsonAsync("/api/node/register", encryptedPayload);
 
-        return nodeId;
+        var encryptedResponse = await response.Content.ReadFromJsonAsync<EncryptedPayload>();
+        var registrationResponse = encryptionService.DecryptPayload<NodeRegistrationResponse>(
+            encryptedResponse!, symmetricKey);
+
+        return (registrationResponse.RegistrationId, cert);
     }
 
     private async Task<System.Security.Cryptography.X509Certificates.X509Certificate2> RegisterAndAuthorizeNodeAsync(
@@ -358,7 +363,11 @@ public class Phase3MutualAuthenticationTests : IClassFixture<TestWebApplicationF
         _client.DefaultRequestHeaders.Clear();
         _client.DefaultRequestHeaders.Add("X-Channel-Id", channelId);
 
-        await _client.PostAsJsonAsync("/api/node/register", encryptedPayload);
+        var response = await _client.PostAsJsonAsync("/api/node/register", encryptedPayload);
+
+        var encryptedResponse = await response.Content.ReadFromJsonAsync<EncryptedPayload>();
+        var registrationResponse = encryptionService.DecryptPayload<NodeRegistrationResponse>(
+            encryptedResponse!, symmetricKey);
 
         // Authorize node
         var updateRequest = new UpdateNodeStatusRequest
@@ -366,7 +375,7 @@ public class Phase3MutualAuthenticationTests : IClassFixture<TestWebApplicationF
             Status = AuthorizationStatus.Authorized
         };
 
-        await _client.PutAsJsonAsync($"/api/node/{nodeId}/status", updateRequest);
+        await _client.PutAsJsonAsync($"/api/node/{registrationResponse.RegistrationId}/status", updateRequest);
 
         return cert;
     }

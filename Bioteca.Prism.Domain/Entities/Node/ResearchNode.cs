@@ -4,14 +4,14 @@ using Bioteca.Prism.Domain.Responses.Node;
 namespace Bioteca.Prism.Domain.Entities.Node;
 
 /// <summary>
-/// Represents a registered node in the network
+/// Represents a research node in the network
 /// </summary>
-public class RegisteredNode
+public class ResearchNode
 {
     /// <summary>
     /// Unique identifier of the node
     /// </summary>
-    public string NodeId { get; set; } = string.Empty;
+    public Guid Id { get; set; }
 
     /// <summary>
     /// Human-readable name of the node/institution

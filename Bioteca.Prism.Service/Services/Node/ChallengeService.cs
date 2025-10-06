@@ -131,7 +131,7 @@ public class ChallengeService : IChallengeService
         }
     }
 
-    public async Task<AuthenticationResponse> GenerateAuthenticationResultAsync(string nodeId, string channelId, NodeAccessTypeEnum nodeAccessLevel)
+    public async Task<AuthenticationResponse> GenerateAuthenticationResultAsync(Guid nodeId, string channelId, NodeAccessTypeEnum nodeAccessLevel)
     {
         try
         {
@@ -151,7 +151,7 @@ public class ChallengeService : IChallengeService
             return new AuthenticationResponse
             {
                 Authenticated = true,
-                NodeId = nodeId,
+                NodeId = nodeId.ToString(),
                 SessionToken = sessionData.SessionToken,
                 SessionExpiresAt = sessionData.ExpiresAt,
                 GrantedNodeAccessLevel = nodeAccessLevel,

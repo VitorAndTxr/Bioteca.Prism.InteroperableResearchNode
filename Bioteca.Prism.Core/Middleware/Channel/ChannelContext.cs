@@ -14,4 +14,14 @@ public class ChannelContext
     public DateTime ExpiresAt { get; set; }
     public string? RemoteNodeUrl { get; set; }
     public string Role { get; set; } = string.Empty; // "client" or "server"
+
+    /// <summary>
+    /// Identified node's Guid ID (set after Phase 2 identification)
+    /// </summary>
+    public Guid? IdentifiedNodeId { get; set; }
+
+    /// <summary>
+    /// Certificate fingerprint of the identified node (set after Phase 2 identification)
+    /// </summary>
+    public string? CertificateFingerprint { get; set; }
 }

@@ -14,8 +14,8 @@ namespace Bioteca.Prism.Service.Services.Node;
 /// </summary>
 public class NodeRegistryService : INodeRegistryService
 {
-    private readonly Dictionary<string, RegisteredNode> _nodes = new();
-    private readonly Dictionary<string, RegisteredNode> _nodesByCertificate = new();
+    private readonly Dictionary<Guid, ResearchNode> _nodes = new();
+    private readonly Dictionary<string, ResearchNode> _nodesByCertificate = new();
     private readonly ILogger<NodeRegistryService> _logger;
     private readonly object _lock = new();
 
@@ -24,16 +24,16 @@ public class NodeRegistryService : INodeRegistryService
         _logger = logger;
     }
 
-    public Task<RegisteredNode?> GetNodeAsync(string nodeId)
+    public Task<ResearchNode?> GetNodeAsync(Guid id)
     {
         lock (_lock)
         {
-            _nodes.TryGetValue(nodeId, out var node);
+            _nodes.TryGetValue(id, out var node);
             return Task.FromResult(node);
         }
     }
 
-    public Task<RegisteredNode?> GetNodeByCertificateAsync(string certificateFingerprint)
+    public Task<ResearchNode?> GetNodeByCertificateAsync(string certificateFingerprint)
     {
         lock (_lock)
         {
@@ -162,15 +162,11 @@ public class NodeRegistryService : INodeRegistryService
                 // Calculate certificate fingerprint
                 var fingerprint = CalculateCertificateFingerprint(certBytes);
 
-                // Check if node already exists
-                if (_nodes.TryGetValue(request.NodeId, out var existingNode))
+                // Check if certificate is already registered (use certificate fingerprint as natural key)
+                if (_nodesByCertificate.TryGetValue(fingerprint, out var existingNode))
                 {
-                    // Update existing node information
-                    // Remove old certificate fingerprint mapping if certificate changed
-                    if (existingNode.CertificateFingerprint != fingerprint)
-                    {
-                        _nodesByCertificate.Remove(existingNode.CertificateFingerprint);
-                    }
+                    // Update existing node information (certificate fingerprint stays the same)
+                    // This is a re-registration with the same certificate
 
                     if(existingNode.NodeAccessLevel < request.RequestedNodeAccessLevel)
                     {
@@ -186,35 +182,22 @@ public class NodeRegistryService : INodeRegistryService
                     existingNode.NodeAccessLevel = request.RequestedNodeAccessLevel;
                     existingNode.UpdatedAt = DateTime.UtcNow;
 
-                    _nodesByCertificate[fingerprint] = existingNode;
-
-                    _logger.LogInformation("Node {NodeId} information updated successfully", request.NodeId);
+                    _logger.LogInformation("Node {NodeName} information updated successfully (Id: {Id})", request.NodeName, existingNode.Id);
 
                     return Task.FromResult(new NodeRegistrationResponse
                     {
                         Success = true,
-                        RegistrationId = Guid.NewGuid().ToString(),
+                        RegistrationId = existingNode.Id.ToString(),
                         Status = existingNode.Status, // Preserve existing status
                         Message = "Node information updated successfully.",
                         EstimatedApprovalTime = existingNode.Status == AuthorizationStatus.Pending ? TimeSpan.FromHours(24) : null
                     });
                 }
 
-                // Check if certificate is already registered with another node
-                if (_nodesByCertificate.ContainsKey(fingerprint))
-                {
-                return Task.FromResult(new NodeRegistrationResponse
-                {
-                    Success = false,
-                    Status = AuthorizationStatus.Revoked,
-                    Message = "Certificate already registered with another node"
-                });
-                }
-
                 // Create new registered node (pending approval)
-                var registeredNode = new RegisteredNode
+                var registeredNode = new ResearchNode
                 {
-                    NodeId = request.NodeId,
+                    Id = Guid.NewGuid(),
                     NodeName = request.NodeName,
                     Certificate = request.Certificate,
                     CertificateFingerprint = fingerprint,
@@ -227,17 +210,15 @@ public class NodeRegistryService : INodeRegistryService
                     UpdatedAt = DateTime.UtcNow
                 };
 
-                _nodes[request.NodeId] = registeredNode;
+                _nodes[registeredNode.Id] = registeredNode;
                 _nodesByCertificate[fingerprint] = registeredNode;
 
-                var registrationId = Guid.NewGuid().ToString();
-
-                _logger.LogInformation("Node {NodeId} registered successfully (pending approval)", request.NodeId);
+                _logger.LogInformation("Node {NodeName} registered successfully with Id {Id} (pending approval)", request.NodeName, registeredNode.Id);
 
                 return Task.FromResult(new NodeRegistrationResponse
                 {
                     Success = true,
-                    RegistrationId = registrationId,
+                    RegistrationId = registeredNode.Id.ToString(),
                     Status = AuthorizationStatus.Pending,
                     Message = "Registration received. Pending administrator approval.",
                     EstimatedApprovalTime = TimeSpan.FromHours(24)
@@ -245,7 +226,7 @@ public class NodeRegistryService : INodeRegistryService
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error registering node {NodeId}", request.NodeId);
+                _logger.LogError(ex, "Error registering node {NodeName}", request.NodeName);
                 return Task.FromResult(new NodeRegistrationResponse
                 {
                     Success = false,
@@ -256,11 +237,11 @@ public class NodeRegistryService : INodeRegistryService
         }
     }
 
-    public Task<bool> UpdateNodeStatusAsync(string nodeId, AuthorizationStatus status)
+    public Task<bool> UpdateNodeStatusAsync(Guid id, AuthorizationStatus status)
     {
         lock (_lock)
         {
-            if (!_nodes.TryGetValue(nodeId, out var node))
+            if (!_nodes.TryGetValue(id, out var node))
             {
                 return Task.FromResult(false);
             }
@@ -268,13 +249,13 @@ public class NodeRegistryService : INodeRegistryService
             node.Status = status;
             node.UpdatedAt = DateTime.UtcNow;
 
-            _logger.LogInformation("Node {NodeId} status updated to {Status}", nodeId, status);
+            _logger.LogInformation("Node {Id} status updated to {Status}", id, status);
 
             return Task.FromResult(true);
         }
     }
 
-    public Task<List<RegisteredNode>> GetAllNodesAsync()
+    public Task<List<ResearchNode>> GetAllNodesAsync()
     {
         lock (_lock)
         {
@@ -282,18 +263,18 @@ public class NodeRegistryService : INodeRegistryService
         }
     }
 
-    public Task<bool> UpdateLastAuthenticationAsync(string nodeId)
+    public Task<bool> UpdateLastAuthenticationAsync(Guid id)
     {
         lock (_lock)
         {
-            if (!_nodes.TryGetValue(nodeId, out var node))
+            if (!_nodes.TryGetValue(id, out var node))
             {
                 return Task.FromResult(false);
             }
 
             node.LastAuthenticatedAt = DateTime.UtcNow;
 
-            _logger.LogInformation("Node {NodeId} last authentication time updated", nodeId);
+            _logger.LogInformation("Node {Id} last authentication time updated", id);
 
             return Task.FromResult(true);
         }

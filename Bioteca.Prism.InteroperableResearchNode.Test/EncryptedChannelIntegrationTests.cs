@@ -92,6 +92,7 @@ public class EncryptedChannelIntegrationTests
 
         registrationResult.Success.Should().BeTrue();
         registrationResult.Status.Should().Be(AuthorizationStatus.Pending);
+        var registrationId = registrationResult.RegistrationId;
 
         // Step 3: Node A identifies itself (should be Pending)
         var (signature, timestamp, signedData) = SignData(channelId, "node-a-integration", cert);
@@ -127,7 +128,7 @@ public class EncryptedChannelIntegrationTests
         };
 
         var approveResponse = await clientB.PutAsJsonAsync(
-            "/api/node/node-a-integration/status", updateRequest);
+            $"/api/node/{registrationId}/status", updateRequest);
         approveResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
         // Step 5: Node A identifies again (should be Authorized with phase3)
