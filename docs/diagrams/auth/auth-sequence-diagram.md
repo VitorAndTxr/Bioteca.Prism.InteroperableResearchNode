@@ -8,8 +8,8 @@ This diagram shows the complete 4-phase handshake protocol with encrypted commun
 ```mermaid
 sequenceDiagram
     participant NodeA as Node A (Client)
-    participant Redis as Redis Cache
     participant NodeB as Node B (Server)
+    participant Redis as Redis Cache
     participant PG as PostgreSQL DB
 
     Note over NodeA,PG: PHASE 1: Encrypted Channel Establishment
