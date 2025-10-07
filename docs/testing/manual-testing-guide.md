@@ -1,20 +1,42 @@
-# Guia de Testes Manuais e Discovery - Fases 1, 2 e 3
+# Manual Testing and Discovery Guide - Phases 1-4
 
-**Versão**: 0.5.0 (com autenticação mútua)
-**Última atualização**: 2025-10-03
+**Version**: 0.7.0 (with Phase 4 Session Management)
+**Last updated**: 2025-10-07
 
-Este guia fornece um roteiro passo a passo para testar e entender manualmente o funcionamento das Fases 1, 2 e 3 do protocolo de handshake, ideal para debugging e aprendizado.
+This guide provides a step-by-step roadmap for manually testing and understanding the operation of all 4 phases of the handshake protocol, ideal for debugging and learning.
 
-## ⚠️ IMPORTANTE: Criptografia de Canal
+## ⚠️ IMPORTANT: Channel Encryption
 
-**A partir da versão 0.3.0**, todas as comunicações após o estabelecimento do canal (Fase 1) **DEVEM ser criptografadas** usando a chave simétrica derivada do canal.
+**As of version 0.3.0**, all communications after channel establishment (Phase 1) **MUST be encrypted** using the symmetric key derived from the channel.
 
-- ✅ **Fase 1** (`/api/channel/open`, `/api/channel/initiate`) - Sem criptografia (estabelece o canal)
-- 🔒 **Fase 2** (`/api/channel/identify`, `/api/node/register`) - **Payload criptografado obrigatório**
-- 🔒 **Fase 3** (`/api/node/challenge`, `/api/node/authenticate`) - **Payload criptografado obrigatório**
-- 🔒 **Fase 4** - **Payload criptografado obrigatório** (planejada)
+- ✅ **Phase 1** (`/api/channel/open`, `/api/channel/initiate`) - No encryption (establishes the channel)
+- 🔒 **Phase 2** (`/api/channel/identify`, `/api/node/register`) - **Encrypted payload required**
+- 🔒 **Phase 3** (`/api/node/challenge`, `/api/node/authenticate`) - **Encrypted payload required**
+- 🔒 **Phase 4** (`/api/session/whoami`, `/api/session/renew`, `/api/session/revoke`, `/api/session/metrics`) - **Encrypted payload required**
 
-**Formato do payload criptografado**:
+## ⚠️ IMPORTANT: Dual-Identifier Architecture (v0.6.0)
+
+**As of version 0.6.0**, the system uses TWO identifiers for nodes:
+
+- **NodeId (string)**: External identifier used in protocol communication (e.g., "node-a", "hospital-research-node")
+  - This is what you send in requests (identification, authentication, etc.)
+  - Human-readable and meaningful
+  - Example: `"node-a-test-001"`, `"hospital-xyz-research-node"`
+
+- **RegistrationId (Guid)**: Internal database primary key
+  - Only returned AFTER successful identification (`NodeStatusResponse.RegistrationId`)
+  - Used for administrative operations (status updates, queries)
+  - Example: `"f6cdb452-17a1-4d8f-9241-0974f80c56ef"`
+  - **IMPORTANT**: Always save this value after identification for later use!
+
+**Usage Pattern**:
+```
+1. Identify with NodeId (string) → Receive RegistrationId (Guid)
+2. Update node status with RegistrationId (Guid)
+3. Authenticate with NodeId (string)
+```
+
+**Encrypted payload format**:
 ```json
 {
   "encryptedData": "base64-encoded-ciphertext",
@@ -23,7 +45,7 @@ Este guia fornece um roteiro passo a passo para testar e entender manualmente o 
 }
 ```
 
-**Header obrigatório para Fase 2+**: `X-Channel-Id: {channelId}`
+**Required header for Phase 2+**: `X-Channel-Id: {channelId}`
 
 ## 📋 Pré-requisitos
 
@@ -43,6 +65,7 @@ Entender o fluxo completo de:
 1. **Fase 1**: Estabelecimento de canal criptografado com chaves efêmeras
 2. **Fase 2**: Identificação e autorização de nós com certificados
 3. **Fase 3**: Autenticação mútua via challenge-response com prova de posse de chave privada
+4. **Fase 4**: Gerenciamento de sessões com tokens, capabilities e rate limiting
 
 ---
 
@@ -360,10 +383,82 @@ docker exec -it irn-redis-node-a redis-cli -a prism-redis-password-node-a EXISTS
 
 ---
 
-## 🆔 Parte 3: FASE 2 - Identificação de Nós
+## 🚀 Part 2.5: SIMPLIFIED TESTING - Combined Phase 1+2 (v0.6.0)
 
-### Objetivo da Fase 2
-Identificar e autorizar nós usando certificados X.509 e assinaturas digitais.
+### NEW Testing Helper Endpoint
+
+**For easier manual testing**, version 0.6.0 introduces a new endpoint that combines Phase 1 (channel establishment) and Phase 2 (node identification) in a single call:
+
+**Endpoint**: `POST /api/testing/complete-phase1-phase2`
+
+**Request Body**:
+```json
+{
+  "remoteNodeUrl": "http://node-b:8080",
+  "nodeId": "node-a-test-001",
+  "nodeName": "Node A Test Instance",
+  "validityYears": 2,
+  "password": "test123"
+}
+```
+
+**What it does**:
+1. Establishes encrypted channel (Phase 1)
+2. Generates X.509 certificate
+3. Signs identification data
+4. Identifies node (Phase 2)
+5. Returns complete information including both NodeId and RegistrationId
+
+**Response Example**:
+```json
+{
+  "success": true,
+  "channelId": "db7b9540-a1da-44c5-87c9-e78c933e4745",
+  "nodeId": "node-a-test-001",
+  "registrationId": "f6cdb452-17a1-4d8f-9241-0974f80c56ef",
+  "status": 2,
+  "statusText": "Pending",
+  "message": "Node identified successfully. Status: Pending. Save the RegistrationId for administrative operations.",
+  "certificate": "MIIC5TCCA...",
+  "certificateWithPrivateKey": "MIIJC...",
+  "symmetricKey": "dVkL4CBHF/ItJk2CPURILlabxoS6WgBPEgTck5UM/Jo=",
+  "nextPhase": null
+}
+```
+
+**Key Points**:
+- ✅ **nodeId (string)**: Use this for authentication requests
+- ✅ **registrationId (Guid)**: Use this for administrative operations (status updates)
+- ✅ Save both values for later use
+- ✅ If status is "Pending", you need admin approval before proceeding to Phase 3
+
+**Usage Pattern**:
+```powershell
+# 1. Combined Phase 1+2
+$result = Invoke-RestMethod -Uri "http://localhost:5000/api/testing/complete-phase1-phase2" `
+  -Method Post -ContentType "application/json" `
+  -Body '{"remoteNodeUrl":"http://node-b:8080","nodeId":"node-a-test-001","nodeName":"Node A Test"}'
+
+# 2. Save important values
+$registrationId = $result.registrationId  # ← For admin operations
+$nodeId = $result.nodeId                  # ← For authentication
+$channelId = $result.channelId            # ← For encrypted communications
+
+# 3. Approve node (use RegistrationId as Guid)
+Invoke-RestMethod -Uri "http://localhost:5001/api/node/$registrationId/status" `
+  -Method Put -ContentType "application/json" `
+  -Body '{"status":1}'
+
+# 4. Proceed to Phase 3 authentication (use NodeId as string)
+# ... challenge/response flow using $nodeId
+```
+
+---
+
+## 🆔 Part 3: PHASE 2 - Node Identification (Detailed Flow)
+
+### Phase 2 Objective
+Identify and authorize nodes using X.509 certificates and digital signatures.
 
 ### Passo 3.1: Entender a Arquitetura
 
@@ -680,24 +775,26 @@ var statusResponse = await _nodeChannelClient.IdentifyNodeAsync(channelId, ident
 # Ver test-phase2-encrypted.ps1 para detalhes
 ```
 
-**Resultado esperado:**
+**Expected result:**
 ```json
 {
   "isKnown": true,
   "status": 2,  // Pending
   "nodeId": "node-a-test-001",
   "nodeName": "Interoperable Research Node A - Test",
+  "registrationId": "f6cdb452-17a1-4d8f-9241-0974f80c56ef",
   "timestamp": "2025-10-01T...",
   "message": "Node registration is pending approval.",
-  "nextPhase": null,  // Bloqueado até aprovação
+  "nextPhase": null,  // Blocked until approval
   "registrationUrl": null
 }
 ```
 
-**💡 Observação:**
-- Nó é **conhecido** (`isKnown: true`)
-- Mas ainda está **pendente** (`status: 2`)
-- **Não pode** prosseguir para Fase 3 (`nextPhase: null`)
+**💡 Key Points:**
+- Node is **known** (`isKnown: true`)
+- But still **pending** (`status: 2`)
+- **Cannot** proceed to Phase 3 (`nextPhase: null`)
+- **⚠️ SAVE the `registrationId`** - you'll need it to approve the node!
 
 ### Passo 3.9: Debugging - Identificação de Nó (COM DESCRIPTOGRAFIA)
 
@@ -771,15 +868,25 @@ var isValid = rsa.VerifyData(dataBytes, signatureBytes, HashAlgorithmName.SHA256
 // - false se dados não baterem ou assinatura incorreta
 ```
 
-### Passo 3.10: Aprovar Nó (Admin)
+### Step 3.10: Approve Node (Administrator) - UPDATED v0.6.0
 
-**Aprovar o nó registrado:**
+**⚠️ IMPORTANT CHANGE**: The status update endpoint now requires the **RegistrationId (Guid)** instead of NodeId (string).
+
+**Get RegistrationId from identification response:**
+```powershell
+# After identification (Step 3.12), extract RegistrationId
+$identifyResponse = # ... (decrypted NodeStatusResponse)
+$registrationId = $identifyResponse.registrationId  # This is a Guid
+```
+
+**Approve the registered node:**
 ```powershell
 $approveBody = @{
     status = 1  # Authorized
 } | ConvertTo-Json
 
-$approveResult = Invoke-RestMethod -Uri "http://localhost:5001/api/node/node-a-test-001/status" `
+# Use RegistrationId (Guid) in URL - NOT NodeId (string)!
+$approveResult = Invoke-RestMethod -Uri "http://localhost:5001/api/node/$registrationId/status" `
   -Method Put `
   -ContentType "application/json" `
   -Body $approveBody
@@ -787,14 +894,28 @@ $approveResult = Invoke-RestMethod -Uri "http://localhost:5001/api/node/node-a-t
 $approveResult
 ```
 
-**Resultado esperado:**
+**Example with actual Guid**:
+```powershell
+# Correct (Guid):
+PUT http://localhost:5001/api/node/f6cdb452-17a1-4d8f-9241-0974f80c56ef/status
+
+# ❌ Wrong (string NodeId will fail):
+PUT http://localhost:5001/api/node/node-a-test-001/status
+```
+
+**Expected result:**
 ```json
 {
   "message": "Node status updated successfully",
   "nodeId": "node-a-test-001",
+  "registrationId": "f6cdb452-17a1-4d8f-9241-0974f80c56ef",
   "status": 1  // Authorized
 }
 ```
+
+**Key Differences**:
+- **URL parameter**: RegistrationId (Guid) - e.g., `f6cdb452-17a1-4d8f-9241-0974f80c56ef`
+- **Response includes both**: NodeId (string) and RegistrationId (Guid) for reference
 
 ### Passo 3.11: Debugging - Atualização de Status
 
@@ -854,23 +975,25 @@ Console.WriteLine($"NextPhase: {statusResponse.NextPhase}"); // Should be "phase
 # Ver test-phase2-encrypted.ps1
 ```
 
-**Resultado esperado:**
+**Expected result:**
 ```json
 {
   "isKnown": true,
   "status": 1,  // Authorized ✅
   "nodeId": "node-a-test-001",
   "nodeName": "Interoperable Research Node A - Test",
+  "registrationId": "f6cdb452-17a1-4d8f-9241-0974f80c56ef",
   "timestamp": "2025-10-01T...",
   "message": "Node is authorized. Proceed to Phase 3 (Mutual Authentication).",
-  "nextPhase": "phase3_authenticate",  // ✅ Pronto para Fase 3!
+  "nextPhase": "phase3_authenticate",  // ✅ Ready for Phase 3!
   "registrationUrl": null
 }
 ```
 
-**💡 Observação:**
-- Nó é **autorizado** (`status: 1`)
-- **Pode prosseguir** para Fase 3 (`nextPhase: "phase3_authenticate"`)
+**💡 Key Points:**
+- Node is **authorized** (`status: 1`)
+- **Can proceed** to Phase 3 (`nextPhase: "phase3_authenticate"`)
+- **RegistrationId is included** for reference (already saved from previous step)
 
 ### Passo 3.13: Listar Nós Registrados (Admin)
 
@@ -1880,6 +2003,64 @@ catch (Exception ex)
        │                                                  │
        │  ✅ Autenticado com Session Token               │
        │                                                  │
+       │  ════════════════════════════════════════════   │
+       │      FASE 4: SESSION MANAGEMENT                │
+       │  ════════════════════════════════════════════   │
+       │                                                  │
+       │  15. POST /api/session/whoami                   │
+       │      Headers: X-Channel-Id: abc-123             │
+       │      Body: EncryptedPayload {                   │
+       │        encryptedData: "...",  ← CRIPTOGRAFADO!  │
+       │        iv: "...",                               │
+       │        authTag: "..."                           │
+       │      }                                           │
+       │      Contém: {channelId, sessionToken}          │
+       ├────────────────────────────────────────────────>│
+       │                                                  │
+       │                       Valida X-Channel-Id        │
+       │                       Descriptografa payload     │
+       │                       Valida session token       │
+       │                       Verifica expiração         │
+       │                       Verifica rate limit        │
+       │                       Incrementa RequestCount    │
+       │                       Criptografa resposta       │
+       │                                                  │
+       │  16. EncryptedPayload (SessionInfoResponse)     │
+       │      {encryptedData, iv, authTag}               │
+       │<────────────────────────────────────────────────┤
+       │                                                  │
+       │  Descriptografa resposta                        │
+       │  {isValid: true, accessLevel: "ReadWrite",      │
+       │   capabilities: ["query:read", "data:write"],   │
+       │   requestCount: 1, expiresAt: "..."}            │
+       │                                                  │
+       │  17. POST /api/session/renew                    │
+       │      {channelId, sessionToken}                  │
+       ├────────────────────────────────────────────────>│
+       │                                                  │
+       │                       Estende TTL para +1 hora   │
+       │                       Zera RequestCount          │
+       │                       Reseta rate limit          │
+       │                                                  │
+       │  18. SessionRenewalResponse                     │
+       │      {success: true, expiresAt: "..."}          │
+       │<────────────────────────────────────────────────┤
+       │                                                  │
+       │  ✅ Sessão Renovada                             │
+       │                                                  │
+       │  19. POST /api/session/revoke                   │
+       │      {channelId, sessionToken}                  │
+       ├────────────────────────────────────────────────>│
+       │                                                  │
+       │                       Remove session do storage  │
+       │                       Invalida token             │
+       │                                                  │
+       │  20. SessionRevocationResponse                  │
+       │      {success: true, revokedAt: "..."}          │
+       │<────────────────────────────────────────────────┤
+       │                                                  │
+       │  ✅ Sessão Revogada (Logout)                    │
+       │                                                  │
 ```
 
 ---
@@ -1918,6 +2099,13 @@ catch (Exception ex)
    - Challenge aleatório de 32 bytes
    - One-time use (proteção contra replay)
    - TTL curto (5 minutos)
+
+7. **Session Management** (Fase 4)
+   - Session tokens com TTL de 1 hora
+   - Capability-based authorization (granular access control)
+   - Rate limiting com sliding window (60 req/min)
+   - Session lifecycle: create, validate, renew, revoke
+   - Redis persistence com TTL automático
 
 ### Arquitetura
 
@@ -1968,23 +2156,43 @@ catch (Exception ex)
 - ✅ Listagem de nós funciona
 
 ### Fase 3 - Autenticação Mútua Challenge/Response (v0.5.0)
-- [ ] **Challenge gerado com 32 bytes aleatórios**
-- [ ] **Challenge TTL de 5 minutos**
-- [ ] **Apenas nós autorizados podem solicitar challenge**
-- [ ] **Challenge armazenado com chave {ChannelId}:{NodeId}**
-- [ ] **Challenge assinado corretamente: {ChallengeData}{ChannelId}{NodeId}{Timestamp:O}**
-- [ ] **Assinatura RSA-2048 verificada com certificado público**
-- [ ] **Challenge data deve corresponder exatamente**
-- [ ] **Challenge expirado é rejeitado**
-- [ ] **Assinatura inválida é rejeitada**
-- [ ] **Session token gerado (GUID, 32 caracteres)**
-- [ ] **Session TTL de 1 hora**
-- [ ] **Capabilities do nó incluídas na resposta**
-- [ ] **Challenge invalidado após uso (one-time)**
-- [ ] **Reutilização de challenge é bloqueada**
-- [ ] **NextPhase retorna "phase4_session"**
-- [ ] **Nó não autorizado recebe ERR_NODE_NOT_AUTHORIZED**
-- [ ] **LastAuthenticatedAt atualizado no registro do nó**
+- ✅ **Challenge gerado com 32 bytes aleatórios**
+- ✅ **Challenge TTL de 5 minutos**
+- ✅ **Apenas nós autorizados podem solicitar challenge**
+- ✅ **Challenge armazenado com chave {ChannelId}:{NodeId}**
+- ✅ **Challenge assinado corretamente: {ChallengeData}{ChannelId}{NodeId}{Timestamp:O}**
+- ✅ **Assinatura RSA-2048 verificada com certificado público**
+- ✅ **Challenge data deve corresponder exatamente**
+- ✅ **Challenge expirado é rejeitado**
+- ✅ **Assinatura inválida é rejeitada**
+- ✅ **Session token gerado (GUID, 32 caracteres)**
+- ✅ **Session TTL de 1 hora**
+- ✅ **Capabilities do nó incluídas na resposta**
+- ✅ **Challenge invalidado após uso (one-time)**
+- ✅ **Reutilização de challenge é bloqueada**
+- ✅ **NextPhase retorna "phase4_session"**
+- ✅ **Nó não autorizado recebe ERR_NODE_NOT_AUTHORIZED**
+- ✅ **LastAuthenticatedAt atualizado no registro do nó**
+
+### Fase 4 - Session Management (v0.7.0)
+- ✅ **Session token enviado no payload criptografado (NÃO no header)**
+- ✅ **Middleware PrismEncryptedChannelConnection descriptografa payload primeiro**
+- ✅ **Middleware PrismAuthenticatedSession valida session segundo**
+- ✅ **WhoAmI retorna informações da sessão ativa**
+- ✅ **Session renewal estende TTL para mais 1 hora**
+- ✅ **Session revocation remove session do storage**
+- ✅ **Access Level-based authorization (ReadOnly, ReadWrite, Admin)**
+- ✅ **Capability-based authorization (query:read, data:write, admin:node, etc.)**
+- ✅ **Rate limiting: 60 requests/minute por sessão**
+- ✅ **Rate limit usa sliding window (Sorted Set no Redis)**
+- ✅ **Session metrics (admin only) retorna estatísticas globais**
+- ✅ **Sessões expiradas são rejeitadas automaticamente**
+- ✅ **RequestCount incrementado a cada requisição**
+- ✅ **Redis persistence com TTL automático (se habilitado)**
+- ✅ **In-memory fallback funciona se Redis desabilitado**
+- ✅ **Session sobrevive a restart do node (Redis apenas)**
+- ✅ **Capability insuficiente retorna ERR_INSUFFICIENT_CAPABILITY**
+- ✅ **Rate limit excedido retorna 429 Too Many Requests**
 
 ---
 
@@ -2080,6 +2288,526 @@ var result = await _nodeChannelClient.IdentifyNodeAsync(channelId, identifyReque
 # Criar teste de integração usando NodeChannelClient
 ```
 
+---
+
+## 🔐 Parte 5: FASE 4 - Session Management
+
+### Objetivo da Fase 4
+Gerenciar sessões autenticadas com **session tokens**, **capability-based authorization**, **rate limiting** e operações de ciclo de vida (whoami, renew, revoke).
+
+### ⚠️ IMPORTANTE: Session Token no Payload, NÃO no Header
+
+**Diferente de sistemas tradicionais**, o session token **NÃO** é enviado via HTTP header `Authorization`. Em vez disso, é enviado **dentro do payload criptografado** junto com `channelId`.
+
+**Por quê?**
+- Consistência com a arquitetura de canal criptografado
+- Proteção adicional (token nunca exposto em headers HTTP)
+- Todos os dados sensíveis trafegam criptografados via AES-256-GCM
+
+### Pré-requisito
+⚠️ Você **DEVE** ter completado Phase 3 e obtido um `sessionToken` válido.
+
+### Passo 5.1: Entender a Arquitetura
+
+**Componentes envolvidos:**
+- `SessionService.cs` - Gerenciamento de sessões (create, validate, renew, revoke)
+- `SessionController.cs` - Endpoints `/whoami`, `/renew`, `/revoke`, `/metrics`
+- `PrismAuthenticatedSessionAttribute.cs` - Middleware de validação de sessão
+- `RedisSessionStore.cs` / `InMemorySessionStore.cs` - Persistência
+- `SessionContext.cs` - Contexto da sessão ativa
+
+**Access Levels (NodeAccessTypeEnum)**:
+```
+ReadOnly (0)   → Consultas básicas (query:read)
+ReadWrite (1)  → Modificar dados (query:read + data:write)
+Admin (2)      → Administração completa (todos os capabilities)
+```
+
+**Capabilities Hierarchy**:
+```
+ReadOnly:   ["query:read"]
+ReadWrite:  ["query:read", "data:write"]
+Admin:      ["query:read", "data:write", "admin:node", "query:aggregate", "data:delete"]
+```
+
+### Passo 5.2: WhoAmI - Verificar Sessão Ativa
+
+**Endpoint**: `POST /api/session/whoami`
+
+**Usando NodeChannelClient (C#) - RECOMENDADO:**
+
+```csharp
+// Pré-requisito: session token da Phase 3
+var authResponse = await _nodeChannelClient.AuthenticateAsync(channelId, challengeResponse);
+var sessionToken = authResponse.SessionToken;
+
+// WhoAmI request
+var whoamiRequest = new SessionRequest
+{
+    ChannelId = channelId,
+    SessionToken = sessionToken,  // ← Dentro do payload, NÃO no header!
+    Timestamp = DateTime.UtcNow
+};
+
+// Criar payload criptografado
+var channelContext = await _channelStore.GetChannelAsync(channelId);
+var encryptedPayload = _encryptionService.EncryptPayload(whoamiRequest, channelContext.SymmetricKey);
+
+// Enviar request
+var httpClient = new HttpClient();
+httpClient.DefaultRequestHeaders.Add("X-Channel-Id", channelId);
+var response = await httpClient.PostAsJsonAsync("http://node-b:8080/api/session/whoami", encryptedPayload);
+
+// Descriptografar resposta
+var encryptedResponse = await response.Content.ReadFromJsonAsync<EncryptedPayload>();
+var whoamiResponse = _encryptionService.DecryptPayload<SessionInfoResponse>(encryptedResponse, channelContext.SymmetricKey);
+
+Console.WriteLine($"Node ID: {whoamiResponse.NodeId}");
+Console.WriteLine($"Session Valid: {whoamiResponse.IsValid}");
+Console.WriteLine($"Access Level: {whoamiResponse.AccessLevel}");
+Console.WriteLine($"Capabilities: {string.Join(", ", whoamiResponse.Capabilities)}");
+Console.WriteLine($"Requests Made: {whoamiResponse.RequestCount}");
+Console.WriteLine($"Expires At: {whoamiResponse.ExpiresAt}");
+```
+
+**Payload da requisição (após criptografia):**
+```json
+{
+  "encryptedData": "base64...",
+  "iv": "base64...",
+  "authTag": "base64..."
+}
+```
+
+**Payload DESCRIPTOGRAFADO (o que está dentro):**
+```json
+{
+  "channelId": "abc-123",
+  "sessionToken": "a1b2c3d4e5f6",
+  "timestamp": "2025-10-07T00:00:00Z"
+}
+```
+
+**Resposta esperada (descriptografada):**
+```json
+{
+  "nodeId": "node-a-test-001",
+  "isValid": true,
+  "accessLevel": 1,
+  "accessLevelName": "ReadWrite",
+  "capabilities": ["query:read", "data:write"],
+  "requestCount": 5,
+  "expiresAt": "2025-10-07T01:00:00Z",
+  "remainingTtlSeconds": 3540,
+  "message": "Session is valid and active"
+}
+```
+
+### Passo 5.3: Debugging - WhoAmI Validation
+
+**Configure breakpoint em:**
+
+**`PrismAuthenticatedSessionAttribute.cs:47`** - Método `OnResourceExecutionAsync`
+```csharp
+public async Task OnResourceExecutionAsync(ResourceExecutingContext context, ResourceExecutionDelegate next)
+```
+
+**Inspecione:**
+```csharp
+// Extrair request descriptografado (já processado por PrismEncryptedChannelConnection)
+var decryptedRequest = context.HttpContext.Items["DecryptedRequest"];
+// 🔍 INSPECIONAR: decryptedRequest
+// - Deve conter SessionToken
+
+// Validar session
+var session = await _sessionService.ValidateSessionAsync(sessionToken);
+// 🔍 INSPECIONAR: session
+// - SessionToken, NodeId, ExpiresAt, AccessLevel
+// - null se session inválida
+
+// Verificar capability se requerida
+if (RequiredCapability.HasValue)
+{
+    var hasCapability = await _sessionService.HasCapabilityAsync(sessionToken, RequiredCapability.Value);
+    // 🔍 INSPECIONAR: hasCapability
+    // - true se node tem capability requerida
+}
+
+// Rate limiting
+var canProceed = await _sessionService.CheckRateLimitAsync(sessionToken);
+// 🔍 INSPECIONAR: canProceed
+// - false se limite excedido (60 req/min)
+```
+
+**No `SessionService.cs:130`** - Método `ValidateSessionAsync`:
+```csharp
+var session = await _sessionStore.GetSessionAsync(sessionToken);
+// 🔍 INSPECIONAR: session
+// - SessionToken, ChannelId, NodeId, CreatedAt, ExpiresAt
+// - AccessLevel e RequestCount
+
+if (session.ExpiresAt < DateTime.UtcNow)
+// 🔍 VERIFICAR: Expiração
+// - Session expira após 1 hora de inatividade
+```
+
+### Passo 5.4: Renew - Renovar Sessão
+
+**Endpoint**: `POST /api/session/renew`
+
+**Quando usar**: Antes da sessão expirar (ideal: quando `remainingTtlSeconds < 300`)
+
+```csharp
+var renewRequest = new SessionRequest
+{
+    ChannelId = channelId,
+    SessionToken = sessionToken,
+    Timestamp = DateTime.UtcNow
+};
+
+// Criptografar, enviar, descriptografar (mesmo fluxo do WhoAmI)
+var renewResponse = // ... (descriptografado)
+
+Console.WriteLine($"Renewed: {renewResponse.Success}");
+Console.WriteLine($"New Expiration: {renewResponse.ExpiresAt}");
+Console.WriteLine($"Extended TTL: {renewResponse.ExtendedTtlSeconds} seconds");
+```
+
+**Resposta esperada:**
+```json
+{
+  "success": true,
+  "sessionToken": "a1b2c3d4e5f6",
+  "expiresAt": "2025-10-07T02:00:00Z",
+  "extendedTtlSeconds": 3600,
+  "message": "Session renewed successfully"
+}
+```
+
+**💡 O que acontece:**
+- TTL é renovado para mais 1 hora
+- Session token permanece o mesmo
+- RequestCount é zerado
+- Rate limit é resetado
+
+### Passo 5.5: Debugging - Renew Session
+
+**Configure breakpoint em:**
+
+**`SessionService.cs:189`** - Método `RenewSessionAsync`
+```csharp
+public async Task<SessionRenewalResponse> RenewSessionAsync(string sessionToken)
+```
+
+**Inspecione:**
+```csharp
+var session = await _sessionStore.GetSessionAsync(sessionToken);
+// 🔍 INSPECIONAR: session antes da renovação
+
+session.ExpiresAt = DateTime.UtcNow.AddSeconds(SessionTtlSeconds);
+session.RequestCount = 0;
+// 🔍 INSPECIONAR após renovação:
+// - ExpiresAt: 1 hora no futuro
+// - RequestCount: 0
+
+await _sessionStore.UpdateSessionAsync(session);
+// 🔍 VERIFICAR: Atualização no Redis/In-Memory
+```
+
+### Passo 5.6: Revoke - Revogar Sessão (Logout)
+
+**Endpoint**: `POST /api/session/revoke`
+
+**Quando usar**: Logout explícito, revogação de sessão comprometida
+
+```csharp
+var revokeRequest = new SessionRequest
+{
+    ChannelId = channelId,
+    SessionToken = sessionToken,
+    Timestamp = DateTime.UtcNow
+};
+
+// Criptografar, enviar, descriptografar
+var revokeResponse = // ... (descriptografado)
+
+Console.WriteLine($"Revoked: {revokeResponse.Success}");
+Console.WriteLine($"Message: {revokeResponse.Message}");
+```
+
+**Resposta esperada:**
+```json
+{
+  "success": true,
+  "sessionToken": "a1b2c3d4e5f6",
+  "revokedAt": "2025-10-07T00:30:00Z",
+  "message": "Session revoked successfully"
+}
+```
+
+**💡 O que acontece:**
+- Session é removida do storage (Redis/In-Memory)
+- Todas as requests subsequentes com este token falham
+- Node precisa re-autenticar (Phase 3) para obter novo token
+
+### Passo 5.7: Debugging - Revoke Session
+
+**Configure breakpoint em:**
+
+**`SessionService.cs:222`** - Método `RevokeSessionAsync`
+```csharp
+public async Task<bool> RevokeSessionAsync(string sessionToken)
+```
+
+**Inspecione:**
+```csharp
+var removed = await _sessionStore.RemoveSessionAsync(sessionToken);
+// 🔍 INSPECIONAR: removed
+// - true se session foi removida
+// - false se session não existia
+
+_logger.LogInformation("Session {SessionToken} revoked at {RevokedAt}", sessionToken, DateTime.UtcNow);
+// 🔍 VERIFICAR logs
+```
+
+### Passo 5.8: Metrics - Obter Métricas de Sessão (Admin Only)
+
+**Endpoint**: `POST /api/session/metrics`
+
+**⚠️ IMPORTANTE**: Requer capability `admin:node` (Access Level Admin)
+
+```csharp
+var metricsRequest = new SessionRequest
+{
+    ChannelId = channelId,
+    SessionToken = adminSessionToken,  // ← Deve ser de um node Admin!
+    Timestamp = DateTime.UtcNow
+};
+
+// Criptografar, enviar, descriptografar
+var metricsResponse = // ... (descriptografado)
+
+Console.WriteLine($"Total Active Sessions: {metricsResponse.TotalActiveSessions}");
+Console.WriteLine($"Sessions by Access Level:");
+foreach (var kvp in metricsResponse.SessionsByAccessLevel)
+{
+    Console.WriteLine($"  {kvp.Key}: {kvp.Value}");
+}
+```
+
+**Resposta esperada:**
+```json
+{
+  "totalActiveSessions": 12,
+  "sessionsByAccessLevel": {
+    "ReadOnly": 5,
+    "ReadWrite": 6,
+    "Admin": 1
+  },
+  "sessionsByNode": {
+    "node-a-test-001": 3,
+    "node-b-test-002": 4,
+    "node-c-test-003": 5
+  },
+  "averageRequestsPerSession": 15.5,
+  "oldestSessionAge": "00:45:32",
+  "rateLimitedSessions": 2,
+  "timestamp": "2025-10-07T00:30:00Z"
+}
+```
+
+**Se não for Admin:**
+```json
+{
+  "error": {
+    "code": "ERR_INSUFFICIENT_CAPABILITY",
+    "message": "Session does not have required capability: Admin",
+    "retryable": false
+  }
+}
+```
+
+### Passo 5.9: Debugging - Capability Authorization
+
+**Configure breakpoint em:**
+
+**`PrismAuthenticatedSessionAttribute.cs:84`** - Verificação de capability
+```csharp
+if (RequiredCapability.HasValue)
+{
+    var hasCapability = await _sessionService.HasCapabilityAsync(sessionToken, RequiredCapability.Value);
+    // 🔍 INSPECIONAR: RequiredCapability vs session.AccessLevel
+}
+```
+
+**No `SessionService.cs:154`** - Método `HasCapabilityAsync`:
+```csharp
+public async Task<bool> HasCapabilityAsync(string sessionToken, NodeAccessTypeEnum requiredLevel)
+{
+    var session = await _sessionStore.GetSessionAsync(sessionToken);
+    // 🔍 INSPECIONAR: session.AccessLevel vs requiredLevel
+
+    return session.AccessLevel >= requiredLevel;
+    // 🔍 INSPECIONAR resultado:
+    // - Admin (2) >= ReadWrite (1) = true ✅
+    // - ReadOnly (0) >= Admin (2) = false ❌
+}
+```
+
+### Passo 5.10: Rate Limiting - Testar Limite de Requisições
+
+**Limite**: 60 requests por minuto por sessão
+
+**Teste de carga:**
+```csharp
+// Fazer 61 requests rápidas
+for (int i = 0; i < 61; i++)
+{
+    try
+    {
+        var whoamiRequest = new SessionRequest { ChannelId = channelId, SessionToken = sessionToken, Timestamp = DateTime.UtcNow };
+        var response = await SendEncryptedRequest(whoamiRequest);
+        Console.WriteLine($"Request {i + 1}: Success");
+    }
+    catch (HttpRequestException ex)
+    {
+        Console.WriteLine($"Request {i + 1}: Rate Limited - {ex.Message}");
+        // Expected após 60 requests
+    }
+}
+```
+
+**Após 60 requests:**
+```json
+{
+  "error": {
+    "code": "ERR_RATE_LIMIT_EXCEEDED",
+    "message": "Rate limit exceeded. Maximum 60 requests per minute.",
+    "retryable": true,
+    "retryAfter": "30"
+  }
+}
+```
+
+**Response Status**: `429 Too Many Requests`
+
+### Passo 5.11: Debugging - Rate Limiting
+
+**Configure breakpoint em:**
+
+**`SessionService.cs:268`** - Método `CheckRateLimitAsync`
+```csharp
+public async Task<bool> CheckRateLimitAsync(string sessionToken)
+```
+
+**Inspecione:**
+```csharp
+var session = await _sessionStore.GetSessionAsync(sessionToken);
+// 🔍 INSPECIONAR: session.RequestCount
+
+// Token bucket: 60 requests/min
+var requestsInLastMinute = await _sessionStore.GetRequestCountInLastMinuteAsync(sessionToken);
+// 🔍 INSPECIONAR: requestsInLastMinute
+// - Sliding window de 60 segundos
+
+if (requestsInLastMinute >= RateLimitPerMinute)  // 60
+{
+    // 🔍 BREAKPOINT AQUI quando limite excedido
+    return false;
+}
+
+await _sessionStore.IncrementRequestCountAsync(sessionToken);
+// 🔍 VERIFICAR: RequestCount incrementado
+```
+
+### Passo 5.12: 🗄️ Verificar Persistência Redis de Sessões (Opcional)
+
+**Se Redis estiver habilitado** (FeatureFlags:UseRedisForSessions=true):
+
+**Listar sessões ativas:**
+```powershell
+docker exec -it irn-redis-node-b redis-cli -a prism-redis-password-node-b KEYS "session:*"
+```
+
+**Resultado esperado:**
+```
+1) "session:{sessionToken}"
+2) "session:node:{nodeId}:sessions"
+3) "session:ratelimit:{sessionToken}"
+```
+
+**Inspecionar dados da sessão:**
+```powershell
+docker exec -it irn-redis-node-b redis-cli -a prism-redis-password-node-b HGETALL "session:{sessionToken}"
+```
+
+**Resultado esperado:**
+```
+ 1) "SessionToken"
+ 2) "a1b2c3d4e5f6"
+ 3) "NodeId"
+ 4) "node-a-test-001"
+ 5) "ChannelId"
+ 6) "abc-123"
+ 7) "AccessLevel"
+ 8) "1"
+ 9) "CreatedAt"
+10) "2025-10-07T00:00:00Z"
+11) "ExpiresAt"
+12) "2025-10-07T01:00:00Z"
+13) "RequestCount"
+14) "15"
+```
+
+**Verificar rate limiting (Sorted Set):**
+```powershell
+docker exec -it irn-redis-node-b redis-cli -a prism-redis-password-node-b ZRANGE "session:ratelimit:{sessionToken}" 0 -1 WITHSCORES
+```
+
+**Resultado**: Lista de timestamps (Unix epoch) das últimas requisições (últimos 60 segundos)
+
+**Verificar TTL da sessão:**
+```powershell
+docker exec -it irn-redis-node-b redis-cli -a prism-redis-password-node-b TTL "session:{sessionToken}"
+```
+
+**Resultado esperado**: ~3600 segundos (1 hora)
+
+### Passo 5.13: Testar Fluxo Completo Phases 1-4
+
+**Script automatizado** (Bash):
+```bash
+#!/bin/bash
+# test-phase4.sh
+
+# Phase 1: Establish channel
+# Phase 2: Identify node
+# Phase 3: Authenticate
+# Phase 4: Session operations
+
+# Ver: ./test-phase4.sh (no repositório)
+```
+
+**Executar:**
+```powershell
+# Linux/Mac/WSL
+./test-phase4.sh
+
+# Windows (via WSL ou Git Bash)
+bash test-phase4.sh
+```
+
+**O que o script testa:**
+1. ✅ Channel establishment (Phase 1)
+2. ✅ Node registration and approval (Phase 2)
+3. ✅ Challenge-response authentication (Phase 3)
+4. ✅ WhoAmI (Phase 4)
+5. ✅ Session renewal (Phase 4)
+6. ✅ Rate limiting validation (Phase 4)
+7. ✅ Session revocation (Phase 4)
+
+---
+
 ## 📚 Próximos Passos
 
 Após completar este guia:
@@ -2091,13 +2819,14 @@ Após completar este guia:
    - Testar expiração de canais (30 min)
    - Testar expiração de challenges (5 min)
    - Testar expiração de session tokens (1 hora)
+   - Testar diferentes access levels (ReadOnly, ReadWrite, Admin)
+   - Testar rate limiting com diferentes cargas
 
-2. **✅ Fase 3 Completa - Implementar Fase 4**
-   - Uso de session tokens em requisições
-   - Middleware de validação de token
-   - Renovação de tokens
-   - Revogação de tokens
-   - Capacidades granulares por token
+2. **✅ Todas as 4 Fases Implementadas - Próximo: Federated Queries (Phase 5)**
+   - Implementar endpoints de query (`/api/query/execute`)
+   - Agregação de resultados de múltiplos nós
+   - Usar session tokens com capabilities para autorização
+   - Data submission endpoints (`/api/data/submit`)
 
 3. **Produtização**
    - Persistência de dados (PostgreSQL/SQL Server)

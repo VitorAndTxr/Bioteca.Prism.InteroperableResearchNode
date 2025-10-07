@@ -6,16 +6,18 @@ This folder contains all technical and development documentation for the IRN pro
 
 ## 📊 Project Status
 
-**Last Updated:** 2025-10-05
+**Last Updated:** 2025-10-07
+**Version:** 0.8.0
 
 | Phase | Status | Description |
 |-------|--------|-------------|
 | **Phase 1** | ✅ **Complete + Redis** | Encrypted channel with ephemeral ECDH + Redis persistence |
-| **Phase 2** | ✅ **Complete** | Node identification and authorization with X.509 |
+| **Phase 2** | ✅ **Complete + PostgreSQL** | Node identification, X.509 certificates + PostgreSQL node registry |
 | **Phase 3** | ✅ **Complete** | Mutual authentication with challenge/response |
 | **Phase 4** | ✅ **Complete + Redis** | Session management with capabilities + Redis persistence |
+| **PostgreSQL Persistence** | ✅ **Complete** | Multi-instance PostgreSQL 18 + EF Core 8.0 + Guid architecture |
 | **Redis Persistence** | ✅ **Complete** | Multi-instance Redis for sessions and channels |
-| **PostgreSQL** | 📋 **Planned** | Node registry database persistence |
+| **Phase 5** | 📋 **Next** | Federated queries with session-based authorization |
 
 ## Documentation Structure
 
@@ -26,20 +28,20 @@ This folder contains all technical and development documentation for the IRN pro
 - [`architecture/session-management.md`](architecture/session-management.md) - Session management between nodes
 
 ### 2. Testing
-- [`testing/manual-testing-guide.md`](testing/manual-testing-guide.md) - **⭐ MAIN** - Complete manual testing and debugging guide
-- [`testing/redis-testing-guide.md`](testing/redis-testing-guide.md) - **⭐ NEW** - Comprehensive Redis testing guide
-- [`testing/docker-compose-quick-start.md`](testing/docker-compose-quick-start.md) - **⭐ NEW** - Docker Compose quick start
-- [`testing/phase1-test-plan.md`](testing/phase1-test-plan.md) - Phase 1 test plan (Encrypted Channel)
-- [`testing/phase2-test-plan.md`](testing/phase2-test-plan.md) - Phase 2 test plan (Identification)
-- [`testing/phase1-docker-test.md`](testing/phase1-docker-test.md) - Docker testing
-- [`testing/phase1-two-nodes-test.md`](testing/phase1-two-nodes-test.md) - Two-node testing
+- [`testing/manual-testing-guide.md`](testing/manual-testing-guide.md) - **⭐ MAIN** - Complete manual testing guide (Phases 1-4)
+- [`testing/redis-testing-guide.md`](testing/redis-testing-guide.md) - **⭐** - Comprehensive Redis testing guide
+- [`testing/docker-compose-quick-start.md`](testing/docker-compose-quick-start.md) - **⭐** - Docker Compose quick start
+- ~~[`testing/phase3-testing-endpoints.md`](testing/phase3-testing-endpoints.md)~~ - Deprecated (covered in manual-testing-guide.md)
+- ~~[`testing/TEST-SUITE-STATUS-2025-10-02.md`](testing/TEST-SUITE-STATUS-2025-10-02.md)~~ - Outdated (see PROJECT_STATUS.md)
 
 ### 3. Development
-- [`development/persistence-architecture.md`](development/persistence-architecture.md) - **⭐ NEW** - Redis and PostgreSQL architecture
-- [`development/persistence-implementation-roadmap.md`](development/persistence-implementation-roadmap.md) - **⭐ NEW** - 15-day implementation plan
+- [`development/DOCKER-SETUP.md`](development/DOCKER-SETUP.md) - **⭐ NEW** - Comprehensive Docker setup guide (PostgreSQL + Redis)
+- [`development/persistence-architecture.md`](development/persistence-architecture.md) - **⭐** - Redis and PostgreSQL architecture
+- [`development/persistence-implementation-roadmap.md`](development/persistence-implementation-roadmap.md) - 15-day implementation plan
 - [`development/ai-assisted-development.md`](development/ai-assisted-development.md) - AI-assisted development patterns
 - [`development/implementation-roadmap.md`](development/implementation-roadmap.md) - Implementation roadmap
-- [`development/debugging-docker.md`](development/debugging-docker.md) - Docker container debugging
+- ~~[`development/debugging-docker.md`](development/debugging-docker.md)~~ - Deprecated (see DOCKER-SETUP.md)
+- ~~[`development/phase3-authentication-plan.md`](development/phase3-authentication-plan.md)~~ - Historical (Phase 3 complete)
 
 ### 4. API and Protocols ⚠️
 - ~~[`api/node-endpoints.md`](api/node-endpoints.md) - Node communication endpoints~~ (Outdated - see Swagger)
@@ -51,6 +53,14 @@ This folder contains all technical and development documentation for the IRN pro
 
 1. **Start Docker environment:**
    ```bash
+   # RECOMMENDED: Separated architecture
+   # 1. Start persistence layer (PostgreSQL + Redis + pgAdmin + Azurite)
+   docker-compose -f docker-compose.persistence.yml up -d
+
+   # 2. Start application layer (Node A + Node B)
+   docker-compose -f docker-compose.application.yml up -d
+
+   # OR: Legacy single-file approach
    docker-compose up -d
    ```
 
@@ -96,10 +106,10 @@ This folder contains all technical and development documentation for the IRN pro
 - `GET /api/channel/health` - Health check
 
 ### Phase 2: Identification and Authorization
-- `POST /api/channel/identify` - Identify node with certificate (encrypted)
-- `POST /api/node/register` - Register new unknown node (encrypted)
+- `POST /api/channel/identify` - Identify node with certificate (encrypted, returns RegistrationId Guid)
+- `POST /api/node/register` - Register new unknown node (encrypted, certificate fingerprint as natural key)
 - `GET /api/node/nodes` - List registered nodes (admin)
-- `PUT /api/node/{nodeId}/status` - Update node status (admin)
+- `PUT /api/node/{id:guid}/status` - **UPDATED**: Update node status (admin, uses RegistrationId Guid)
 
 ### Phase 3: Mutual Authentication
 - `POST /api/node/challenge` - Request authentication challenge (encrypted)
@@ -126,9 +136,10 @@ This folder contains all technical and development documentation for the IRN pro
 - **C# 12** - Programming language
 
 ### Persistence
-- **Redis 7.2 Alpine** - Sessions and channels cache
+- **PostgreSQL 18 Alpine** - Node registry database with Guid primary keys
+- **Entity Framework Core 8.0.10** - ORM with Npgsql provider
+- **Redis 7.2 Alpine** - Sessions and channels cache with automatic TTL
 - **StackExchange.Redis 2.8.16** - .NET Redis client
-- **PostgreSQL 15+** - Node registry database (planned)
 
 ### Cryptography
 - **ECDH P-384** - Ephemeral key exchange

@@ -1,22 +1,22 @@
-# Main Docker Compose - All Services (Legacy/Development)
+# Docker Compose for Persistence Layer
+# This file contains all stateful services (PostgreSQL, Redis, Azurite, pgAdmin)
 #
-# ⚠️ IMPORTANT: For production or when you want persistent data, use the separated compose files:
+# IMPORTANT: This compose file manages persistent data services.
+# - Use 'docker-compose -f docker-compose.persistence.yml up -d' to start
+# - Use 'docker-compose -f docker-compose.persistence.yml down' to stop (data is preserved)
+# - Use 'docker-compose -f docker-compose.persistence.yml down -v' to remove volumes (data is deleted)
 #
-# 1. Start persistence layer (keeps data when stopped):
-#    docker-compose -f docker-compose.persistence.yml up -d
-#
-# 2. Start application layer (safe to restart):
-#    docker-compose -f docker-compose.application.yml up -d
-#
-# This file is kept for backward compatibility and quick local development.
-# Running 'docker-compose down' on this file WILL preserve volumes by default,
-# but using the separated files gives you more control.
+# Benefits of separation:
+# - Data persists even when application containers are stopped/recreated
+# - Independent lifecycle management for data and application layers
+# - Safe to run 'docker-compose down' on application without losing data
 
 services:
-
+  # PostgreSQL Node A - Node registry database
   postgres-node-a:
     image: postgres:18-alpine
     container_name: irn-postgres-node-a
+    restart: unless-stopped
     environment:
       - POSTGRES_DB=prism_node_a_registry
       - POSTGRES_USER=prism_user_a
@@ -34,9 +34,11 @@ services:
       retries: 5
       start_period: 10s
 
+  # PostgreSQL Node B - Node registry database
   postgres-node-b:
     image: postgres:18-alpine
     container_name: irn-postgres-node-b
+    restart: unless-stopped
     environment:
       - POSTGRES_DB=prism_node_b_registry
       - POSTGRES_USER=prism_user_b
@@ -54,9 +56,11 @@ services:
       retries: 5
       start_period: 10s
 
+  # pgAdmin - PostgreSQL management UI
   pgadmin:
     image: dpage/pgadmin4:latest
     container_name: irn-pgadmin
+    restart: unless-stopped
     environment:
       - PGADMIN_DEFAULT_EMAIL=admin@prism.com
       - PGADMIN_DEFAULT_PASSWORD=admin123
@@ -73,9 +77,11 @@ services:
       postgres-node-b:
         condition: service_healthy
 
+  # Redis Node A - Session and channel cache
   redis-node-a:
     image: redis:7.2-alpine
     container_name: irn-redis-node-a
+    restart: unless-stopped
     command: redis-server --appendonly yes --requirepass prism-redis-password-node-a
     ports:
       - "6379:6379"
@@ -90,9 +96,11 @@ services:
       retries: 3
       start_period: 5s
 
+  # Redis Node B - Session and channel cache
   redis-node-b:
     image: redis:7.2-alpine
     container_name: irn-redis-node-b
+    restart: unless-stopped
     command: redis-server --appendonly yes --requirepass prism-redis-password-node-b
     ports:
       - "6380:6379"
@@ -107,70 +115,50 @@ services:
       retries: 3
       start_period: 5s
 
-  node-a:
-    build:
-      context: .
-      dockerfile: ./Bioteca.Prism.InteroperableResearchNode/Dockerfile
-    container_name: irn-node-a
-    environment:
-      - ASPNETCORE_ENVIRONMENT=NodeA
-      - ASPNETCORE_URLS=http://+:8080
-      - Redis__ConnectionString=irn-redis-node-a:6379,password=prism-redis-password-node-a,abortConnect=false
-      - ConnectionStrings__PrismDatabase=Host=irn-postgres-node-a;Port=5432;Database=prism_node_a_registry;Username=prism_user_a;Password=prism_secure_password_2025_a
+  # Azurite - Azure Storage Emulator (for future blob storage)
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite:latest
+    container_name: irn-azurite
+    restart: unless-stopped
+    command: azurite --blobHost 0.0.0.0 --queueHost 0.0.0.0 --tableHost 0.0.0.0 --loose
     ports:
-      - "5000:8080"
+      - "10000:10000"  # Blob service
+      - "10001:10001"  # Queue service
+      - "10002:10002"  # Table service
+    volumes:
+      - azurite-data:/data
     networks:
       - irn-network
-    depends_on:
-      postgres-node-a:
-        condition: service_healthy
-      redis-node-a:
-        condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/api/channel/health"]
+      test: ["CMD", "nc", "-z", "localhost", "10000"]
       interval: 10s
       timeout: 5s
       retries: 3
-      start_period: 10s
+      start_period: 5s
 
-  node-b:
-    build:
-      context: .
-      dockerfile: ./Bioteca.Prism.InteroperableResearchNode/Dockerfile
-    container_name: irn-node-b
-    environment:
-      - ASPNETCORE_ENVIRONMENT=NodeB
-      - ASPNETCORE_URLS=http://+:8080
-      - Redis__ConnectionString=irn-redis-node-b:6379,password=prism-redis-password-node-b,abortConnect=false
-      - ConnectionStrings__PrismDatabase=Host=irn-postgres-node-b;Port=5432;Database=prism_node_b_registry;Username=prism_user_b;Password=prism_secure_password_2025_b
-    ports:
-      - "5001:8080"
-    networks:
-      - irn-network
-    depends_on:
-      postgres-node-b:
-        condition: service_healthy
-      redis-node-b:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/api/channel/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
-
+# Shared network for all services
 networks:
   irn-network:
+    name: irn-network
     driver: bridge
 
+# Named volumes for persistent data
 volumes:
   postgres-data-node-a:
+    name: irn-postgres-data-node-a
     driver: local
   postgres-data-node-b:
+    name: irn-postgres-data-node-b
     driver: local
   pgadmin-data:
+    name: irn-pgadmin-data
     driver: local
   redis-data-node-a:
+    name: irn-redis-data-node-a
     driver: local
   redis-data-node-b:
+    name: irn-redis-data-node-b
+    driver: local
+  azurite-data:
+    name: irn-azurite-data
     driver: local

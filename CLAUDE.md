@@ -47,7 +47,7 @@ English documentation ensures:
 
 **Interoperable Research Node (IRN)** - Core component of the PRISM framework for federated biomedical research data. Enables secure, standardized communication between research nodes using cryptographic handshakes, node authentication, and federated queries.
 
-**Current Status**: Phase 4 Complete + Redis Persistence (Encrypted Channel + Node Identification + Mutual Authentication + Session Management + Cache Persistence)
+**Current Status**: Phase 4 Complete + Redis Persistence + PostgreSQL Node Registry + Guid-Based Identifiers (Encrypted Channel + Node Identification + Mutual Authentication + Session Management + Persistent Node Registry)
 
 ## Architecture
 
@@ -56,8 +56,9 @@ English documentation ensures:
 ```
 Bioteca.Prism.Domain/          # Domain layer (entities, DTOs)
 ├── Entities/Node/             # Domain entities
-├── Requests/Node/             # Request DTOs
-├── Responses/Node/            # Response DTOs
+│   └── ResearchNode.cs        # Node entity with Guid Id (primary key)
+├── Requests/Node/             # Request DTOs (use string NodeId for protocol)
+├── Responses/Node/            # Response DTOs (include both NodeId and RegistrationId)
 └── Errors/Node/               # Error models
 
 Bioteca.Prism.Core/            # Core layer (middleware, attributes)
@@ -69,10 +70,22 @@ Bioteca.Prism.Core/            # Core layer (middleware, attributes)
 ├── Middleware/Node/           # Node-specific middleware
 └── Security/                  # Security utilities
 
+Bioteca.Prism.Data/            # Data layer (PostgreSQL persistence)
+├── Persistence/
+│   ├── Contexts/PrismDbContext.cs       # EF Core DbContext
+│   └── Configurations/                  # EF Core entity configurations
+├── Repositories/Node/
+│   ├── INodeRepository.cs               # Node repository interface (Guid-based)
+│   └── NodeRepository.cs                # PostgreSQL node repository
+├── Migrations/                          # EF Core migrations
+└── Cache/
+    └── Channel/RedisChannelStore.cs     # Redis channel persistence
+
 Bioteca.Prism.Service/         # Service layer (business logic)
 ├── Services/Node/             # Node-specific services
 │   ├── NodeChannelClient.cs             # HTTP client for handshake
-│   ├── NodeRegistryService.cs           # Node registry (in-memory)
+│   ├── NodeRegistryService.cs           # Node registry (in-memory fallback)
+│   ├── PostgreSqlNodeRegistryService.cs # PostgreSQL-backed node registry
 │   ├── ChallengeService.cs              # Challenge-response authentication
 │   └── CertificateHelper.cs             # X.509 utilities
 ├── Services/Session/          # Session management services
@@ -94,6 +107,47 @@ Bioteca.Prism.InteroperableResearchNode/  # API layer
 └── Program.cs                  # DI container
 ```
 
+### Node Identifier Architecture (Dual-Identifier System)
+
+**IMPORTANT**: The system uses TWO types of identifiers for nodes:
+
+1. **NodeId (string)** - Protocol-level identifier
+   - Used in all request/response DTOs for external communication
+   - Human-readable (e.g., "hospital-research-node-001", "node-a")
+   - Sent in Phase 2 identification requests
+   - Used in Phase 3 authentication requests
+   - **Purpose**: External protocol communication
+
+2. **RegistrationId / Id (Guid)** - Database primary key
+   - Internal unique identifier (e.g., `f6cdb452-17a1-4d8f-9241-0974f80c56ef`)
+   - Primary key in `research_nodes` table
+   - Used for all database operations and administrative endpoints
+   - Returned in `NodeStatusResponse.RegistrationId` after Phase 2 identification
+   - **Purpose**: Internal database operations, administrative endpoints
+
+3. **Certificate Fingerprint (SHA-256)** - Natural key
+   - SHA-256 hash of the X.509 certificate bytes
+   - Used for node lookups during identification and registration
+   - Enforces uniqueness constraint (unique index in database)
+   - **Purpose**: True unique identifier for authentication
+
+**Usage Pattern**:
+```
+Phase 2 Identification → Send NodeId (string) → Receive RegistrationId (Guid)
+Administrative Operations → Use RegistrationId (Guid)
+Phase 3 Authentication → Use NodeId (string)
+```
+
+**Key Endpoints**:
+- **Identification**: `POST /api/channel/identify` - Uses string NodeId in request
+- **Status Update**: `PUT /api/node/{id:guid}/status` - Uses Guid RegistrationId as route parameter
+- **Authentication**: `POST /api/node/authenticate` - Uses string NodeId in request
+
+**Database Schema** (`research_nodes` table):
+- **Primary Key**: `id` (uuid) - The RegistrationId
+- **Unique Index**: `certificate_fingerprint` (text) - Natural key for lookups
+- **No `node_id` column**: String NodeId is NOT stored in database (protocol-level only)
+
 ### Handshake Protocol (4 Phases)
 
 **Phase 1: Encrypted Channel (✅ Complete)**
@@ -106,11 +160,15 @@ Bioteca.Prism.InteroperableResearchNode/  # API layer
 - Endpoints: `/api/channel/open`, `/api/channel/initiate`
 
 **Phase 2: Node Identification (✅ Complete)**
-- X.509 certificate-based identification
+- X.509 certificate-based identification (SHA-256 fingerprint as natural key)
 - RSA-2048 digital signatures
 - Node registry with approval workflow (Unknown → Pending → Authorized/Revoked)
+- **PostgreSQL persistence** with EF Core 8.0.10 (configurable via feature flags)
+- **Certificate fingerprint uniqueness**: Re-registration updates existing node if certificate matches
 - **Encrypted payload handling via `PrismEncryptedChannelConnectionAttribute<T>`**
-- Endpoints: `/api/channel/identify`, `/api/node/register`, `/api/node/{nodeId}/status`
+- **Returns both NodeId (string) and RegistrationId (Guid)** in `NodeStatusResponse`
+- **Stores IdentifiedNodeId (Guid) in ChannelContext** for subsequent phases
+- Endpoints: `/api/channel/identify`, `/api/node/register`, `/api/node/{id:guid}/status` (admin)
 
 **Phase 3: Mutual Authentication (✅ Complete)**
 - Challenge-response protocol
@@ -165,6 +223,38 @@ public async Task<IActionResult> Identify()
 }
 ```
 
+## Docker Architecture
+
+The project uses a **two-layer Docker Compose architecture** for better data persistence and lifecycle management:
+
+### Layer 1: Persistence (`docker-compose.persistence.yml`)
+Stateful services with persistent data:
+- PostgreSQL Node A (port 5432) + Node B (port 5433)
+- Redis Node A (port 6379) + Node B (port 6380)
+- Azurite (ports 10000-10002) - Azure Storage Emulator
+- pgAdmin (port 5050) - Database management UI
+
+**Features**:
+- Named volumes with explicit names (e.g., `irn-postgres-data-node-a`)
+- `restart: unless-stopped` policy
+- Shared network `irn-network`
+- Data persists even when containers are stopped
+
+### Layer 2: Application (`docker-compose.application.yml`)
+Stateless application services:
+- Node A (port 5000) - Research Node instance A
+- Node B (port 5001) - Research Node instance B
+
+**Features**:
+- Connects to external `irn-network`
+- Safe to restart without data loss
+- Fast rebuild/restart cycles
+
+### Legacy File (`docker-compose.yml`)
+All services in one file for backward compatibility and quick local development.
+
+**See**: `docs/development/DOCKER-SETUP.md` for comprehensive Docker documentation.
+
 ## Development Commands
 
 ### Build & Run
@@ -179,19 +269,42 @@ dotnet run --project Bioteca.Prism.InteroperableResearchNode --launch-profile No
 # Run locally (Node B on port 5001)
 dotnet run --project Bioteca.Prism.InteroperableResearchNode --launch-profile NodeB
 
-# Docker multi-node setup (includes Redis)
-docker-compose up -d                    # Start both nodes + Redis instances
-docker-compose down                     # Stop all containers
-docker-compose down -v                  # Stop and remove volumes (clean Redis data)
+# Docker multi-node setup (separated architecture - recommended)
+# 1. Start persistence layer (PostgreSQL, Redis, Azurite) - one-time setup
+docker-compose -f docker-compose.persistence.yml up -d
+
+# 2. Start application layer (Node A, Node B)
+docker-compose -f docker-compose.application.yml up -d
+
+# 3. Stop applications (data persists)
+docker-compose -f docker-compose.application.yml down
+
+# 4. Rebuild and restart applications
+docker-compose -f docker-compose.application.yml up -d --build
+
+# Legacy: All services together (for quick local development)
+docker-compose up -d                    # Start all services
+docker-compose down                     # Stop all containers (volumes persist)
+docker-compose down -v                  # Stop and remove volumes (⚠️ deletes data)
 docker-compose build --no-cache         # Rebuild after code changes
+
+# View logs
 docker logs -f irn-node-a               # View Node A logs
 docker logs -f irn-node-b               # View Node B logs
+docker logs -f irn-postgres-node-a      # View PostgreSQL Node A logs
 docker logs -f irn-redis-node-a         # View Redis Node A logs
-docker logs -f irn-redis-node-b         # View Redis Node B logs
 
 # Redis CLI access
 docker exec -it irn-redis-node-a redis-cli -a prism-redis-password-node-a
 docker exec -it irn-redis-node-b redis-cli -a prism-redis-password-node-b
+
+# PostgreSQL access
+docker exec -it irn-postgres-node-a psql -U prism_user_a -d prism_node_a_registry
+docker exec -it irn-postgres-node-b psql -U prism_user_b -d prism_node_b_registry
+
+# EF Core migrations (from project root)
+dotnet ef migrations add MigrationName --project Bioteca.Prism.Data --startup-project Bioteca.Prism.InteroperableResearchNode
+dotnet ef database update --project Bioteca.Prism.Data --startup-project Bioteca.Prism.InteroperableResearchNode
 ```
 
 ### Testing
@@ -270,16 +383,36 @@ dotnet test --verbosity detailed
 
 ### Service Registration (Program.cs)
 
-All services are registered as **Singleton** (shared state across requests):
+Service registration based on scope and feature flags:
+
+**Singleton services** (shared state across requests):
 - `IEphemeralKeyService` - ECDH key generation
 - `IChannelEncryptionService` - Crypto operations
-- `INodeChannelClient` - HTTP client for initiating handshakes
-- `INodeRegistryService` - Node registry (in-memory, will need DB in production)
+- `INodeChannelClient` - HTTP client for initiating handshakes (5-minute timeout)
+- `INodeRegistryService` - Node registry (in-memory fallback or PostgreSQL-backed)
 - `IChallengeService` - Challenge-response authentication (Phase 3)
 - `ISessionService` - Session lifecycle management (Phase 4)
 - `IRedisConnectionService` - Redis connection management (conditional)
 - `ISessionStore` - Session persistence (Redis or In-Memory based on feature flags)
 - `IChannelStore` - Channel persistence (Redis or In-Memory based on feature flags)
+
+**Scoped services** (new instance per request, for database operations):
+- `PrismDbContext` - EF Core DbContext (PostgreSQL, conditional)
+- `INodeRepository` - Node repository (Guid-based CRUD operations, conditional)
+
+**Feature Flags** (in appsettings.json):
+```json
+{
+  "FeatureFlags": {
+    "UseRedisForSessions": true,    // Enable Redis for session storage
+    "UseRedisForChannels": true,    // Enable Redis for channel storage
+    "UsePostgreSqlForNodes": true   // Enable PostgreSQL for node registry
+  },
+  "HttpClient": {
+    "TimeoutSeconds": 300  // HTTP client timeout (5 minutes)
+  }
+}
+```
 
 ### Redis Persistence (✅ Implemented)
 
@@ -335,6 +468,70 @@ redis-node-b:
 - `docs/testing/redis-testing-guide.md` - Comprehensive Redis testing guide
 - `docs/testing/docker-compose-quick-start.md` - Docker Compose quick start
 
+### PostgreSQL Node Registry (✅ Implemented)
+
+**Multi-Instance Architecture**: Each node has its own isolated PostgreSQL database.
+
+```yaml
+# docker-compose.yml
+postgres-node-a:
+  port: 5432
+  database: prism_node_a_registry
+  user: prism_user_a
+  volume: postgres-data-node-a
+
+postgres-node-b:
+  port: 5433
+  database: prism_node_b_registry
+  user: prism_user_b
+  volume: postgres-data-node-b
+```
+
+**Entity Framework Core**:
+- **Version**: 8.0.10 with Npgsql provider
+- **Migrations**: Automatic application on startup
+- **Connection Resiliency**: 3 retries with 5-second delay
+- **Design-Time Factory**: `PrismDbContextFactory` for migrations
+
+**Database Schema** (`research_nodes` table):
+```sql
+CREATE TABLE research_nodes (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    node_name text NOT NULL,
+    certificate text NOT NULL,
+    certificate_fingerprint text NOT NULL UNIQUE,  -- SHA-256 natural key
+    node_url text,
+    status integer NOT NULL,  -- AuthorizationStatus enum
+    node_access_level integer NOT NULL,  -- NodeAccessTypeEnum
+    contact_info text,
+    institution_details jsonb,  -- JSON metadata
+    registered_at timestamptz NOT NULL,
+    updated_at timestamptz NOT NULL,
+    last_authenticated_at timestamptz,
+    metadata jsonb
+);
+
+CREATE UNIQUE INDEX ix_research_nodes_certificate_fingerprint ON research_nodes(certificate_fingerprint);
+```
+
+**Repository Pattern** (`INodeRepository`):
+- All methods use **Guid Id** (not string NodeId)
+- Certificate fingerprint-based lookups for identification
+- Re-registration support (updates existing node if certificate matches)
+- Methods: `GetByIdAsync`, `GetByCertificateFingerprintAsync`, `AddAsync`, `UpdateAsync`, `DeleteAsync`
+
+**Service Layer**:
+- `PostgreSqlNodeRegistryService` - Production implementation with PostgreSQL
+- `NodeRegistryService` - In-memory fallback for testing
+- Feature flag: `UsePostgreSqlForNodes` (default: true in NodeA/NodeB profiles)
+
+**Benefits**:
+- Persistent node registry across restarts
+- ACID transactions for data integrity
+- Production-ready relational database
+- Automatic migrations on startup
+- Graceful fallback to in-memory if database unavailable
+
 ### Channel Flow
 
 1. **Client initiates**: POST `/api/channel/initiate` → calls `NodeChannelClient.OpenChannelAsync(remoteUrl)`
@@ -348,11 +545,19 @@ redis-node-b:
 
 1. **Generate certificate**: POST `/api/testing/generate-certificate` (dev only)
 2. **Sign data**: POST `/api/testing/sign-data` with certificate + data
-3. **Identify**: POST `/api/channel/identify` with NodeId + certificate + signature
-4. **Response**:
-   - Unknown node → `isKnown=false`, registration URL provided
-   - Known, Pending → `isKnown=true`, `status=Pending`, `nextPhase=null`
-   - Known, Authorized → `isKnown=true`, `status=Authorized`, `nextPhase="phase3_authenticate"`
+3. **Identify**: POST `/api/channel/identify` with NodeId (string) + certificate + signature
+4. **Server processes**:
+   - Calculates certificate fingerprint (SHA-256 hash)
+   - Looks up node by certificate fingerprint (natural key)
+   - If found: Returns `NodeStatusResponse` with both NodeId (string) and RegistrationId (Guid)
+   - Stores `IdentifiedNodeId` (Guid) in `ChannelContext` for subsequent phases
+5. **Response**:
+   - Unknown node → `isKnown=false`, `registrationId=null`, registration URL provided
+   - Known, Pending → `isKnown=true`, `registrationId={guid}`, `status=Pending`, `nextPhase=null`
+   - Known, Authorized → `isKnown=true`, `registrationId={guid}`, `status=Authorized`, `nextPhase="phase3_authenticate"`
+
+**Testing Helper**:
+- `/api/testing/complete-phase1-phase2` - Combines Phase 1+2 in single call for easier manual testing
 
 ### Phase 3: Challenge-Response Authentication Flow
 

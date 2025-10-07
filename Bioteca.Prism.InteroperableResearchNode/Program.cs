@@ -34,7 +34,14 @@ builder.Services.AddSwaggerGen();
 // Register Phase 1 services (Channel Establishment)
 builder.Services.AddSingleton<IEphemeralKeyService, EphemeralKeyService>();
 builder.Services.AddSingleton<IChannelEncryptionService, ChannelEncryptionService>();
-builder.Services.AddHttpClient(); // Required for NodeChannelClient
+
+// Configure HttpClient with timeout from configuration (default: 5 minutes)
+var httpTimeoutSeconds = builder.Configuration.GetValue<int>("HttpClient:TimeoutSeconds", 300);
+builder.Services.AddHttpClient(string.Empty, client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(httpTimeoutSeconds);
+});
+
 builder.Services.AddSingleton<INodeChannelClient, NodeChannelClient>();
 
 // Register PostgreSQL infrastructure (conditionally)

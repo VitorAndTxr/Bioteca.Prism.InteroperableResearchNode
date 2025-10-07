@@ -1,7 +1,9 @@
 # Interoperable Research Node (IRN)
 
-[![Status](https://img.shields.io/badge/Status-Phase%204%20Complete%20%2B%20Redis-success)](https://github.com)
+[![Status](https://img.shields.io/badge/Status-v0.8.0%20Full%20Persistence-success)](https://github.com)
 [![.NET](https://img.shields.io/badge/.NET-8.0-blue)](https://dotnet.microsoft.com/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-18-blue)](https://www.postgresql.org/)
+[![Redis](https://img.shields.io/badge/Redis-7.2-red)](https://redis.io/)
 [![Docker](https://img.shields.io/badge/Docker-Ready-blue)](https://www.docker.com/)
 [![License](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
 
@@ -12,13 +14,14 @@ The Interoperable Research Node (IRN) is the core component of the PRISM (Projec
 | Component | Status | Description |
 |-----------|--------|-------------|
 | **Phase 1: Encrypted Channel** | ✅ Complete | ECDH ephemeral keys with Perfect Forward Secrecy + Redis persistence |
-| **Phase 2: Node Identification** | ✅ Complete | X.509 certificates and digital signatures |
-| **Phase 3: Mutual Authentication** | ✅ Complete | Challenge/response authentication with RSA signatures |
-| **Phase 4: Session Management** | ✅ Complete | Capability-based authorization + Redis persistence |
+| **Phase 2: Node Identification** | ✅ Complete | X.509 certificates, RSA signatures + PostgreSQL node registry |
+| **Phase 3: Mutual Authentication** | ✅ Complete | Challenge/response with proof of private key possession |
+| **Phase 4: Session Management** | ✅ Complete | Capability-based authorization, rate limiting + Redis persistence |
+| **PostgreSQL Persistence** | ✅ Complete | Multi-instance PostgreSQL with EF Core 8.0 + Guid architecture |
 | **Redis Persistence** | ✅ Complete | Multi-instance Redis for sessions and channels |
+| **Dual-Identifier Architecture** | ✅ Complete | NodeId (protocol) + RegistrationId (database) + Certificate fingerprint |
+| **Phase 5: Federated Queries** | 📋 Next | Cross-node data queries with session-based authorization |
 | **Data Ingestion** | 📋 Planned | Standardized biosignal data storage |
-| **Federated Queries** | 📋 Planned | Cross-node data queries |
-| **PostgreSQL Persistence** | 📋 Planned | Node registry database persistence |
 
 ## About The Project
 Biomedical research, especially involving biosignals, often suffers from data fragmentation. Each research project tends to create its own isolated data ecosystem, making large-scale, collaborative studies difficult and inefficient.
@@ -49,18 +52,50 @@ The Interoperable Research Node (IRN) is the cornerstone of this model. It acts 
   - Multiple authorization states (Unknown, Pending, Authorized, Revoked)
   - **Fully encrypted** registration and identification endpoints
 
-- **🔴 Redis Persistence (NEW!)**
-  - Multi-instance Redis (one per node)
-  - Automatic TTL management for sessions and channels
-  - Rate limiting via Redis Sorted Sets
+- **🔴 Challenge/Response Mutual Authentication (Phase 3)**
+  - Cryptographic proof of private key possession
+  - 32-byte random challenges with 5-minute TTL
+  - One-time use challenges (replay protection)
+  - Session token generation (1-hour TTL)
+  - **Fully encrypted** challenge and authentication endpoints
+
+- **🎫 Session Management & Access Control (Phase 4)**
+  - Session lifecycle management (whoami, renew, revoke)
+  - Capability-based authorization (ReadOnly, ReadWrite, Admin)
+  - Per-session rate limiting (60 requests/minute)
+  - Session metrics and monitoring
+  - **All session operations encrypted** via AES-256-GCM channel
+
+- **🗄️ PostgreSQL Persistence (NEW!)**
+  - Multi-instance PostgreSQL 18 Alpine (one database per node)
+  - Entity Framework Core 8.0.10 with Npgsql
+  - Guid-based primary keys with automatic generation
+  - Certificate fingerprint as natural key
+  - 4 EF Core migrations successfully applied
+  - Connection resiliency with retry policy
+  - pgAdmin 4 integration for database management
+
+- **🔴 Redis Persistence**
+  - Multi-instance Redis 7.2 Alpine (one per node)
+  - Automatic TTL management for sessions (1 hour) and channels (30 minutes)
+  - Rate limiting via Redis Sorted Sets (sliding window)
   - Graceful fallback to in-memory storage
   - Feature flags for conditional Redis usage
+  - Session and channel data survives node restarts
+
+- **🏗️ Dual-Identifier Architecture**
+  - **NodeId (string)**: Protocol-level identifier for external communication
+  - **RegistrationId (Guid)**: Internal database primary key
+  - **Certificate Fingerprint (SHA-256)**: Natural key for authentication
+  - No `node_id` column in database (protocol-only)
 
 - **🐳 Docker Deployment**
-  - Multi-container orchestration (IRN nodes + Redis instances)
+  - Multi-container orchestration (2 nodes + 2 PostgreSQL + 2 Redis + pgAdmin + Azurite)
+  - Separated architecture: persistence layer + application layer
   - Environment-specific configurations
   - Health checks and monitoring
-  - Isolated Redis volumes per node
+  - Named volumes for data persistence
+  - Quick restart of application without data loss
 
 - **📊 API Documentation**
   - OpenAPI/Swagger integration
@@ -87,15 +122,21 @@ The Interoperable Research Node (IRN) is the cornerstone of this model. It acts 
 git clone https://github.com/your-org/InteroperableResearchNode.git
 cd InteroperableResearchNode
 
-# Start all containers (2 nodes + 2 Redis instances)
-docker-compose up -d
+# RECOMMENDED: Start persistence layer first (PostgreSQL + Redis + pgAdmin + Azurite)
+docker-compose -f docker-compose.persistence.yml up -d
+
+# Then start application layer (Node A + Node B)
+docker-compose -f docker-compose.application.yml up -d
 
 # Check status
-docker-compose ps
+docker-compose -f docker-compose.application.yml ps
 
 # Check health
 curl http://localhost:5000/api/channel/health  # Node A
 curl http://localhost:5001/api/channel/health  # Node B
+
+# Access pgAdmin for database management
+# http://localhost:5050 (admin@prism.local / prism-admin-password-2025)
 
 # View logs
 docker logs -f irn-node-a          # Node A logs

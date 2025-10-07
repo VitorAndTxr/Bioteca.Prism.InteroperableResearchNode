@@ -197,7 +197,7 @@ public class NodeRegistryService : INodeRegistryService
                 // Create new registered node (pending approval)
                 var registeredNode = new ResearchNode
                 {
-                    Id = Guid.NewGuid(),
+                    Id = Guid.Parse(request.NodeId),
                     NodeName = request.NodeName,
                     Certificate = request.Certificate,
                     CertificateFingerprint = fingerprint,

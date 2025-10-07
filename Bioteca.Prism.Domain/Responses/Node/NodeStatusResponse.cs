@@ -16,9 +16,14 @@ public class NodeStatusResponse
     public AuthorizationStatus Status { get; set; }
 
     /// <summary>
-    /// Node ID that was identified
+    /// Node ID that was identified (string identifier used in protocol)
     /// </summary>
     public string NodeId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Registration ID (Guid - internal database identifier, only present if node is known)
+    /// </summary>
+    public Guid? RegistrationId { get; set; }
 
     /// <summary>
     /// Node name (if known)

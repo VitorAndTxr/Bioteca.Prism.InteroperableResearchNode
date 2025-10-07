@@ -1,0 +1,64 @@
+# Docker Compose for Application Layer
+# This file contains stateless application services (Node A and Node B)
+#
+# IMPORTANT: This compose file manages application containers only.
+# - Start persistence services FIRST: docker-compose -f docker-compose.persistence.yml up -d
+# - Then start applications: docker-compose -f docker-compose.application.yml up -d
+# - Safe to run 'docker-compose -f docker-compose.application.yml down' without losing data
+#
+# Prerequisites:
+# - Persistence services must be running (see docker-compose.persistence.yml)
+# - Network 'irn-network' must exist (created by persistence compose)
+
+services:
+  # Node A - Research Node instance A
+  node-a:
+    build:
+      context: .
+      dockerfile: ./Bioteca.Prism.InteroperableResearchNode/Dockerfile
+    container_name: irn-node-a
+    restart: unless-stopped
+    environment:
+      - ASPNETCORE_ENVIRONMENT=NodeA
+      - ASPNETCORE_URLS=http://+:8080
+      - Redis__ConnectionString=irn-redis-node-a:6379,password=prism-redis-password-node-a,abortConnect=false
+      - ConnectionStrings__PrismDatabase=Host=irn-postgres-node-a;Port=5432;Database=prism_node_a_registry;Username=prism_user_a;Password=prism_secure_password_2025_a
+    ports:
+      - "5000:8080"
+    networks:
+      - irn-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/channel/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # Node B - Research Node instance B
+  node-b:
+    build:
+      context: .
+      dockerfile: ./Bioteca.Prism.InteroperableResearchNode/Dockerfile
+    container_name: irn-node-b
+    restart: unless-stopped
+    environment:
+      - ASPNETCORE_ENVIRONMENT=NodeB
+      - ASPNETCORE_URLS=http://+:8080
+      - Redis__ConnectionString=irn-redis-node-b:6379,password=prism-redis-password-node-b,abortConnect=false
+      - ConnectionStrings__PrismDatabase=Host=irn-postgres-node-b;Port=5432;Database=prism_node_b_registry;Username=prism_user_b;Password=prism_secure_password_2025_b
+    ports:
+      - "5001:8080"
+    networks:
+      - irn-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/channel/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+# Use the existing shared network created by persistence layer
+networks:
+  irn-network:
+    name: irn-network
+    external: true

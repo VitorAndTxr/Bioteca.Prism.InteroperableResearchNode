@@ -2,7 +2,7 @@
 erDiagram
     %% Entidades Principais
     RESEARCH_NODE {
-        uuid node_id PK
+        uuid id PK
         string node_name
         string institution
         string contact_info
@@ -14,20 +14,20 @@ erDiagram
     }
     
     RESEARCH {
-        uuid research_id PK
+        uuid id PK
+        uuid research_node_id FK
         string title
         text description
-        string protocol_number
         date start_date
         date end_date
         string status
-        string ethical_approval
         datetime created_at
         datetime updated_at
     }
     
     VOLUNTEER {
         uuid volunteer_id PK
+        uuid research_node_id FK
         string volunteer_code
         date birth_date
         string gender
@@ -42,12 +42,11 @@ erDiagram
     
     RESEARCHER {
         uuid researcher_id PK
+        uuid research_node_id FK
         string name
         string email
         string institution
         string role
-        string credentials
-        string orcid
         datetime created_at
         datetime updated_at
     }
@@ -56,10 +55,9 @@ erDiagram
         uuid application_id PK
         uuid research_id FK
         string app_name
-        string version
+        string url
         text description
-        string type
-        json configuration
+        text additional_info
         datetime created_at
         datetime updated_at
     }
@@ -70,11 +68,7 @@ erDiagram
         string device_name
         string manufacturer
         string model
-        string serial_number
-        string firmware_version
-        json specifications
-        string calibration_status
-        datetime last_calibration
+        text additional_info
         datetime created_at
         datetime updated_at
     }
@@ -82,58 +76,54 @@ erDiagram
     SENSOR {
         uuid sensor_id PK
         uuid device_id FK
-        string sensor_type
         string sensor_name
-        float sampling_rate
+        float max_sampling_rate
         string unit
         float min_range
         float max_range
         float accuracy
-        json metadata
+        text additional_info
+        datetime created_at
+        datetime updated_at
+    }
+
+    RECORD_SESSION{
+        uuid id PK
+        uuid research_id FK
+        uuid volunteer_id FK
+        text clinical_context
+        datetime start_at
+        datetime finished_at
         datetime created_at
         datetime updated_at
     }
     
     RECORD {
-        uuid record_id PK
-        uuid research_id FK
-        uuid volunteer_id FK
+        uuid id PK
+        uuid record_session_id FK
         datetime collection_date
         string session_id
-        text clinical_context
-        json environmental_conditions
         string record_type
-        integer duration_seconds
-        string quality_score
         text notes
         datetime created_at
         datetime updated_at
     }
     
     BIOSIGNAL {
-        uuid biosignal_id PK
+        uuid id PK
         uuid record_id FK
         uuid sensor_id FK
         string signal_type
-        blob raw_data
-        json processed_data
+        string file_url
         float sampling_rate
         integer samples_count
         datetime start_timestamp
-        datetime end_timestamp
         json annotations
-        json quality_metrics
         datetime created_at
     }
     
     %% Tabelas Associativas (Muitos para Muitos)
-    NODE_RESEARCH {
-        uuid node_id FK
-        uuid research_id FK
-        string role
-        string access_level
-        datetime joined_at
-    }
+
     
     RESEARCH_VOLUNTEER {
         uuid research_id FK
@@ -149,17 +139,15 @@ erDiagram
     RESEARCH_RESEARCHER {
         uuid research_id FK
         uuid researcher_id FK
-        string role
-        string responsibility
         boolean is_principal
         datetime assigned_at
         datetime removed_at
     }
     
     %% Relacionamentos
-    RESEARCH_NODE ||--o{ NODE_RESEARCH : participates
-    RESEARCH ||--o{ NODE_RESEARCH : hosted_by
-    
+    RESEARCH_NODE  ||--o{ RESEARCH : host
+    RESEARCH_NODE  ||--o{ RESEARCHER : Has  
+    RESEARCH_NODE  ||--o{ VOLUNTEER : Has   
     RESEARCH ||--o{ RESEARCH_VOLUNTEER : enrolls
     VOLUNTEER ||--o{ RESEARCH_VOLUNTEER : participates_in
     
@@ -171,9 +159,11 @@ erDiagram
     
     DEVICE ||--|{ SENSOR : contains
     
-    RESEARCH ||--o{ RECORD : generates
-    VOLUNTEER ||--o{ RECORD : provides
+    RESEARCH ||--o{ RECORD_SESSION : generates
+    VOLUNTEER ||--o{ RECORD_SESSION : participates_in
+    RESEARCHER ||--o{ RECORD_SESSION : participates_in
     
+    RECORD_SESSION ||--|{ RECORD : contains
     RECORD ||--|{ BIOSIGNAL : contains
     SENSOR ||--o{ BIOSIGNAL : captures
 ```

@@ -3,6 +3,7 @@ using Bioteca.Prism.Core.Middleware.Node;
 using Bioteca.Prism.Core.Security.Certificate;
 using Bioteca.Prism.Core.Security.Cryptography.Interfaces;
 using Bioteca.Prism.Domain.Requests.Node;
+using Bioteca.Prism.Domain.Responses.Node;
 using Microsoft.AspNetCore.Mvc;
 using System.Text.Json;
 
@@ -588,7 +589,9 @@ public class TestingController : ControllerBase
                 remoteNodeUrl = channel.RemoteNodeUrl,
                 clientNonce = channel.ClientNonce,
                 serverNonce = channel.ServerNonce,
-                symmetricKeyLength = channel.SymmetricKey.Length
+                symmetricKeyLength = channel.SymmetricKey.Length,
+                identifiedNodeId = channel.IdentifiedNodeId, // Guid (internal) set after Phase 2
+                certificateFingerprint = channel.CertificateFingerprint
             });
         }
         catch (Exception ex)
@@ -597,6 +600,128 @@ public class TestingController : ControllerBase
             return StatusCode(StatusCodes.Status500InternalServerError, new
             {
                 error = "Failed to get channel info",
+                message = ex.Message
+            });
+        }
+    }
+
+    /// <summary>
+    /// Helper endpoint: Complete Phase 1+2 flow (open channel + identify node)
+    /// This simplifies manual testing by combining channel establishment and node identification
+    /// </summary>
+    /// <param name="request">Complete handshake request</param>
+    /// <returns>Channel ID, registration ID (Guid), and next steps</returns>
+    [HttpPost("complete-phase1-phase2")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> CompletePhase1Phase2([FromBody] CompletePhase1Phase2Request request)
+    {
+        try
+        {
+            _logger.LogInformation("Starting Phase 1+2 flow for node {NodeId} to remote {RemoteUrl}",
+                request.NodeId, request.RemoteNodeUrl);
+
+            // Phase 1: Open encrypted channel
+            var channelResponse = await _nodeChannelClient.OpenChannelAsync(request.RemoteNodeUrl);
+            var channelId = channelResponse.ChannelId;
+
+            _logger.LogInformation("Phase 1 complete. Channel {ChannelId} established", channelId);
+
+            // Load certificate for fingerprint calculation and identity creation
+            var certificate = CertificateHelper.LoadCertificateFromBase64(request.Certificate);
+            var certBytes = Convert.FromBase64String(request.Certificate);
+            string certificateFingerprint;
+            using (var sha256 = System.Security.Cryptography.SHA256.Create())
+            {
+                var hash = sha256.ComputeHash(certBytes);
+                certificateFingerprint = Convert.ToBase64String(hash);
+            }
+
+            // Phase 2: Identify node
+            var timestamp = DateTime.UtcNow;
+            var dataToSign = $"{channelId}{request.NodeId}{timestamp:O}";
+
+            // Load private key if provided, otherwise skip signature
+            string signature = string.Empty;
+            if (!string.IsNullOrEmpty(request.CertificateWithPrivateKey))
+            {
+                var privateCert = CertificateHelper.LoadCertificateWithPrivateKeyFromBase64(
+                    request.CertificateWithPrivateKey,
+                    request.Password ?? "test123");
+                signature = CertificateHelper.SignData(dataToSign, privateCert);
+            }
+
+            var identifyRequest = new NodeIdentifyRequest
+            {
+                ChannelId = channelId,
+                NodeId = request.NodeId,
+                NodeName = request.NodeName,
+                Certificate = request.Certificate,
+                Timestamp = timestamp,
+                Signature = signature
+            };
+
+            var identifyResponse = await _nodeChannelClient.IdentifyNodeAsync(channelId, identifyRequest);
+
+            _logger.LogInformation("Phase 2 complete. Node identification response: IsKnown={IsKnown}, Status={Status}",
+                identifyResponse.IsKnown, identifyResponse.Status);
+
+            // Get channel info to get expiration time
+            var channel = await _channelStore.GetChannelAsync(channelId);
+
+            return Ok(new
+            {
+                success = true,
+                phase1 = new
+                {
+                    channelId = channelId,
+                    cipher = channelResponse.SelectedCipher,
+                    expiresAt = channel?.ExpiresAt
+                },
+                phase2 = new
+                {
+                    isKnown = identifyResponse.IsKnown,
+                    status = identifyResponse.Status.ToString(),
+                    nodeId = identifyResponse.NodeId, // String NodeId (protocol format)
+                    registrationId = identifyResponse.RegistrationId, // Guid (internal ID) if known
+                    certificateFingerprint = certificateFingerprint,
+                    message = identifyResponse.Message,
+                    registrationUrl = identifyResponse.RegistrationUrl
+                },
+                nextSteps = identifyResponse.IsKnown && identifyResponse.Status == AuthorizationStatus.Authorized
+                    ? (object)new
+                    {
+                        phase = "Phase 3: Request Challenge",
+                        endpoint = "POST /api/testing/request-challenge",
+                        payload = new
+                        {
+                            channelId = channelId,
+                            nodeId = request.NodeId // Use string NodeId for protocol
+                        }
+                    }
+                    : identifyResponse.IsKnown
+                        ? (object)new
+                        {
+                            phase = "Waiting for authorization",
+                            action = $"Update node status to Authorized: PUT /api/node/{identifyResponse.RegistrationId}/status",
+                            payload = new { status = "Authorized" }
+                        }
+                        : (object)new
+                        {
+                            phase = "Phase 2: Registration Required",
+                            endpoint = "POST /api/node/register",
+                            action = "Register the node first",
+                            registrationUrl = identifyResponse.RegistrationUrl
+                        }
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to complete Phase 1+2 flow");
+            return BadRequest(new
+            {
+                success = false,
+                error = "Failed to complete Phase 1+2 flow",
                 message = ex.Message
             });
         }
@@ -738,4 +863,39 @@ public class TestAuthenticateRequest
     /// Timestamp used in signature (must match signed data)
     /// </summary>
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+}
+
+public class CompletePhase1Phase2Request
+{
+    /// <summary>
+    /// Remote node URL to connect to (e.g., http://localhost:5001)
+    /// </summary>
+    public string RemoteNodeUrl { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Node ID (string identifier used in protocol DTOs)
+    /// </summary>
+    public string NodeId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Node display name
+    /// </summary>
+    public string NodeName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Certificate (public key only, Base64)
+    /// Generate using: POST /api/testing/generate-certificate
+    /// </summary>
+    public string Certificate { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Certificate with private key (PFX format, Base64) - optional
+    /// Required for signing the identification request
+    /// </summary>
+    public string? CertificateWithPrivateKey { get; set; }
+
+    /// <summary>
+    /// Password for the PFX certificate
+    /// </summary>
+    public string? Password { get; set; } = "test123";
 }

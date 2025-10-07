@@ -109,6 +109,7 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
                     IsKnown = true,
                     Status = registeredNode.Status,
                     NodeId = request.NodeId, // Return the protocol NodeId from request
+                    RegistrationId = registeredNode.Id, // Return internal Guid for reference
                     NodeName = registeredNode.NodeName,
                     Timestamp = DateTime.UtcNow
                 };

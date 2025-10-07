@@ -52,10 +52,13 @@ public class RedisChannelStore : IChannelStore
                 context.CreatedAt,
                 context.ExpiresAt,
                 context.RemoteNodeUrl,
-                context.Role
+                context.Role,
+                context.IdentifiedNodeId,
+                context.CertificateFingerprint
+
             };
 
-            var metadataJson = JsonSerializer.Serialize(metadata);
+            var metadataJson = JsonSerializer.Serialize(context);
 
             // Use transaction to ensure atomicity
             var transaction = db.CreateTransaction();
@@ -136,7 +139,9 @@ public class RedisChannelStore : IChannelStore
                 CreatedAt = metadata.CreatedAt,
                 ExpiresAt = metadata.ExpiresAt,
                 RemoteNodeUrl = metadata.RemoteNodeUrl,
-                Role = metadata.Role
+                Role = metadata.Role,
+                IdentifiedNodeId = metadata.IdentifiedNodeId,
+                CertificateFingerprint = metadata.CertificateFingerprint
             };
 
             _logger.LogDebug("Retrieved valid channel {ChannelId} from Redis", channelId);
@@ -239,5 +244,7 @@ public class RedisChannelStore : IChannelStore
         public DateTime ExpiresAt { get; set; }
         public string? RemoteNodeUrl { get; set; }
         public string Role { get; set; } = string.Empty;
+        public Guid? IdentifiedNodeId { get; set; }
+        public string? CertificateFingerprint { get; set; }
     }
 }
