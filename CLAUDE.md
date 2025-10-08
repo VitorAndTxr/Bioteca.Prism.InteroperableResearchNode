@@ -73,10 +73,63 @@ Bioteca.Prism.Core/            # Core layer (middleware, attributes)
 Bioteca.Prism.Data/            # Data layer (PostgreSQL persistence)
 ├── Persistence/
 │   ├── Contexts/PrismDbContext.cs       # EF Core DbContext
-│   └── Configurations/                  # EF Core entity configurations
-├── Repositories/Node/
-│   ├── INodeRepository.cs               # Node repository interface (Guid-based)
-│   └── NodeRepository.cs                # PostgreSQL node repository
+│   └── Configurations/                  # EF Core entity configurations (16 entities)
+│       ├── ResearchNodeConfiguration.cs
+│       ├── ResearchConfiguration.cs
+│       ├── VolunteerConfiguration.cs
+│       ├── ResearcherConfiguration.cs
+│       ├── ApplicationConfiguration.cs
+│       ├── DeviceConfiguration.cs
+│       ├── SensorConfiguration.cs
+│       ├── RecordSessionConfiguration.cs
+│       ├── RecordConfiguration.cs
+│       ├── RecordChannelConfiguration.cs
+│       ├── TargetAreaConfiguration.cs
+│       ├── SnomedLateralityConfiguration.cs
+│       ├── SnomedTopographicalModifierConfiguration.cs
+│       ├── SnomedBodyRegionConfiguration.cs
+│       ├── SnomedBodyStructureConfiguration.cs
+│       ├── ResearchVolunteerConfiguration.cs
+│       └── ResearchResearcherConfiguration.cs
+├── Repositories/                        # Repository pattern (base + specialized)
+│   ├── IRepository.cs                   # Generic repository interface
+│   ├── Repository.cs                    # Generic repository implementation
+│   ├── Node/
+│   │   ├── INodeRepository.cs           # Node repository interface (Guid-based)
+│   │   └── NodeRepository.cs            # PostgreSQL node repository
+│   ├── Research/
+│   │   ├── IResearchRepository.cs
+│   │   └── ResearchRepository.cs
+│   ├── Volunteer/
+│   │   ├── IVolunteerRepository.cs
+│   │   └── VolunteerRepository.cs
+│   ├── Researcher/
+│   │   ├── IResearcherRepository.cs
+│   │   └── ResearcherRepository.cs
+│   ├── Application/
+│   │   ├── IApplicationRepository.cs
+│   │   └── ApplicationRepository.cs
+│   ├── Device/
+│   │   ├── IDeviceRepository.cs
+│   │   └── DeviceRepository.cs
+│   ├── Sensor/
+│   │   ├── ISensorRepository.cs
+│   │   └── SensorRepository.cs
+│   ├── Record/
+│   │   ├── IRecordSessionRepository.cs
+│   │   ├── RecordSessionRepository.cs
+│   │   ├── IRecordRepository.cs
+│   │   ├── RecordRepository.cs
+│   │   ├── IRecordChannelRepository.cs
+│   │   ├── RecordChannelRepository.cs
+│   │   ├── ITargetAreaRepository.cs
+│   │   └── TargetAreaRepository.cs
+│   └── Snomed/
+│       ├── ISnomedLateralityRepository.cs
+│       ├── ISnomedTopographicalModifierRepository.cs
+│       ├── ISnomedBodyRegionRepository.cs
+│       ├── ISnomedBodyStructureRepository.cs
+│       └── SnomedRepository.cs          # All 4 implementations in one file
 ├── Migrations/                          # EF Core migrations
 └── Cache/
     └── Channel/RedisChannelStore.cs     # Redis channel persistence
@@ -399,6 +452,20 @@ Service registration based on scope and feature flags:
 **Scoped services** (new instance per request, for database operations):
 - `PrismDbContext` - EF Core DbContext (PostgreSQL, conditional)
 - `INodeRepository` - Node repository (Guid-based CRUD operations, conditional)
+- `IResearchRepository` - Research project repository
+- `IVolunteerRepository` - Volunteer/participant repository
+- `IResearcherRepository` - Researcher repository
+- `IApplicationRepository` - Application repository
+- `IDeviceRepository` - Device repository
+- `ISensorRepository` - Sensor repository
+- `IRecordSessionRepository` - Record session repository
+- `IRecordRepository` - Record repository
+- `IRecordChannelRepository` - Record channel repository
+- `ITargetAreaRepository` - Target area repository
+- `ISnomedLateralityRepository` - SNOMED laterality codes repository
+- `ISnomedTopographicalModifierRepository` - SNOMED topographical modifiers repository
+- `ISnomedBodyRegionRepository` - SNOMED body regions repository
+- `ISnomedBodyStructureRepository` - SNOMED body structures repository
 
 **Feature Flags** (in appsettings.json):
 ```json
@@ -493,7 +560,9 @@ postgres-node-b:
 - **Connection Resiliency**: 3 retries with 5-second delay
 - **Design-Time Factory**: `PrismDbContextFactory` for migrations
 
-**Database Schema** (`research_nodes` table):
+**Database Schema** (16 main tables):
+
+1. **`research_nodes`** - Node registry
 ```sql
 CREATE TABLE research_nodes (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -510,8 +579,214 @@ CREATE TABLE research_nodes (
     last_authenticated_at timestamptz,
     metadata jsonb
 );
+```
 
-CREATE UNIQUE INDEX ix_research_nodes_certificate_fingerprint ON research_nodes(certificate_fingerprint);
+2. **`research`** - Research projects
+```sql
+CREATE TABLE research (
+    id uuid PRIMARY KEY,
+    research_node_id uuid REFERENCES research_nodes(id) ON DELETE CASCADE,
+    title text NOT NULL,
+    description text NOT NULL,
+    start_date timestamptz NOT NULL,
+    end_date timestamptz,
+    status text NOT NULL,
+    created_at timestamptz NOT NULL,
+    updated_at timestamptz NOT NULL
+);
+```
+
+3. **`volunteers`** - Study participants
+```sql
+CREATE TABLE volunteers (
+    volunteer_id uuid PRIMARY KEY,
+    research_node_id uuid REFERENCES research_nodes(id) ON DELETE CASCADE,
+    volunteer_code text NOT NULL UNIQUE,  -- Anonymized identifier
+    birth_date timestamptz NOT NULL,
+    gender text NOT NULL,
+    blood_type text NOT NULL,
+    height real,
+    weight real,
+    medical_history text NOT NULL,
+    consent_status text NOT NULL,
+    registered_at timestamptz NOT NULL,
+    updated_at timestamptz NOT NULL
+);
+```
+
+4. **`researchers`** - Principal investigators and team members
+```sql
+CREATE TABLE researchers (
+    id uuid PRIMARY KEY,
+    research_node_id uuid REFERENCES research_nodes(id) ON DELETE CASCADE,
+    name text NOT NULL,
+    email text NOT NULL,
+    role text NOT NULL,
+    institution text NOT NULL,
+    credentials text NOT NULL,
+    created_at timestamptz NOT NULL
+);
+```
+
+5. **`applications`** - Data collection software
+```sql
+CREATE TABLE applications (
+    id uuid PRIMARY KEY,
+    research_id uuid REFERENCES research(id) ON DELETE CASCADE,
+    name text NOT NULL,
+    version text NOT NULL,
+    vendor text NOT NULL,
+    type text NOT NULL,
+    created_at timestamptz NOT NULL
+);
+```
+
+6. **`devices`** - Hardware devices used in research
+```sql
+CREATE TABLE devices (
+    id uuid PRIMARY KEY,
+    research_id uuid REFERENCES research(id) ON DELETE CASCADE,
+    name text NOT NULL,
+    model text NOT NULL,
+    serial_number text NOT NULL,
+    manufacturer text NOT NULL,
+    device_type text NOT NULL,
+    calibration_date timestamptz,
+    created_at timestamptz NOT NULL
+);
+```
+
+7. **`sensors`** - Individual sensors on devices
+```sql
+CREATE TABLE sensors (
+    id uuid PRIMARY KEY,
+    device_id uuid REFERENCES devices(id) ON DELETE CASCADE,
+    name text NOT NULL,
+    sensor_type text NOT NULL,
+    unit text NOT NULL,
+    min_value real NOT NULL,
+    max_value real NOT NULL,
+    resolution real NOT NULL,
+    created_at timestamptz NOT NULL
+);
+```
+
+8. **`record_sessions`** - Data collection sessions
+```sql
+CREATE TABLE record_sessions (
+    id uuid PRIMARY KEY,
+    research_id uuid REFERENCES research(id) ON DELETE CASCADE,
+    volunteer_id uuid REFERENCES volunteers(volunteer_id) ON DELETE CASCADE,
+    application_id uuid REFERENCES applications(id) ON DELETE CASCADE,
+    session_date timestamptz NOT NULL,
+    duration_seconds integer NOT NULL,
+    session_notes text NOT NULL,
+    created_at timestamptz NOT NULL,
+    updated_at timestamptz NOT NULL
+);
+```
+
+9. **`records`** - Individual data records
+```sql
+CREATE TABLE records (
+    id uuid PRIMARY KEY,
+    record_session_id uuid REFERENCES record_sessions(id) ON DELETE CASCADE,
+    record_type text NOT NULL,
+    start_timestamp timestamptz NOT NULL,
+    end_timestamp timestamptz NOT NULL,
+    quality_score real NOT NULL,
+    metadata jsonb,  -- PostgreSQL JSON
+    created_at timestamptz NOT NULL
+);
+```
+
+10. **`record_channels`** - Signal channels in records
+```sql
+CREATE TABLE record_channels (
+    id uuid PRIMARY KEY,
+    record_id uuid REFERENCES records(id) ON DELETE CASCADE,
+    sensor_id uuid REFERENCES sensors(id) ON DELETE CASCADE,
+    signal_type text NOT NULL,
+    file_url text NOT NULL,
+    sampling_rate real NOT NULL,
+    samples_count integer NOT NULL,
+    start_timestamp timestamptz NOT NULL,
+    annotations jsonb,  -- PostgreSQL JSON
+    created_at timestamptz NOT NULL
+);
+```
+
+11. **`target_areas`** - Body areas measured (SNOMED CT integration)
+```sql
+CREATE TABLE target_areas (
+    id uuid PRIMARY KEY,
+    record_channel_id uuid REFERENCES record_channels(id) ON DELETE CASCADE,
+    body_structure_code text REFERENCES snomed_body_structures(snomed_code),
+    laterality_code text REFERENCES snomed_lateralities(snomed_code),
+    topographical_modifier_code text REFERENCES snomed_topographical_modifiers(snomed_code),
+    description text NOT NULL,
+    created_at timestamptz NOT NULL
+);
+```
+
+12-15. **SNOMED CT Tables** - Medical terminology hierarchies
+```sql
+CREATE TABLE snomed_lateralities (
+    snomed_code text PRIMARY KEY,
+    display_name text NOT NULL,
+    description text NOT NULL,
+    is_active boolean NOT NULL
+);
+
+CREATE TABLE snomed_topographical_modifiers (
+    snomed_code text PRIMARY KEY,
+    display_name text NOT NULL,
+    category text NOT NULL,
+    description text NOT NULL,
+    is_active boolean NOT NULL
+);
+
+CREATE TABLE snomed_body_regions (
+    snomed_code text PRIMARY KEY,
+    display_name text NOT NULL,
+    parent_region_code text REFERENCES snomed_body_regions(snomed_code) ON DELETE RESTRICT,
+    description text NOT NULL,
+    is_active boolean NOT NULL
+);
+
+CREATE TABLE snomed_body_structures (
+    snomed_code text PRIMARY KEY,
+    body_region_code text REFERENCES snomed_body_regions(snomed_code) ON DELETE CASCADE,
+    display_name text NOT NULL,
+    structure_type text NOT NULL,
+    parent_structure_code text REFERENCES snomed_body_structures(snomed_code) ON DELETE RESTRICT,
+    description text NOT NULL,
+    is_active boolean NOT NULL
+);
+```
+
+16-17. **Join Tables** - Many-to-many relationships
+```sql
+CREATE TABLE research_volunteers (
+    research_id uuid REFERENCES research(id) ON DELETE CASCADE,
+    volunteer_id uuid REFERENCES volunteers(volunteer_id) ON DELETE CASCADE,
+    enrollment_status text NOT NULL,
+    consent_date timestamptz NOT NULL,
+    consent_version text NOT NULL,
+    exclusion_reason text,
+    enrolled_at timestamptz NOT NULL,
+    withdrawn_at timestamptz,
+    PRIMARY KEY (research_id, volunteer_id)
+);
+
+CREATE TABLE research_researchers (
+    research_id uuid REFERENCES research(id) ON DELETE CASCADE,
+    researcher_id uuid REFERENCES researchers(id) ON DELETE CASCADE,
+    role text NOT NULL,
+    joined_at timestamptz NOT NULL,
+    left_at timestamptz,
+    PRIMARY KEY (research_id, researcher_id)
+);
 ```
 
 **Repository Pattern** (`INodeRepository`):
@@ -799,7 +1074,8 @@ All 4 phases of the handshake protocol are now implemented with Redis persistenc
 
 ### Infrastructure Improvements
 - ✅ Redis persistence for sessions and channels (COMPLETED)
-- [ ] PostgreSQL for node registry persistence (Planned - see `docs/development/persistence-architecture.md`)
+- ✅ PostgreSQL for research data persistence (COMPLETED - 16 tables, repository pattern)
+- ✅ PostgreSQL for node registry persistence (COMPLETED)
 - [ ] Add structured logging (Serilog)
 - [ ] Implement distributed tracing (OpenTelemetry)
 - [ ] Add Prometheus metrics
