@@ -20,11 +20,6 @@ public class DeviceConfiguration : IEntityTypeConfiguration<Device>
             .IsRequired()
             .ValueGeneratedOnAdd();
 
-        // Foreign keys
-        builder.Property(x => x.ResearchId)
-            .HasColumnName("research_id")
-            .IsRequired();
-
         // Basic properties
         builder.Property(x => x.DeviceName)
             .HasColumnName("device_name")
@@ -54,15 +49,5 @@ public class DeviceConfiguration : IEntityTypeConfiguration<Device>
         builder.Property(x => x.UpdatedAt)
             .HasColumnName("updated_at")
             .IsRequired();
-
-        // Relationships
-        builder.HasOne(x => x.Research)
-            .WithMany(x => x.Devices)
-            .HasForeignKey(x => x.ResearchId)
-            .OnDelete(DeleteBehavior.Cascade);
-
-        // Indexes
-        builder.HasIndex(x => x.ResearchId)
-            .HasDatabaseName("ix_device_research_id");
     }
 }

@@ -106,6 +106,16 @@ public class PrismDbContext : DbContext
 
     // Join tables
     /// <summary>
+    /// Research-Application many-to-many relationship
+    /// </summary>
+    public DbSet<ResearchApplication> ResearchApplications => Set<ResearchApplication>();
+
+    /// <summary>
+    /// Research-Device many-to-many relationship
+    /// </summary>
+    public DbSet<ResearchDevice> ResearchDevices => Set<ResearchDevice>();
+
+    /// <summary>
     /// Research-Volunteer many-to-many relationship
     /// </summary>
     public DbSet<ResearchVolunteer> ResearchVolunteers => Set<ResearchVolunteer>();

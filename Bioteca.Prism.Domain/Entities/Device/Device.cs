@@ -11,11 +11,6 @@ public class Device
     public Guid DeviceId { get; set; }
 
     /// <summary>
-    /// Foreign key to research
-    /// </summary>
-    public Guid ResearchId { get; set; }
-
-    /// <summary>
     /// Device name
     /// </summary>
     public string DeviceName { get; set; } = string.Empty;
@@ -46,6 +41,13 @@ public class Device
     public DateTime UpdatedAt { get; set; }
 
     // Navigation properties
-    public Research.Research Research { get; set; } = null!;
+    /// <summary>
+    /// Research projects using this device (many-to-many)
+    /// </summary>
+    public ICollection<ResearchDevice> ResearchDevices { get; set; } = new List<ResearchDevice>();
+
+    /// <summary>
+    /// Sensors attached to this device
+    /// </summary>
     public ICollection<Sensor.Sensor> Sensors { get; set; } = new List<Sensor.Sensor>();
 }

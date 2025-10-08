@@ -15,7 +15,7 @@ public class ApplicationRepository : Repository<Domain.Entities.Application.Appl
     public async Task<List<Domain.Entities.Application.Application>> GetByResearchIdAsync(Guid researchId, CancellationToken cancellationToken = default)
     {
         return await _dbSet
-            .Where(a => a.ResearchId == researchId)
+            .Where(a => a.ResearchApplications.Any(ra => ra.ResearchId == researchId))
             .ToListAsync(cancellationToken);
     }
 }

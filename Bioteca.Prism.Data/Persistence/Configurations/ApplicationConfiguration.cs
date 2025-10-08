@@ -20,11 +20,6 @@ public class ApplicationConfiguration : IEntityTypeConfiguration<Application>
             .IsRequired()
             .ValueGeneratedOnAdd();
 
-        // Foreign keys
-        builder.Property(x => x.ResearchId)
-            .HasColumnName("research_id")
-            .IsRequired();
-
         // Basic properties
         builder.Property(x => x.AppName)
             .HasColumnName("app_name")
@@ -54,15 +49,5 @@ public class ApplicationConfiguration : IEntityTypeConfiguration<Application>
         builder.Property(x => x.UpdatedAt)
             .HasColumnName("updated_at")
             .IsRequired();
-
-        // Relationships
-        builder.HasOne(x => x.Research)
-            .WithMany(x => x.Applications)
-            .HasForeignKey(x => x.ResearchId)
-            .OnDelete(DeleteBehavior.Cascade);
-
-        // Indexes
-        builder.HasIndex(x => x.ResearchId)
-            .HasDatabaseName("ix_application_research_id");
     }
 }

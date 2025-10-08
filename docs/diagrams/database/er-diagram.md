@@ -115,11 +115,12 @@ erDiagram
 
     RECORD_SESSION{
         uuid id PK
-        uuid research_id FK
         uuid volunteer_id FK
         text clinical_context
         datetime start_at
         datetime finished_at
+
+        uuid research_id FK
         datetime created_at
         datetime updated_at
     }
@@ -195,7 +196,55 @@ erDiagram
         datetime created_at            
         datetime updated_at            
     }
-    
+
+    SNOMED_SEVERITY_CODE{
+        string code PK
+        string display_name 
+        text description
+        boolean is_active 
+        datetime created_at
+        datetime updated_at       
+    }
+
+
+    CLINICAL_CONDITION {
+        string snomed_code PK        -- Código SNOMED CT principal
+        string display_name
+        text description              
+        boolean is_active             
+        datetime created_at           
+        datetime updated_at      
+
+    }
+
+    CLINICAL_EVENT {
+        string snomed_code PK        -- Código SNOMED CT principal
+        string display_name
+        text description              
+        boolean is_active             
+        datetime created_at           
+        datetime updated_at      
+    }
+
+    MEDICATION {
+        string snomed_code PK        -- SNOMED CT medication code    
+        string medication_name       -- Nome comercial/genérico
+        string active_ingredient     -- Princípio ativo
+        string anvisa_code          -- Código ANVISA (Brasil)
+        datetime created_at
+        datetime updated_at
+    }
+
+    ALLERGY_INTOLERANCE {
+        string substance_snomed_code PK
+        string category            -- 'food', 'medication', 'environment', 'biologic'
+        string substance_name
+        string type               -- 'allergy' ou 'intolerance'    
+        datetime created_at
+        datetime updated_at
+    }
+
+   
     
     %% Tabelas Associativas (Muitos para Muitos)
 
@@ -203,12 +252,18 @@ erDiagram
     RESEARCH_VOLUNTEER {
         uuid research_id FK
         uuid volunteer_id FK
+
         string enrollment_status
         date consent_date
         string consent_version
         text exclusion_reason
+        string doc_signed_file_url
+
         datetime enrolled_at
         datetime withdrawn_at
+
+        datetime created_at
+        datetime updated_at
     }
     
     RESEARCH_RESEARCHER {
@@ -217,6 +272,131 @@ erDiagram
         boolean is_principal
         datetime assigned_at
         datetime removed_at
+        datetime created_at
+        datetime updated_at
+    }
+
+    VITAL_SIGNS {
+        uuid id PK
+        uuid volunteer_id FK
+        uuid record_session_id FK
+        
+        float systolic_bp          -- Pressão sistólica (mmHg)
+        float diastolic_bp         -- Pressão diastólica (mmHg)
+        float heart_rate           -- Frequência cardíaca (bpm)
+        float respiratory_rate     -- Frequência respiratória (rpm)
+        float temperature          -- Temperatura (°C)
+        float oxygen_saturation    -- SpO2 (%)
+        float weight              -- Peso (kg)
+        float height              -- Altura (cm)
+        float bmi                 -- IMC calculado
+        
+        datetime measurement_datetime
+        string measurement_context  -- 'rest', 'exercise', 'post-exercise'
+        uuid measured_by FK        -- researcher_id
+        
+        datetime created_at
+        datetime updated_at
+    }
+
+    VITAL_SIGNS {
+        uuid id PK
+        uuid volunteer_id FK
+        uuid record_session_id FK
+        
+        float systolic_bp          -- Pressão sistólica (mmHg)
+        float diastolic_bp         -- Pressão diastólica (mmHg)
+        float heart_rate           -- Frequência cardíaca (bpm)
+        float respiratory_rate     -- Frequência respiratória (rpm)
+        float temperature          -- Temperatura (°C)
+        float oxygen_saturation    -- SpO2 (%)
+        float weight              -- Peso (kg)
+        float height              -- Altura (cm)
+        float bmi                 -- IMC calculado
+        
+        datetime measurement_datetime
+        string measurement_context  -- 'rest', 'exercise', 'post-exercise'
+        uuid measured_by FK        -- researcher_id
+        
+        datetime created_at
+        datetime updated_at
+    }
+
+    VOLUNTEER_ALLERGY_INTOLERANCE{
+        uuid allergy_id PK
+        uuid volunteer_id FK
+
+        string criticality        -- 'low', 'high', 'unable-to-assess'
+        string clinical_status    -- 'active', 'inactive', 'resolved'
+        json manifestations       -- Array de códigos SNOMED das reações
+        date onset_date
+        date last_occurrence
+
+        string verification_status -- 'confirmed', 'suspected', 'refuted'
+
+        uuid recorded_by FK         -- researcher_id
+        datetime created_at
+        datetime updated_at
+    
+    }
+
+    VOLUNTEER_MEDICATION {
+
+        uuid medication_id PK
+        uuid volunteer_id FK
+        string dosage               -- Ex: "500mg"
+        string frequency            -- Ex: "2x ao dia"
+        string route                -- 'oral', 'IV', 'IM', 'topical'
+        date start_date
+        date end_date              -- NULL se ainda em uso
+        string status              -- 'active', 'completed', 'suspended', 'cancelled'
+        uuid condition_id FK       -- Para qual condição foi prescrita
+        text notes                 -- Observações
+        uuid recorded_by FK         -- researcher_id
+
+        datetime created_at
+        datetime updated_at
+
+    }
+
+    VOLUNTEER_CLINICAL_EVENT {
+        uuid event_id PK
+        uuid volunteer_id FK 
+        string event_type            -- 'symptom', 'sign', 'finding', 'complication'
+        string snomed_code FK        -- Código SNOMED do evento
+        datetime event_datetime      -- Quando ocorreu
+        integer duration_minutes     -- Duração do evento (se aplicável)
+        string severity_code FK 
+        float numeric_value         -- Para medições (ex: temperatura)
+        string value_unit           -- Unidade de medida
+        json characteristics        -- Características específicas do evento
+        uuid target_area_id FK      -- Reutiliza estrutura TARGET_AREA existente
+        uuid record_session_id FK   -- Durante qual sessão foi observado
+        uuid recorded_by FK         -- researcher_id
+        
+        datetime created_at
+        datetime updated_at
+    }
+
+    VOLUNTEER_CLINICAL_CONDITION{
+
+        uuid id PK
+        uuid volunteer_id FK
+        string snomed_code FK        
+
+        string clinical_status        -- 'active', 'resolved', 'inactive', 'remission'
+
+        date onset_date               
+        date abatement_date          
+        string severity_code FK       
+        string verification_status    -- 'confirmed', 'provisional', 'differential', 'refuted'
+
+        text clinical_notes          -- Observações clínicas
+
+        uuid recorded_by FK          -- researcher_id que registrou
+
+        datetime created_at
+        datetime updated_at
     }
     
     %% Relacionamentos

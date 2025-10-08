@@ -73,7 +73,7 @@ Bioteca.Prism.Core/            # Core layer (middleware, attributes)
 Bioteca.Prism.Data/            # Data layer (PostgreSQL persistence)
 ├── Persistence/
 │   ├── Contexts/PrismDbContext.cs       # EF Core DbContext
-│   └── Configurations/                  # EF Core entity configurations (16 entities)
+│   └── Configurations/                  # EF Core entity configurations (18 entities)
 │       ├── ResearchNodeConfiguration.cs
 │       ├── ResearchConfiguration.cs
 │       ├── VolunteerConfiguration.cs
@@ -89,6 +89,8 @@ Bioteca.Prism.Data/            # Data layer (PostgreSQL persistence)
 │       ├── SnomedTopographicalModifierConfiguration.cs
 │       ├── SnomedBodyRegionConfiguration.cs
 │       ├── SnomedBodyStructureConfiguration.cs
+│       ├── ResearchApplicationConfiguration.cs
+│       ├── ResearchDeviceConfiguration.cs
 │       ├── ResearchVolunteerConfiguration.cs
 │       └── ResearchResearcherConfiguration.cs
 ├── Repositories/                        # Repository pattern (base + specialized)
@@ -560,7 +562,7 @@ postgres-node-b:
 - **Connection Resiliency**: 3 retries with 5-second delay
 - **Design-Time Factory**: `PrismDbContextFactory` for migrations
 
-**Database Schema** (16 main tables):
+**Database Schema** (18 main tables):
 
 1. **`research_nodes`** - Node registry
 ```sql
@@ -628,31 +630,29 @@ CREATE TABLE researchers (
 );
 ```
 
-5. **`applications`** - Data collection software
+5. **`applications`** - Data collection software (many-to-many with research via research_application)
 ```sql
 CREATE TABLE applications (
-    id uuid PRIMARY KEY,
-    research_id uuid REFERENCES research(id) ON DELETE CASCADE,
-    name text NOT NULL,
-    version text NOT NULL,
-    vendor text NOT NULL,
-    type text NOT NULL,
-    created_at timestamptz NOT NULL
+    application_id uuid PRIMARY KEY,
+    app_name text NOT NULL,
+    url text NOT NULL,
+    description text NOT NULL,
+    additional_info text NOT NULL,
+    created_at timestamptz NOT NULL,
+    updated_at timestamptz NOT NULL
 );
 ```
 
-6. **`devices`** - Hardware devices used in research
+6. **`devices`** - Hardware devices (many-to-many with research via research_device)
 ```sql
 CREATE TABLE devices (
-    id uuid PRIMARY KEY,
-    research_id uuid REFERENCES research(id) ON DELETE CASCADE,
-    name text NOT NULL,
-    model text NOT NULL,
-    serial_number text NOT NULL,
+    device_id uuid PRIMARY KEY,
+    device_name text NOT NULL,
     manufacturer text NOT NULL,
-    device_type text NOT NULL,
-    calibration_date timestamptz,
-    created_at timestamptz NOT NULL
+    model text NOT NULL,
+    additional_info text NOT NULL,
+    created_at timestamptz NOT NULL,
+    updated_at timestamptz NOT NULL
 );
 ```
 
@@ -765,8 +765,29 @@ CREATE TABLE snomed_body_structures (
 );
 ```
 
-16-17. **Join Tables** - Many-to-many relationships
+16-19. **Join Tables** - Many-to-many relationships
 ```sql
+CREATE TABLE research_application (
+    research_id uuid REFERENCES research(id) ON DELETE CASCADE,
+    application_id uuid REFERENCES applications(application_id) ON DELETE CASCADE,
+    role text NOT NULL,
+    added_at timestamptz NOT NULL,
+    removed_at timestamptz,
+    configuration text,
+    PRIMARY KEY (research_id, application_id)
+);
+
+CREATE TABLE research_device (
+    research_id uuid REFERENCES research(id) ON DELETE CASCADE,
+    device_id uuid REFERENCES devices(device_id) ON DELETE CASCADE,
+    role text NOT NULL,
+    added_at timestamptz NOT NULL,
+    removed_at timestamptz,
+    calibration_status text NOT NULL,
+    last_calibration_date timestamptz,
+    PRIMARY KEY (research_id, device_id)
+);
+
 CREATE TABLE research_volunteers (
     research_id uuid REFERENCES research(id) ON DELETE CASCADE,
     volunteer_id uuid REFERENCES volunteers(volunteer_id) ON DELETE CASCADE,

@@ -15,7 +15,7 @@ public class DeviceRepository : Repository<Domain.Entities.Device.Device, Guid>,
     public async Task<List<Domain.Entities.Device.Device>> GetByResearchIdAsync(Guid researchId, CancellationToken cancellationToken = default)
     {
         return await _dbSet
-            .Where(d => d.ResearchId == researchId)
+            .Where(d => d.ResearchDevices.Any(rd => rd.ResearchId == researchId))
             .Include(d => d.Sensors)
             .ToListAsync(cancellationToken);
     }

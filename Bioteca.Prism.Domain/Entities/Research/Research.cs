@@ -52,9 +52,11 @@ public class Research
 
     // Navigation properties
     public Node.ResearchNode ResearchNode { get; set; } = null!;
-    public ICollection<Application.Application> Applications { get; set; } = new List<Application.Application>();
-    public ICollection<Device.Device> Devices { get; set; } = new List<Device.Device>();
     public ICollection<Record.RecordSession> RecordSessions { get; set; } = new List<Record.RecordSession>();
+
+    // Many-to-many relationships
+    public ICollection<Application.ResearchApplication> ResearchApplications { get; set; } = new List<Application.ResearchApplication>();
+    public ICollection<Device.ResearchDevice> ResearchDevices { get; set; } = new List<Device.ResearchDevice>();
     public ICollection<ResearchVolunteer> ResearchVolunteers { get; set; } = new List<ResearchVolunteer>();
     public ICollection<ResearchResearcher> ResearchResearchers { get; set; } = new List<ResearchResearcher>();
 }

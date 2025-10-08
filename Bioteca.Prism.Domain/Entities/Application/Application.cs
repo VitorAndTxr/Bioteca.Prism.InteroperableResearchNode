@@ -11,11 +11,6 @@ public class Application
     public Guid ApplicationId { get; set; }
 
     /// <summary>
-    /// Foreign key to research
-    /// </summary>
-    public Guid ResearchId { get; set; }
-
-    /// <summary>
     /// Application name
     /// </summary>
     public string AppName { get; set; } = string.Empty;
@@ -46,5 +41,8 @@ public class Application
     public DateTime UpdatedAt { get; set; }
 
     // Navigation properties
-    public Research.Research Research { get; set; } = null!;
+    /// <summary>
+    /// Research projects using this application (many-to-many)
+    /// </summary>
+    public ICollection<ResearchApplication> ResearchApplications { get; set; } = new List<ResearchApplication>();
 }

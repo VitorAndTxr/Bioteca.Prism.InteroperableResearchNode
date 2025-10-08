@@ -92,6 +92,27 @@ if (usePostgreSqlForNodes)
     builder.Services.AddScoped<ISnomedBodyRegionRepository, SnomedBodyRegionRepository>();
     builder.Services.AddScoped<ISnomedBodyStructureRepository, SnomedBodyStructureRepository>();
 
+    // Register services (business logic layer)
+    // Research data services
+    builder.Services.AddScoped<Bioteca.Prism.Service.Services.Research.IResearchService, Bioteca.Prism.Service.Services.Research.ResearchService>();
+    builder.Services.AddScoped<Bioteca.Prism.Service.Services.Volunteer.IVolunteerService, Bioteca.Prism.Service.Services.Volunteer.VolunteerService>();
+    builder.Services.AddScoped<Bioteca.Prism.Service.Services.Researcher.IResearcherService, Bioteca.Prism.Service.Services.Researcher.ResearcherService>();
+    builder.Services.AddScoped<Bioteca.Prism.Service.Services.Application.IApplicationService, Bioteca.Prism.Service.Services.Application.ApplicationService>();
+    builder.Services.AddScoped<Bioteca.Prism.Service.Services.Device.IDeviceService, Bioteca.Prism.Service.Services.Device.DeviceService>();
+    builder.Services.AddScoped<Bioteca.Prism.Service.Services.Sensor.ISensorService, Bioteca.Prism.Service.Services.Sensor.SensorService>();
+
+    // Record services
+    builder.Services.AddScoped<Bioteca.Prism.Service.Services.Record.IRecordSessionService, Bioteca.Prism.Service.Services.Record.RecordSessionService>();
+    builder.Services.AddScoped<Bioteca.Prism.Service.Services.Record.IRecordService, Bioteca.Prism.Service.Services.Record.RecordService>();
+    builder.Services.AddScoped<Bioteca.Prism.Service.Services.Record.IRecordChannelService, Bioteca.Prism.Service.Services.Record.RecordChannelService>();
+    builder.Services.AddScoped<Bioteca.Prism.Service.Services.Record.ITargetAreaService, Bioteca.Prism.Service.Services.Record.TargetAreaService>();
+
+    // SNOMED CT services
+    builder.Services.AddScoped<Bioteca.Prism.Service.Services.Snomed.ISnomedLateralityService, Bioteca.Prism.Service.Services.Snomed.SnomedLateralityService>();
+    builder.Services.AddScoped<Bioteca.Prism.Service.Services.Snomed.ISnomedTopographicalModifierService, Bioteca.Prism.Service.Services.Snomed.SnomedTopographicalModifierService>();
+    builder.Services.AddScoped<Bioteca.Prism.Service.Services.Snomed.ISnomedBodyRegionService, Bioteca.Prism.Service.Services.Snomed.SnomedBodyRegionService>();
+    builder.Services.AddScoped<Bioteca.Prism.Service.Services.Snomed.ISnomedBodyStructureService, Bioteca.Prism.Service.Services.Snomed.SnomedBodyStructureService>();
+
     // Register PostgreSQL-backed node registry service
     builder.Services.AddScoped<Bioteca.Prism.Core.Middleware.Node.INodeRegistryService, PostgreSqlNodeRegistryService>();
 }
