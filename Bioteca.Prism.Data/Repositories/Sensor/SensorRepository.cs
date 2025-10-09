@@ -1,3 +1,5 @@
+using Bioteca.Prism.Core.Database;
+using Bioteca.Prism.Data.Interfaces.Sensor;
 using Bioteca.Prism.Data.Persistence.Contexts;
 using Microsoft.EntityFrameworkCore;
 
@@ -6,7 +8,7 @@ namespace Bioteca.Prism.Data.Repositories.Sensor;
 /// <summary>
 /// Repository implementation for sensor persistence operations
 /// </summary>
-public class SensorRepository : Repository<Domain.Entities.Sensor.Sensor, Guid>, ISensorRepository
+public class SensorRepository : BaseRepository<Domain.Entities.Sensor.Sensor, Guid>, ISensorRepository
 {
     public SensorRepository(PrismDbContext context) : base(context)
     {

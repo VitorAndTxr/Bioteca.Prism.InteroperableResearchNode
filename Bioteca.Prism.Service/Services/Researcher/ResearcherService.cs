@@ -1,11 +1,13 @@
-using Bioteca.Prism.Data.Repositories.Researcher;
+using Bioteca.Prism.Core.Service;
+using Bioteca.Prism.Data.Interfaces.Researcher;
+using Bioteca.Prism.Service.Interfaces.Researcher;
 
 namespace Bioteca.Prism.Service.Services.Researcher;
 
 /// <summary>
 /// Service implementation for researcher operations
 /// </summary>
-public class ResearcherService : Service<Domain.Entities.Researcher.Researcher, Guid>, IResearcherService
+public class ResearcherService : BaseService<Domain.Entities.Researcher.Researcher, Guid>, IResearcherService
 {
     private readonly IResearcherRepository _researcherRepository;
 

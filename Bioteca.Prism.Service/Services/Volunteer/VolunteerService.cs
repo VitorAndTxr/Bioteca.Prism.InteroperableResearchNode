@@ -1,11 +1,13 @@
-using Bioteca.Prism.Data.Repositories.Volunteer;
+using Bioteca.Prism.Core.Service;
+using Bioteca.Prism.Data.Interfaces.Volunteer;
+using Bioteca.Prism.Service.Interfaces.Volunteer;
 
 namespace Bioteca.Prism.Service.Services.Volunteer;
 
 /// <summary>
 /// Service implementation for volunteer operations
 /// </summary>
-public class VolunteerService : Service<Domain.Entities.Volunteer.Volunteer, Guid>, IVolunteerService
+public class VolunteerService : BaseService<Domain.Entities.Volunteer.Volunteer, Guid>, IVolunteerService
 {
     private readonly IVolunteerRepository _volunteerRepository;
 

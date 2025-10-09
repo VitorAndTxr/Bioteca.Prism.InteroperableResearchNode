@@ -69,4 +69,11 @@ public class Volunteer
     public Node.ResearchNode ResearchNode { get; set; } = null!;
     public ICollection<Record.RecordSession> RecordSessions { get; set; } = new List<Record.RecordSession>();
     public ICollection<Research.ResearchVolunteer> ResearchVolunteers { get; set; } = new List<Research.ResearchVolunteer>();
+
+    // Clinical data navigation properties
+    public ICollection<VolunteerClinicalCondition> ClinicalConditions { get; set; } = new List<VolunteerClinicalCondition>();
+    public ICollection<VolunteerClinicalEvent> ClinicalEvents { get; set; } = new List<VolunteerClinicalEvent>();
+    public ICollection<VolunteerMedication> Medications { get; set; } = new List<VolunteerMedication>();
+    public ICollection<VolunteerAllergyIntolerance> AllergyIntolerances { get; set; } = new List<VolunteerAllergyIntolerance>();
+    public ICollection<VitalSigns> VitalSigns { get; set; } = new List<VitalSigns>();
 }

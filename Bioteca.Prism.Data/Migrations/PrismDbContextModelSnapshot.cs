@@ -104,6 +104,190 @@ namespace Bioteca.Prism.Data.Migrations
                     b.ToTable("research_application", (string)null);
                 });
 
+            modelBuilder.Entity("Bioteca.Prism.Domain.Entities.Clinical.AllergyIntolerance", b =>
+                {
+                    b.Property<string>("SnomedCode")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("snomed_code");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("category");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<string>("SubstanceName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("substance_name");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("type");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("SnomedCode");
+
+                    b.HasIndex("Category")
+                        .HasDatabaseName("ix_allergy_intolerances_category");
+
+                    b.HasIndex("IsActive")
+                        .HasDatabaseName("ix_allergy_intolerances_is_active");
+
+                    b.HasIndex("Type")
+                        .HasDatabaseName("ix_allergy_intolerances_type");
+
+                    b.ToTable("allergy_intolerances", (string)null);
+                });
+
+            modelBuilder.Entity("Bioteca.Prism.Domain.Entities.Clinical.ClinicalCondition", b =>
+                {
+                    b.Property<string>("SnomedCode")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("snomed_code");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("description");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("display_name");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("SnomedCode");
+
+                    b.HasIndex("DisplayName")
+                        .HasDatabaseName("ix_clinical_conditions_display_name");
+
+                    b.HasIndex("IsActive")
+                        .HasDatabaseName("ix_clinical_conditions_is_active");
+
+                    b.ToTable("clinical_conditions", (string)null);
+                });
+
+            modelBuilder.Entity("Bioteca.Prism.Domain.Entities.Clinical.ClinicalEvent", b =>
+                {
+                    b.Property<string>("SnomedCode")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("snomed_code");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("description");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("display_name");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("SnomedCode");
+
+                    b.HasIndex("DisplayName")
+                        .HasDatabaseName("ix_clinical_events_display_name");
+
+                    b.HasIndex("IsActive")
+                        .HasDatabaseName("ix_clinical_events_is_active");
+
+                    b.ToTable("clinical_events", (string)null);
+                });
+
+            modelBuilder.Entity("Bioteca.Prism.Domain.Entities.Clinical.Medication", b =>
+                {
+                    b.Property<string>("SnomedCode")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("snomed_code");
+
+                    b.Property<string>("ActiveIngredient")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("active_ingredient");
+
+                    b.Property<string>("AnvisaCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("anvisa_code");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<string>("MedicationName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("medication_name");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("SnomedCode");
+
+                    b.HasIndex("AnvisaCode")
+                        .HasDatabaseName("ix_medications_anvisa_code");
+
+                    b.HasIndex("IsActive")
+                        .HasDatabaseName("ix_medications_is_active");
+
+                    b.HasIndex("MedicationName")
+                        .HasDatabaseName("ix_medications_medication_name");
+
+                    b.ToTable("medications", (string)null);
+                });
+
             modelBuilder.Entity("Bioteca.Prism.Domain.Entities.Device.Device", b =>
                 {
                     b.Property<Guid>("DeviceId")
@@ -903,6 +1087,44 @@ namespace Bioteca.Prism.Data.Migrations
                     b.ToTable("snomed_laterality", (string)null);
                 });
 
+            modelBuilder.Entity("Bioteca.Prism.Domain.Entities.Snomed.SnomedSeverityCode", b =>
+                {
+                    b.Property<string>("Code")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("code");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("description");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("display_name");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Code");
+
+                    b.HasIndex("IsActive")
+                        .HasDatabaseName("ix_snomed_severity_codes_is_active");
+
+                    b.ToTable("snomed_severity_codes", (string)null);
+                });
+
             modelBuilder.Entity("Bioteca.Prism.Domain.Entities.Snomed.SnomedTopographicalModifier", b =>
                 {
                     b.Property<string>("Code")
@@ -940,6 +1162,96 @@ namespace Bioteca.Prism.Data.Migrations
                         .HasDatabaseName("ix_snomed_topographical_modifier_is_active");
 
                     b.ToTable("snomed_topographical_modifier", (string)null);
+                });
+
+            modelBuilder.Entity("Bioteca.Prism.Domain.Entities.Volunteer.VitalSigns", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<float?>("Bmi")
+                        .HasColumnType("real")
+                        .HasColumnName("bmi");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<float?>("DiastolicBp")
+                        .HasColumnType("real")
+                        .HasColumnName("diastolic_bp");
+
+                    b.Property<float?>("HeartRate")
+                        .HasColumnType("real")
+                        .HasColumnName("heart_rate");
+
+                    b.Property<float?>("Height")
+                        .HasColumnType("real")
+                        .HasColumnName("height");
+
+                    b.Property<string>("MeasurementContext")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("measurement_context");
+
+                    b.Property<DateTime>("MeasurementDatetime")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("measurement_datetime");
+
+                    b.Property<float?>("OxygenSaturation")
+                        .HasColumnType("real")
+                        .HasColumnName("oxygen_saturation");
+
+                    b.Property<Guid>("RecordSessionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("record_session_id");
+
+                    b.Property<Guid>("RecordedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("recorded_by");
+
+                    b.Property<float?>("RespiratoryRate")
+                        .HasColumnType("real")
+                        .HasColumnName("respiratory_rate");
+
+                    b.Property<float?>("SystolicBp")
+                        .HasColumnType("real")
+                        .HasColumnName("systolic_bp");
+
+                    b.Property<float?>("Temperature")
+                        .HasColumnType("real")
+                        .HasColumnName("temperature");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid>("VolunteerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("volunteer_id");
+
+                    b.Property<float?>("Weight")
+                        .HasColumnType("real")
+                        .HasColumnName("weight");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MeasurementDatetime")
+                        .HasDatabaseName("ix_vital_signs_measurement_datetime");
+
+                    b.HasIndex("RecordSessionId")
+                        .HasDatabaseName("ix_vital_signs_record_session_id");
+
+                    b.HasIndex("RecordedBy")
+                        .HasDatabaseName("ix_vital_signs_recorded_by");
+
+                    b.HasIndex("VolunteerId")
+                        .HasDatabaseName("ix_vital_signs_volunteer_id");
+
+                    b.ToTable("vital_signs", (string)null);
                 });
 
             modelBuilder.Entity("Bioteca.Prism.Domain.Entities.Volunteer.Volunteer", b =>
@@ -1015,6 +1327,356 @@ namespace Bioteca.Prism.Data.Migrations
                         .HasDatabaseName("ix_volunteer_code");
 
                     b.ToTable("volunteer", (string)null);
+                });
+
+            modelBuilder.Entity("Bioteca.Prism.Domain.Entities.Volunteer.VolunteerAllergyIntolerance", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("AllergyIntoleranceSnomedCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("allergy_intolerance_snomed_code");
+
+                    b.Property<string>("ClinicalStatus")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("clinical_status");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Criticality")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("criticality");
+
+                    b.Property<DateTime?>("LastOccurrence")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_occurrence");
+
+                    b.Property<string>("Manifestations")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("manifestations");
+
+                    b.Property<DateTime?>("OnsetDate")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("onset_date");
+
+                    b.Property<Guid>("RecordedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("recorded_by");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("VerificationStatus")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("verification_status");
+
+                    b.Property<Guid>("VolunteerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("volunteer_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AllergyIntoleranceSnomedCode")
+                        .HasDatabaseName("ix_volunteer_allergy_intolerances_snomed_code");
+
+                    b.HasIndex("ClinicalStatus")
+                        .HasDatabaseName("ix_volunteer_allergy_intolerances_clinical_status");
+
+                    b.HasIndex("RecordedBy")
+                        .HasDatabaseName("ix_volunteer_allergy_intolerances_recorded_by");
+
+                    b.HasIndex("VolunteerId")
+                        .HasDatabaseName("ix_volunteer_allergy_intolerances_volunteer_id");
+
+                    b.ToTable("volunteer_allergy_intolerances", (string)null);
+                });
+
+            modelBuilder.Entity("Bioteca.Prism.Domain.Entities.Volunteer.VolunteerClinicalCondition", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime?>("AbatementDate")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("abatement_date");
+
+                    b.Property<string>("ClinicalNotes")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("clinical_notes");
+
+                    b.Property<string>("ClinicalStatus")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("clinical_status");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTime?>("OnsetDate")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("onset_date");
+
+                    b.Property<Guid>("RecordedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("recorded_by");
+
+                    b.Property<string>("SeverityCode")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("severity_code");
+
+                    b.Property<string>("SnomedCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("snomed_code");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("VerificationStatus")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("verification_status");
+
+                    b.Property<Guid>("VolunteerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("volunteer_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClinicalStatus")
+                        .HasDatabaseName("ix_volunteer_clinical_conditions_clinical_status");
+
+                    b.HasIndex("RecordedBy")
+                        .HasDatabaseName("ix_volunteer_clinical_conditions_recorded_by");
+
+                    b.HasIndex("SeverityCode")
+                        .HasDatabaseName("ix_volunteer_clinical_conditions_severity_code");
+
+                    b.HasIndex("SnomedCode")
+                        .HasDatabaseName("ix_volunteer_clinical_conditions_snomed_code");
+
+                    b.HasIndex("VolunteerId")
+                        .HasDatabaseName("ix_volunteer_clinical_conditions_volunteer_id");
+
+                    b.ToTable("volunteer_clinical_conditions", (string)null);
+                });
+
+            modelBuilder.Entity("Bioteca.Prism.Domain.Entities.Volunteer.VolunteerClinicalEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Characteristics")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("characteristics");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<int?>("DurationMinutes")
+                        .HasColumnType("integer")
+                        .HasColumnName("duration_minutes");
+
+                    b.Property<DateTime>("EventDatetime")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("event_datetime");
+
+                    b.Property<string>("EventType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("event_type");
+
+                    b.Property<float?>("NumericValue")
+                        .HasColumnType("real")
+                        .HasColumnName("numeric_value");
+
+                    b.Property<Guid?>("RecordSessionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("record_session_id");
+
+                    b.Property<Guid>("RecordedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("recorded_by");
+
+                    b.Property<string>("SeverityCode")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("severity_code");
+
+                    b.Property<string>("SnomedCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("snomed_code");
+
+                    b.Property<Guid?>("TargetAreaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("target_area_id");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("ValueUnit")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("value_unit");
+
+                    b.Property<Guid?>("VolunteerClinicalConditionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("VolunteerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("volunteer_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EventDatetime")
+                        .HasDatabaseName("ix_volunteer_clinical_events_event_datetime");
+
+                    b.HasIndex("EventType")
+                        .HasDatabaseName("ix_volunteer_clinical_events_event_type");
+
+                    b.HasIndex("RecordSessionId")
+                        .HasDatabaseName("ix_volunteer_clinical_events_record_session_id");
+
+                    b.HasIndex("RecordedBy")
+                        .HasDatabaseName("ix_volunteer_clinical_events_recorded_by");
+
+                    b.HasIndex("SeverityCode")
+                        .HasDatabaseName("ix_volunteer_clinical_events_severity_code");
+
+                    b.HasIndex("SnomedCode")
+                        .HasDatabaseName("ix_volunteer_clinical_events_snomed_code");
+
+                    b.HasIndex("TargetAreaId");
+
+                    b.HasIndex("VolunteerClinicalConditionId");
+
+                    b.HasIndex("VolunteerId")
+                        .HasDatabaseName("ix_volunteer_clinical_events_volunteer_id");
+
+                    b.ToTable("volunteer_clinical_events", (string)null);
+                });
+
+            modelBuilder.Entity("Bioteca.Prism.Domain.Entities.Volunteer.VolunteerMedication", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid?>("ConditionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("condition_id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Dosage")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("dosage");
+
+                    b.Property<DateTime?>("EndDate")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("end_date");
+
+                    b.Property<string>("Frequency")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("frequency");
+
+                    b.Property<string>("MedicationSnomedCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("medication_snomed_code");
+
+                    b.Property<string>("Notes")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("notes");
+
+                    b.Property<Guid>("RecordedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("recorded_by");
+
+                    b.Property<string>("Route")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("route");
+
+                    b.Property<DateTime>("StartDate")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("start_date");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("status");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid>("VolunteerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("volunteer_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ConditionId")
+                        .HasDatabaseName("ix_volunteer_medications_condition_id");
+
+                    b.HasIndex("MedicationSnomedCode")
+                        .HasDatabaseName("ix_volunteer_medications_medication_snomed_code");
+
+                    b.HasIndex("RecordedBy")
+                        .HasDatabaseName("ix_volunteer_medications_recorded_by");
+
+                    b.HasIndex("Status")
+                        .HasDatabaseName("ix_volunteer_medications_status");
+
+                    b.HasIndex("VolunteerId")
+                        .HasDatabaseName("ix_volunteer_medications_volunteer_id");
+
+                    b.ToTable("volunteer_medications", (string)null);
                 });
 
             modelBuilder.Entity("Bioteca.Prism.Domain.Entities.Application.ResearchApplication", b =>
@@ -1236,6 +1898,33 @@ namespace Bioteca.Prism.Data.Migrations
                     b.Navigation("ParentStructure");
                 });
 
+            modelBuilder.Entity("Bioteca.Prism.Domain.Entities.Volunteer.VitalSigns", b =>
+                {
+                    b.HasOne("Bioteca.Prism.Domain.Entities.Record.RecordSession", "RecordSession")
+                        .WithMany("VitalSigns")
+                        .HasForeignKey("RecordSessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Bioteca.Prism.Domain.Entities.Researcher.Researcher", "Recorder")
+                        .WithMany("MeasuredVitalSigns")
+                        .HasForeignKey("RecordedBy")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Bioteca.Prism.Domain.Entities.Volunteer.Volunteer", "Volunteer")
+                        .WithMany("VitalSigns")
+                        .HasForeignKey("VolunteerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("RecordSession");
+
+                    b.Navigation("Recorder");
+
+                    b.Navigation("Volunteer");
+                });
+
             modelBuilder.Entity("Bioteca.Prism.Domain.Entities.Volunteer.Volunteer", b =>
                 {
                     b.HasOne("Bioteca.Prism.Domain.Entities.Node.ResearchNode", "ResearchNode")
@@ -1247,9 +1936,176 @@ namespace Bioteca.Prism.Data.Migrations
                     b.Navigation("ResearchNode");
                 });
 
+            modelBuilder.Entity("Bioteca.Prism.Domain.Entities.Volunteer.VolunteerAllergyIntolerance", b =>
+                {
+                    b.HasOne("Bioteca.Prism.Domain.Entities.Clinical.AllergyIntolerance", "AllergyIntolerance")
+                        .WithMany("VolunteerAllergyIntolerances")
+                        .HasForeignKey("AllergyIntoleranceSnomedCode")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Bioteca.Prism.Domain.Entities.Researcher.Researcher", "Recorder")
+                        .WithMany("DocumentedAllergyIntolerances")
+                        .HasForeignKey("RecordedBy")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Bioteca.Prism.Domain.Entities.Volunteer.Volunteer", "Volunteer")
+                        .WithMany("AllergyIntolerances")
+                        .HasForeignKey("VolunteerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("AllergyIntolerance");
+
+                    b.Navigation("Recorder");
+
+                    b.Navigation("Volunteer");
+                });
+
+            modelBuilder.Entity("Bioteca.Prism.Domain.Entities.Volunteer.VolunteerClinicalCondition", b =>
+                {
+                    b.HasOne("Bioteca.Prism.Domain.Entities.Researcher.Researcher", "Recorder")
+                        .WithMany("RecordedClinicalConditions")
+                        .HasForeignKey("RecordedBy")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Bioteca.Prism.Domain.Entities.Snomed.SnomedSeverityCode", "Severity")
+                        .WithMany("ClinicalConditions")
+                        .HasForeignKey("SeverityCode")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Bioteca.Prism.Domain.Entities.Clinical.ClinicalCondition", "ClinicalCondition")
+                        .WithMany("VolunteerClinicalConditions")
+                        .HasForeignKey("SnomedCode")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Bioteca.Prism.Domain.Entities.Volunteer.Volunteer", "Volunteer")
+                        .WithMany("ClinicalConditions")
+                        .HasForeignKey("VolunteerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ClinicalCondition");
+
+                    b.Navigation("Recorder");
+
+                    b.Navigation("Severity");
+
+                    b.Navigation("Volunteer");
+                });
+
+            modelBuilder.Entity("Bioteca.Prism.Domain.Entities.Volunteer.VolunteerClinicalEvent", b =>
+                {
+                    b.HasOne("Bioteca.Prism.Domain.Entities.Record.RecordSession", "RecordSession")
+                        .WithMany("ClinicalEvents")
+                        .HasForeignKey("RecordSessionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Bioteca.Prism.Domain.Entities.Researcher.Researcher", "Recorder")
+                        .WithMany("RecordedClinicalEvents")
+                        .HasForeignKey("RecordedBy")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Bioteca.Prism.Domain.Entities.Snomed.SnomedSeverityCode", "Severity")
+                        .WithMany("ClinicalEvents")
+                        .HasForeignKey("SeverityCode")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Bioteca.Prism.Domain.Entities.Clinical.ClinicalEvent", "ClinicalEvent")
+                        .WithMany("VolunteerClinicalEvents")
+                        .HasForeignKey("SnomedCode")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Bioteca.Prism.Domain.Entities.Record.TargetArea", "TargetArea")
+                        .WithMany()
+                        .HasForeignKey("TargetAreaId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Bioteca.Prism.Domain.Entities.Volunteer.VolunteerClinicalCondition", null)
+                        .WithMany("ClinicalEvents")
+                        .HasForeignKey("VolunteerClinicalConditionId");
+
+                    b.HasOne("Bioteca.Prism.Domain.Entities.Volunteer.Volunteer", "Volunteer")
+                        .WithMany("ClinicalEvents")
+                        .HasForeignKey("VolunteerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ClinicalEvent");
+
+                    b.Navigation("RecordSession");
+
+                    b.Navigation("Recorder");
+
+                    b.Navigation("Severity");
+
+                    b.Navigation("TargetArea");
+
+                    b.Navigation("Volunteer");
+                });
+
+            modelBuilder.Entity("Bioteca.Prism.Domain.Entities.Volunteer.VolunteerMedication", b =>
+                {
+                    b.HasOne("Bioteca.Prism.Domain.Entities.Volunteer.VolunteerClinicalCondition", "Condition")
+                        .WithMany("Medications")
+                        .HasForeignKey("ConditionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Bioteca.Prism.Domain.Entities.Clinical.Medication", "Medication")
+                        .WithMany("VolunteerMedications")
+                        .HasForeignKey("MedicationSnomedCode")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Bioteca.Prism.Domain.Entities.Researcher.Researcher", "Recorder")
+                        .WithMany("PrescribedMedications")
+                        .HasForeignKey("RecordedBy")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Bioteca.Prism.Domain.Entities.Volunteer.Volunteer", "Volunteer")
+                        .WithMany("Medications")
+                        .HasForeignKey("VolunteerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Condition");
+
+                    b.Navigation("Medication");
+
+                    b.Navigation("Recorder");
+
+                    b.Navigation("Volunteer");
+                });
+
             modelBuilder.Entity("Bioteca.Prism.Domain.Entities.Application.Application", b =>
                 {
                     b.Navigation("ResearchApplications");
+                });
+
+            modelBuilder.Entity("Bioteca.Prism.Domain.Entities.Clinical.AllergyIntolerance", b =>
+                {
+                    b.Navigation("VolunteerAllergyIntolerances");
+                });
+
+            modelBuilder.Entity("Bioteca.Prism.Domain.Entities.Clinical.ClinicalCondition", b =>
+                {
+                    b.Navigation("VolunteerClinicalConditions");
+                });
+
+            modelBuilder.Entity("Bioteca.Prism.Domain.Entities.Clinical.ClinicalEvent", b =>
+                {
+                    b.Navigation("VolunteerClinicalEvents");
+                });
+
+            modelBuilder.Entity("Bioteca.Prism.Domain.Entities.Clinical.Medication", b =>
+                {
+                    b.Navigation("VolunteerMedications");
                 });
 
             modelBuilder.Entity("Bioteca.Prism.Domain.Entities.Device.Device", b =>
@@ -1271,7 +2127,11 @@ namespace Bioteca.Prism.Data.Migrations
 
             modelBuilder.Entity("Bioteca.Prism.Domain.Entities.Record.RecordSession", b =>
                 {
+                    b.Navigation("ClinicalEvents");
+
                     b.Navigation("Records");
+
+                    b.Navigation("VitalSigns");
                 });
 
             modelBuilder.Entity("Bioteca.Prism.Domain.Entities.Research.Research", b =>
@@ -1289,6 +2149,16 @@ namespace Bioteca.Prism.Data.Migrations
 
             modelBuilder.Entity("Bioteca.Prism.Domain.Entities.Researcher.Researcher", b =>
                 {
+                    b.Navigation("DocumentedAllergyIntolerances");
+
+                    b.Navigation("MeasuredVitalSigns");
+
+                    b.Navigation("PrescribedMedications");
+
+                    b.Navigation("RecordedClinicalConditions");
+
+                    b.Navigation("RecordedClinicalEvents");
+
                     b.Navigation("ResearchResearchers");
                 });
 
@@ -1316,6 +2186,13 @@ namespace Bioteca.Prism.Data.Migrations
                     b.Navigation("TargetAreas");
                 });
 
+            modelBuilder.Entity("Bioteca.Prism.Domain.Entities.Snomed.SnomedSeverityCode", b =>
+                {
+                    b.Navigation("ClinicalConditions");
+
+                    b.Navigation("ClinicalEvents");
+                });
+
             modelBuilder.Entity("Bioteca.Prism.Domain.Entities.Snomed.SnomedTopographicalModifier", b =>
                 {
                     b.Navigation("TargetAreas");
@@ -1323,9 +2200,26 @@ namespace Bioteca.Prism.Data.Migrations
 
             modelBuilder.Entity("Bioteca.Prism.Domain.Entities.Volunteer.Volunteer", b =>
                 {
+                    b.Navigation("AllergyIntolerances");
+
+                    b.Navigation("ClinicalConditions");
+
+                    b.Navigation("ClinicalEvents");
+
+                    b.Navigation("Medications");
+
                     b.Navigation("RecordSessions");
 
                     b.Navigation("ResearchVolunteers");
+
+                    b.Navigation("VitalSigns");
+                });
+
+            modelBuilder.Entity("Bioteca.Prism.Domain.Entities.Volunteer.VolunteerClinicalCondition", b =>
+                {
+                    b.Navigation("ClinicalEvents");
+
+                    b.Navigation("Medications");
                 });
 #pragma warning restore 612, 618
         }

@@ -1,3 +1,4 @@
+using Bioteca.Prism.Data.Interfaces.Node;
 using Bioteca.Prism.Data.Persistence.Contexts;
 using Bioteca.Prism.Domain.Entities.Node;
 using Bioteca.Prism.Domain.Responses.Node;

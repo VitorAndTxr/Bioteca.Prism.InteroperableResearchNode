@@ -1,12 +1,14 @@
-using Bioteca.Prism.Data.Repositories.Snomed;
+using Bioteca.Prism.Core.Service;
+using Bioteca.Prism.Data.Interfaces.Snomed;
 using Bioteca.Prism.Domain.Entities.Snomed;
+using Bioteca.Prism.Service.Interfaces.Snomed;
 
 namespace Bioteca.Prism.Service.Services.Snomed;
 
 /// <summary>
 /// Service implementation for SNOMED CT body region code operations
 /// </summary>
-public class SnomedBodyRegionService : Service<SnomedBodyRegion, string>, ISnomedBodyRegionService
+public class SnomedBodyRegionService : BaseService<SnomedBodyRegion, string>, ISnomedBodyRegionService
 {
     private readonly ISnomedBodyRegionRepository _snomedBodyRegionRepository;
 

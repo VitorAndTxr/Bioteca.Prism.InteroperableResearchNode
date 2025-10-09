@@ -1,4 +1,5 @@
 using Bioteca.Prism.Domain.Entities.Application;
+using Bioteca.Prism.Domain.Entities.Clinical;
 using Bioteca.Prism.Domain.Entities.Device;
 using Bioteca.Prism.Domain.Entities.Node;
 using Bioteca.Prism.Domain.Entities.Record;
@@ -103,6 +104,58 @@ public class PrismDbContext : DbContext
     /// SNOMED CT body structure codes
     /// </summary>
     public DbSet<SnomedBodyStructure> SnomedBodyStructures => Set<SnomedBodyStructure>();
+
+    /// <summary>
+    /// SNOMED CT severity codes
+    /// </summary>
+    public DbSet<SnomedSeverityCode> SnomedSeverityCodes => Set<SnomedSeverityCode>();
+
+    // Clinical catalog entities
+    /// <summary>
+    /// Clinical condition catalog
+    /// </summary>
+    public DbSet<ClinicalCondition> ClinicalConditions => Set<ClinicalCondition>();
+
+    /// <summary>
+    /// Clinical event catalog
+    /// </summary>
+    public DbSet<ClinicalEvent> ClinicalEvents => Set<ClinicalEvent>();
+
+    /// <summary>
+    /// Medication catalog
+    /// </summary>
+    public DbSet<Medication> Medications => Set<Medication>();
+
+    /// <summary>
+    /// Allergy/intolerance catalog
+    /// </summary>
+    public DbSet<AllergyIntolerance> AllergyIntolerances => Set<AllergyIntolerance>();
+
+    // Volunteer clinical data entities
+    /// <summary>
+    /// Volunteer vital signs measurements
+    /// </summary>
+    public DbSet<VitalSigns> VitalSigns => Set<VitalSigns>();
+
+    /// <summary>
+    /// Volunteer allergies and intolerances
+    /// </summary>
+    public DbSet<VolunteerAllergyIntolerance> VolunteerAllergyIntolerances => Set<VolunteerAllergyIntolerance>();
+
+    /// <summary>
+    /// Volunteer medications
+    /// </summary>
+    public DbSet<VolunteerMedication> VolunteerMedications => Set<VolunteerMedication>();
+
+    /// <summary>
+    /// Volunteer clinical conditions
+    /// </summary>
+    public DbSet<VolunteerClinicalCondition> VolunteerClinicalConditions => Set<VolunteerClinicalCondition>();
+
+    /// <summary>
+    /// Volunteer clinical events
+    /// </summary>
+    public DbSet<VolunteerClinicalEvent> VolunteerClinicalEvents => Set<VolunteerClinicalEvent>();
 
     // Join tables
     /// <summary>

@@ -1,11 +1,13 @@
-using Bioteca.Prism.Data.Repositories.Research;
+using Bioteca.Prism.Core.Service;
+using Bioteca.Prism.Data.Interfaces.Research;
+using Bioteca.Prism.Service.Interfaces.Research;
 
 namespace Bioteca.Prism.Service.Services.Research;
 
 /// <summary>
 /// Service implementation for research project operations
 /// </summary>
-public class ResearchService : Service<Domain.Entities.Research.Research, Guid>, IResearchService
+public class ResearchService : BaseService<Domain.Entities.Research.Research, Guid>, IResearchService
 {
     private readonly IResearchRepository _researchRepository;
 

@@ -1,3 +1,5 @@
+using Bioteca.Prism.Core.Database;
+using Bioteca.Prism.Data.Interfaces.Record;
 using Bioteca.Prism.Data.Persistence.Contexts;
 using Bioteca.Prism.Domain.Entities.Record;
 using Microsoft.EntityFrameworkCore;
@@ -7,7 +9,7 @@ namespace Bioteca.Prism.Data.Repositories.Record;
 /// <summary>
 /// Repository implementation for target area persistence operations
 /// </summary>
-public class TargetAreaRepository : Repository<TargetArea, Guid>, ITargetAreaRepository
+public class TargetAreaRepository : BaseRepository<TargetArea, Guid>, ITargetAreaRepository
 {
     public TargetAreaRepository(PrismDbContext context) : base(context)
     {

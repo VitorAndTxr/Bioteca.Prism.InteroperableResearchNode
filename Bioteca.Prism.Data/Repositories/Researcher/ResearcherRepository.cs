@@ -1,3 +1,5 @@
+using Bioteca.Prism.Core.Database;
+using Bioteca.Prism.Data.Interfaces.Researcher;
 using Bioteca.Prism.Data.Persistence.Contexts;
 using Microsoft.EntityFrameworkCore;
 
@@ -6,7 +8,7 @@ namespace Bioteca.Prism.Data.Repositories.Researcher;
 /// <summary>
 /// Repository implementation for researcher persistence operations
 /// </summary>
-public class ResearcherRepository : Repository<Domain.Entities.Researcher.Researcher, Guid>, IResearcherRepository
+public class ResearcherRepository : BaseRepository<Domain.Entities.Researcher.Researcher, Guid>, IResearcherRepository
 {
     public ResearcherRepository(PrismDbContext context) : base(context)
     {

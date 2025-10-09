@@ -1,11 +1,13 @@
-using Bioteca.Prism.Data.Repositories.Device;
+using Bioteca.Prism.Core.Service;
+using Bioteca.Prism.Data.Interfaces.Device;
+using Bioteca.Prism.Service.Interfaces.Device;
 
 namespace Bioteca.Prism.Service.Services.Device;
 
 /// <summary>
 /// Service implementation for device operations
 /// </summary>
-public class DeviceService : Service<Domain.Entities.Device.Device, Guid>, IDeviceService
+public class DeviceService : BaseService<Domain.Entities.Device.Device, Guid>, IDeviceService
 {
     private readonly IDeviceRepository _deviceRepository;
 

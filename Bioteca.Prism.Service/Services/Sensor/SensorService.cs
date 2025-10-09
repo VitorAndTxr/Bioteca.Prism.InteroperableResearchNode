@@ -1,11 +1,13 @@
-using Bioteca.Prism.Data.Repositories.Sensor;
+using Bioteca.Prism.Core.Service;
+using Bioteca.Prism.Data.Interfaces.Sensor;
+using Bioteca.Prism.Service.Interfaces.Sensor;
 
 namespace Bioteca.Prism.Service.Services.Sensor;
 
 /// <summary>
 /// Service implementation for sensor operations
 /// </summary>
-public class SensorService : Service<Domain.Entities.Sensor.Sensor, Guid>, ISensorService
+public class SensorService : BaseService<Domain.Entities.Sensor.Sensor, Guid>, ISensorService
 {
     private readonly ISensorRepository _sensorRepository;
 

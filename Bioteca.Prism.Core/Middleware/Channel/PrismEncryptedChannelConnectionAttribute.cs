@@ -1,5 +1,5 @@
-﻿using Bioteca.Prism.Core.Middleware.Node;
-using Bioteca.Prism.Core.Security.Cryptography.Interfaces;
+﻿using Bioteca.Prism.Core.Interfaces;
+using Bioteca.Prism.Core.Middleware.Node;
 using Bioteca.Prism.Domain.Errors.Node;
 using Bioteca.Prism.Domain.Requests.Node;
 using Microsoft.AspNetCore.Http;
@@ -51,7 +51,7 @@ namespace Bioteca.Prism.Core.Middleware.Channel
 
 
             var encryptionService = context.HttpContext.RequestServices.GetRequiredService<IChannelEncryptionService>();
-            var nodeRegistryService = context.HttpContext.RequestServices.GetRequiredService<INodeRegistryService>();
+            var nodeRegistryService = context.HttpContext.RequestServices.GetRequiredService<IResearchNodeService>();
 
             // Read the body
             string body;

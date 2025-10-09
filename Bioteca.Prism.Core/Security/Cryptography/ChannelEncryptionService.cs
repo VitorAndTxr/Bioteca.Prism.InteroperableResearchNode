@@ -1,4 +1,4 @@
-using Bioteca.Prism.Core.Security.Cryptography.Interfaces;
+using Bioteca.Prism.Core.Interfaces;
 using Microsoft.Extensions.Logging;
 using System.Security.Cryptography;
 using System.Text;

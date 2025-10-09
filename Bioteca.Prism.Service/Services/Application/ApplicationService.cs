@@ -1,11 +1,13 @@
-using Bioteca.Prism.Data.Repositories.Application;
+using Bioteca.Prism.Core.Service;
+using Bioteca.Prism.Data.Interfaces.Application;
+using Bioteca.Prism.Service.Interfaces.Application;
 
 namespace Bioteca.Prism.Service.Services.Application;
 
 /// <summary>
 /// Service implementation for application operations
 /// </summary>
-public class ApplicationService : Service<Domain.Entities.Application.Application, Guid>, IApplicationService
+public class ApplicationService : BaseService<Domain.Entities.Application.Application, Guid>, IApplicationService
 {
     private readonly IApplicationRepository _applicationRepository;
 

@@ -1,7 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
+using Bioteca.Prism.Core.Interfaces;
 using Bioteca.Prism.Core.Security.Certificate;
-using Bioteca.Prism.Core.Security.Cryptography.Interfaces;
 using Bioteca.Prism.Domain.Enumerators.Node;
 using Bioteca.Prism.Domain.Requests.Node;
 using Bioteca.Prism.Domain.Responses.Node;

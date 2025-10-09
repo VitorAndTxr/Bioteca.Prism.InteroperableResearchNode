@@ -73,7 +73,7 @@ Bioteca.Prism.Core/            # Core layer (middleware, attributes)
 Bioteca.Prism.Data/            # Data layer (PostgreSQL persistence)
 ├── Persistence/
 │   ├── Contexts/PrismDbContext.cs       # EF Core DbContext
-│   └── Configurations/                  # EF Core entity configurations (18 entities)
+│   └── Configurations/                  # EF Core entity configurations (28 entities)
 │       ├── ResearchNodeConfiguration.cs
 │       ├── ResearchConfiguration.cs
 │       ├── VolunteerConfiguration.cs
@@ -89,6 +89,16 @@ Bioteca.Prism.Data/            # Data layer (PostgreSQL persistence)
 │       ├── SnomedTopographicalModifierConfiguration.cs
 │       ├── SnomedBodyRegionConfiguration.cs
 │       ├── SnomedBodyStructureConfiguration.cs
+│       ├── SnomedSeverityCodeConfiguration.cs
+│       ├── ClinicalConditionConfiguration.cs
+│       ├── ClinicalEventConfiguration.cs
+│       ├── MedicationConfiguration.cs
+│       ├── AllergyIntoleranceConfiguration.cs
+│       ├── VitalSignsConfiguration.cs
+│       ├── VolunteerAllergyIntoleranceConfiguration.cs
+│       ├── VolunteerMedicationConfiguration.cs
+│       ├── VolunteerClinicalConditionConfiguration.cs
+│       ├── VolunteerClinicalEventConfiguration.cs
 │       ├── ResearchApplicationConfiguration.cs
 │       ├── ResearchDeviceConfiguration.cs
 │       ├── ResearchVolunteerConfiguration.cs
@@ -562,7 +572,7 @@ postgres-node-b:
 - **Connection Resiliency**: 3 retries with 5-second delay
 - **Design-Time Factory**: `PrismDbContextFactory` for migrations
 
-**Database Schema** (18 main tables):
+**Database Schema** (28 main tables):
 
 1. **`research_nodes`** - Node registry
 ```sql
@@ -765,7 +775,169 @@ CREATE TABLE snomed_body_structures (
 );
 ```
 
-16-19. **Join Tables** - Many-to-many relationships
+16. **`snomed_severity_codes`** - SNOMED CT severity classifications
+```sql
+CREATE TABLE snomed_severity_codes (
+    code text PRIMARY KEY,
+    display_name text NOT NULL,
+    description text NOT NULL,
+    is_active boolean NOT NULL,
+    created_at timestamptz NOT NULL,
+    updated_at timestamptz NOT NULL
+);
+```
+
+17. **`clinical_conditions`** - Clinical condition catalog
+```sql
+CREATE TABLE clinical_conditions (
+    snomed_code text PRIMARY KEY,
+    display_name text NOT NULL,
+    description text NOT NULL,
+    is_active boolean NOT NULL,
+    created_at timestamptz NOT NULL,
+    updated_at timestamptz NOT NULL
+);
+```
+
+18. **`clinical_events`** - Clinical event catalog
+```sql
+CREATE TABLE clinical_events (
+    snomed_code text PRIMARY KEY,
+    display_name text NOT NULL,
+    description text NOT NULL,
+    is_active boolean NOT NULL,
+    created_at timestamptz NOT NULL,
+    updated_at timestamptz NOT NULL
+);
+```
+
+19. **`medications`** - Medication catalog with ANVISA codes
+```sql
+CREATE TABLE medications (
+    snomed_code text PRIMARY KEY,
+    medication_name text NOT NULL,
+    active_ingredient text NOT NULL,
+    anvisa_code text NOT NULL,
+    is_active boolean NOT NULL,
+    created_at timestamptz NOT NULL,
+    updated_at timestamptz NOT NULL
+);
+```
+
+20. **`allergy_intolerances`** - Allergy/intolerance catalog
+```sql
+CREATE TABLE allergy_intolerances (
+    snomed_code text PRIMARY KEY,
+    category text NOT NULL,
+    substance_name text NOT NULL,
+    type text NOT NULL,
+    is_active boolean NOT NULL,
+    created_at timestamptz NOT NULL,
+    updated_at timestamptz NOT NULL
+);
+```
+
+21. **`vital_signs`** - Volunteer vital signs measurements
+```sql
+CREATE TABLE vital_signs (
+    id uuid PRIMARY KEY,
+    volunteer_id uuid REFERENCES volunteers(volunteer_id) ON DELETE CASCADE,
+    record_session_id uuid REFERENCES record_sessions(id) ON DELETE CASCADE,
+    systolic_bp real,
+    diastolic_bp real,
+    heart_rate real,
+    respiratory_rate real,
+    temperature real,
+    oxygen_saturation real,
+    weight real,
+    height real,
+    bmi real,
+    measurement_datetime timestamptz NOT NULL,
+    measurement_context text NOT NULL,
+    recorded_by uuid REFERENCES researchers(id) ON DELETE RESTRICT,
+    created_at timestamptz NOT NULL,
+    updated_at timestamptz NOT NULL
+);
+```
+
+22. **`volunteer_allergy_intolerances`** - Volunteer-specific allergies
+```sql
+CREATE TABLE volunteer_allergy_intolerances (
+    id uuid PRIMARY KEY,
+    volunteer_id uuid REFERENCES volunteers(volunteer_id) ON DELETE CASCADE,
+    allergy_intolerance_snomed_code text REFERENCES allergy_intolerances(snomed_code) ON DELETE RESTRICT,
+    criticality text NOT NULL,
+    clinical_status text NOT NULL,
+    manifestations jsonb NOT NULL,
+    onset_date timestamptz,
+    last_occurrence timestamptz,
+    verification_status text NOT NULL,
+    recorded_by uuid REFERENCES researchers(id) ON DELETE RESTRICT,
+    created_at timestamptz NOT NULL,
+    updated_at timestamptz NOT NULL
+);
+```
+
+23. **`volunteer_medications`** - Volunteer medications
+```sql
+CREATE TABLE volunteer_medications (
+    id uuid PRIMARY KEY,
+    volunteer_id uuid REFERENCES volunteers(volunteer_id) ON DELETE CASCADE,
+    medication_snomed_code text REFERENCES medications(snomed_code) ON DELETE RESTRICT,
+    condition_id uuid REFERENCES volunteer_clinical_conditions(id) ON DELETE RESTRICT,
+    dosage text NOT NULL,
+    frequency text NOT NULL,
+    route text NOT NULL,
+    start_date timestamptz NOT NULL,
+    end_date timestamptz,
+    status text NOT NULL,
+    notes text NOT NULL,
+    recorded_by uuid REFERENCES researchers(id) ON DELETE RESTRICT,
+    created_at timestamptz NOT NULL,
+    updated_at timestamptz NOT NULL
+);
+```
+
+24. **`volunteer_clinical_conditions`** - Volunteer diagnoses
+```sql
+CREATE TABLE volunteer_clinical_conditions (
+    id uuid PRIMARY KEY,
+    volunteer_id uuid REFERENCES volunteers(volunteer_id) ON DELETE CASCADE,
+    snomed_code text REFERENCES clinical_conditions(snomed_code) ON DELETE RESTRICT,
+    clinical_status text NOT NULL,
+    onset_date timestamptz,
+    abatement_date timestamptz,
+    severity_code text REFERENCES snomed_severity_codes(code) ON DELETE RESTRICT,
+    verification_status text NOT NULL,
+    clinical_notes text NOT NULL,
+    recorded_by uuid REFERENCES researchers(id) ON DELETE RESTRICT,
+    created_at timestamptz NOT NULL,
+    updated_at timestamptz NOT NULL
+);
+```
+
+25. **`volunteer_clinical_events`** - Volunteer clinical events
+```sql
+CREATE TABLE volunteer_clinical_events (
+    id uuid PRIMARY KEY,
+    volunteer_id uuid REFERENCES volunteers(volunteer_id) ON DELETE CASCADE,
+    event_type text NOT NULL,
+    snomed_code text REFERENCES clinical_events(snomed_code) ON DELETE RESTRICT,
+    event_datetime timestamptz NOT NULL,
+    duration_minutes integer,
+    severity_code text REFERENCES snomed_severity_codes(code) ON DELETE RESTRICT,
+    numeric_value real,
+    value_unit text,
+    characteristics jsonb NOT NULL,
+    target_area_id uuid REFERENCES target_areas(id) ON DELETE RESTRICT,
+    record_session_id uuid REFERENCES record_sessions(id) ON DELETE RESTRICT,
+    recorded_by uuid REFERENCES researchers(id) ON DELETE RESTRICT,
+    created_at timestamptz NOT NULL,
+    updated_at timestamptz NOT NULL
+);
+```
+
+26-29. **Join Tables** - Many-to-many relationships
 ```sql
 CREATE TABLE research_application (
     research_id uuid REFERENCES research(id) ON DELETE CASCADE,

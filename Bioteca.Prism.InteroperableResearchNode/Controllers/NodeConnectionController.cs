@@ -1,7 +1,6 @@
-﻿using Bioteca.Prism.Core.Middleware.Channel;
+﻿using Bioteca.Prism.Core.Interfaces;
+using Bioteca.Prism.Core.Middleware.Channel;
 using Bioteca.Prism.Core.Middleware.Node;
-using Bioteca.Prism.Core.Security.Certificate;
-using Bioteca.Prism.Core.Security.Cryptography.Interfaces;
 using Bioteca.Prism.Domain.Errors.Node;
 using Bioteca.Prism.Domain.Requests.Node;
 using Bioteca.Prism.Domain.Responses.Node;
@@ -18,7 +17,7 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
         private readonly IChannelEncryptionService _encryptionService;
         private readonly IConfiguration _configuration;
         private readonly INodeChannelClient _channelClient;
-        private readonly INodeRegistryService _nodeRegistry;
+        private readonly IResearchNodeService _nodeRegistry;
         private readonly IChannelStore _channelStore;
         private readonly IChallengeService _challengeService;
 
@@ -28,7 +27,7 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
             IChannelEncryptionService encryptionService,
             IConfiguration configuration,
             INodeChannelClient channelClient,
-            INodeRegistryService nodeRegistry,
+            IResearchNodeService nodeRegistry,
             IChannelStore channelStore,
             IChallengeService challengeService)
         {

@@ -49,4 +49,8 @@ public class RecordSession
     public Research.Research Research { get; set; } = null!;
     public Volunteer.Volunteer Volunteer { get; set; } = null!;
     public ICollection<Record> Records { get; set; } = new List<Record>();
+
+    // Clinical data captured during session
+    public ICollection<Volunteer.VolunteerClinicalEvent> ClinicalEvents { get; set; } = new List<Volunteer.VolunteerClinicalEvent>();
+    public ICollection<Volunteer.VitalSigns> VitalSigns { get; set; } = new List<Volunteer.VitalSigns>();
 }

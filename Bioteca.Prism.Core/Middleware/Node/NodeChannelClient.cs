@@ -5,9 +5,9 @@ using System.Net.Http.Json;
 using Bioteca.Prism.Domain.Requests.Node;
 using Bioteca.Prism.Domain.Errors.Node;
 using Bioteca.Prism.Domain.Responses.Node;
-using Bioteca.Prism.Core.Security.Cryptography.Interfaces;
 using Bioteca.Prism.Core.Middleware.Channel;
 using System.Net.Http;
+using Bioteca.Prism.Core.Interfaces;
 
 namespace Bioteca.Prism.Core.Middleware.Node;
 

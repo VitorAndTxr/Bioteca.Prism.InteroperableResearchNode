@@ -1,5 +1,5 @@
 using System.Net;
-using Bioteca.Prism.Core.Security.Cryptography.Interfaces;
+using Bioteca.Prism.Core.Interfaces;
 using Bioteca.Prism.Domain.Requests.Node;
 using Bioteca.Prism.Domain.Responses.Node;
 using FluentAssertions;

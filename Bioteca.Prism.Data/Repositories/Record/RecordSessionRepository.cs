@@ -1,3 +1,5 @@
+using Bioteca.Prism.Core.Database;
+using Bioteca.Prism.Data.Interfaces.Record;
 using Bioteca.Prism.Data.Persistence.Contexts;
 using Bioteca.Prism.Domain.Entities.Record;
 using Microsoft.EntityFrameworkCore;
@@ -7,7 +9,7 @@ namespace Bioteca.Prism.Data.Repositories.Record;
 /// <summary>
 /// Repository implementation for record session persistence operations
 /// </summary>
-public class RecordSessionRepository : Repository<RecordSession, Guid>, IRecordSessionRepository
+public class RecordSessionRepository : BaseRepository<RecordSession, Guid>, IRecordSessionRepository
 {
     public RecordSessionRepository(PrismDbContext context) : base(context)
     {

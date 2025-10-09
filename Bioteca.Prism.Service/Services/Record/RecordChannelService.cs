@@ -1,12 +1,14 @@
-using Bioteca.Prism.Data.Repositories.Record;
+using Bioteca.Prism.Core.Service;
+using Bioteca.Prism.Data.Interfaces.Record;
 using Bioteca.Prism.Domain.Entities.Record;
+using Bioteca.Prism.Service.Interfaces.Record;
 
 namespace Bioteca.Prism.Service.Services.Record;
 
 /// <summary>
 /// Service implementation for record channel operations
 /// </summary>
-public class RecordChannelService : Service<RecordChannel, Guid>, IRecordChannelService
+public class RecordChannelService : BaseService<RecordChannel, Guid>, IRecordChannelService
 {
     private readonly IRecordChannelRepository _recordChannelRepository;
 

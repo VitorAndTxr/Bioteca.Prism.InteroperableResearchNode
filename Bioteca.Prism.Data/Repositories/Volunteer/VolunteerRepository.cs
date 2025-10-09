@@ -1,3 +1,5 @@
+using Bioteca.Prism.Core.Database;
+using Bioteca.Prism.Data.Interfaces.Volunteer;
 using Bioteca.Prism.Data.Persistence.Contexts;
 using Microsoft.EntityFrameworkCore;
 
@@ -6,7 +8,7 @@ namespace Bioteca.Prism.Data.Repositories.Volunteer;
 /// <summary>
 /// Repository implementation for volunteer persistence operations
 /// </summary>
-public class VolunteerRepository : Repository<Domain.Entities.Volunteer.Volunteer, Guid>, IVolunteerRepository
+public class VolunteerRepository : BaseRepository<Domain.Entities.Volunteer.Volunteer, Guid>, IVolunteerRepository
 {
     public VolunteerRepository(PrismDbContext context) : base(context)
     {

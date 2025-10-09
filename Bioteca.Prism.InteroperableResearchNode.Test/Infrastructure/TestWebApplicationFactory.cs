@@ -1,4 +1,5 @@
 using Bioteca.Prism.Core.Middleware.Node;
+using Bioteca.Prism.Data.Interfaces.Node;
 using Bioteca.Prism.Data.Persistence.Contexts;
 using Bioteca.Prism.Data.Repositories.Node;
 using Bioteca.Prism.Service.Services.Node;
@@ -80,8 +81,8 @@ public class TestWebApplicationFactory : WebApplicationFactory<Program>
 
                 // Remove PostgreSQL node registry service if registered
                 var nodeRegistryDescriptor = services.SingleOrDefault(
-                    d => d.ServiceType == typeof(INodeRegistryService) &&
-                         d.ImplementationType == typeof(PostgreSqlNodeRegistryService));
+                    d => d.ServiceType == typeof(IResearchNodeService) &&
+                         d.ImplementationType == typeof(ResearchNodeService));
 
                 if (nodeRegistryDescriptor != null)
                 {
@@ -128,14 +129,14 @@ public class TestWebApplicationFactory : WebApplicationFactory<Program>
 
                 // Ensure PostgreSQL node registry service is registered
                 var nodeRegistryDescriptor = services.SingleOrDefault(
-                    d => d.ServiceType == typeof(INodeRegistryService));
+                    d => d.ServiceType == typeof(IResearchNodeService));
 
                 if (nodeRegistryDescriptor != null)
                 {
                     services.Remove(nodeRegistryDescriptor);
                 }
 
-                services.AddScoped<INodeRegistryService, PostgreSqlNodeRegistryService>();
+                services.AddScoped<IResearchNodeService, ResearchNodeService>();
             }
         });
     }

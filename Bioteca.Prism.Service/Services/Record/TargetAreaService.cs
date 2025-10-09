@@ -1,12 +1,14 @@
-using Bioteca.Prism.Data.Repositories.Record;
+using Bioteca.Prism.Core.Service;
+using Bioteca.Prism.Data.Interfaces.Record;
 using Bioteca.Prism.Domain.Entities.Record;
+using Bioteca.Prism.Service.Interfaces.Record;
 
 namespace Bioteca.Prism.Service.Services.Record;
 
 /// <summary>
 /// Service implementation for target area operations
 /// </summary>
-public class TargetAreaService : Service<TargetArea, Guid>, ITargetAreaService
+public class TargetAreaService : BaseService<TargetArea, Guid>, ITargetAreaService
 {
     private readonly ITargetAreaRepository _targetAreaRepository;
 

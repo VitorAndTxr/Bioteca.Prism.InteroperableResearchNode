@@ -1,12 +1,14 @@
-using Bioteca.Prism.Data.Repositories.Snomed;
+using Bioteca.Prism.Core.Service;
+using Bioteca.Prism.Data.Interfaces.Snomed;
 using Bioteca.Prism.Domain.Entities.Snomed;
+using Bioteca.Prism.Service.Interfaces.Snomed;
 
 namespace Bioteca.Prism.Service.Services.Snomed;
 
 /// <summary>
 /// Service implementation for SNOMED CT laterality code operations
 /// </summary>
-public class SnomedLateralityService : Service<SnomedLaterality, string>, ISnomedLateralityService
+public class SnomedLateralityService : BaseService<SnomedLaterality, string>, ISnomedLateralityService
 {
     private readonly ISnomedLateralityRepository _snomedLateralityRepository;
 

@@ -1,13 +1,20 @@
 using Bioteca.Prism.Core.Cache;
 using Bioteca.Prism.Core.Cache.Session;
+using Bioteca.Prism.Core.Interfaces;
 using Bioteca.Prism.Core.Middleware.Channel;
 using Bioteca.Prism.Core.Middleware.Node;
 using Bioteca.Prism.Core.Middleware.Session;
 using Bioteca.Prism.Core.Security.Cryptography;
-using Bioteca.Prism.Core.Security.Cryptography.Interfaces;
-using Bioteca.Prism.Data.Cache.Channel;
+using Bioteca.Prism.Data.Interfaces.Application;
+using Bioteca.Prism.Data.Interfaces.Device;
+using Bioteca.Prism.Data.Interfaces.Node;
+using Bioteca.Prism.Data.Interfaces.Record;
+using Bioteca.Prism.Data.Interfaces.Research;
+using Bioteca.Prism.Data.Interfaces.Researcher;
+using Bioteca.Prism.Data.Interfaces.Sensor;
+using Bioteca.Prism.Data.Interfaces.Snomed;
+using Bioteca.Prism.Data.Interfaces.Volunteer;
 using Bioteca.Prism.Data.Persistence.Contexts;
-using Bioteca.Prism.Data.Repositories;
 using Bioteca.Prism.Data.Repositories.Application;
 using Bioteca.Prism.Data.Repositories.Device;
 using Bioteca.Prism.Data.Repositories.Node;
@@ -17,6 +24,14 @@ using Bioteca.Prism.Data.Repositories.Researcher;
 using Bioteca.Prism.Data.Repositories.Sensor;
 using Bioteca.Prism.Data.Repositories.Snomed;
 using Bioteca.Prism.Data.Repositories.Volunteer;
+using Bioteca.Prism.Service.Interfaces.Application;
+using Bioteca.Prism.Service.Interfaces.Device;
+using Bioteca.Prism.Service.Interfaces.Record;
+using Bioteca.Prism.Service.Interfaces.Research;
+using Bioteca.Prism.Service.Interfaces.Researcher;
+using Bioteca.Prism.Service.Interfaces.Sensor;
+using Bioteca.Prism.Service.Interfaces.Snomed;
+using Bioteca.Prism.Service.Interfaces.Volunteer;
 using Bioteca.Prism.Service.Services.Cache;
 using Bioteca.Prism.Service.Services.Node;
 using Bioteca.Prism.Service.Services.Session;
@@ -53,74 +68,66 @@ builder.Services.AddHttpClient(string.Empty, client =>
 
 builder.Services.AddSingleton<INodeChannelClient, NodeChannelClient>();
 
-// Register PostgreSQL infrastructure (conditionally)
-var usePostgreSqlForNodes = builder.Configuration.GetValue<bool>("FeatureFlags:UsePostgreSqlForNodes");
 
-if (usePostgreSqlForNodes)
-{
-    // Register DbContext with PostgreSQL
-    var connectionString = builder.Configuration.GetConnectionString("PrismDatabase");
-    builder.Services.AddDbContext<PrismDbContext>(options =>
-        options.UseNpgsql(connectionString, npgsqlOptions =>
-        {
-            npgsqlOptions.EnableRetryOnFailure(
-                maxRetryCount: 3,
-                maxRetryDelay: TimeSpan.FromSeconds(5),
-                errorCodesToAdd: null);
-        }));
+// Register DbContext with PostgreSQL
+var connectionString = builder.Configuration.GetConnectionString("PrismDatabase");
+builder.Services.AddDbContext<PrismDbContext>(options =>
+    options.UseNpgsql(connectionString, npgsqlOptions =>
+    {
+        npgsqlOptions.EnableRetryOnFailure(
+            maxRetryCount: 3,
+            maxRetryDelay: TimeSpan.FromSeconds(5),
+            errorCodesToAdd: null);
+    }));
 
-    // Register repositories
-    builder.Services.AddScoped<INodeRepository, NodeRepository>();
+// Register repositories
+builder.Services.AddScoped<INodeRepository, NodeRepository>();
 
-    // Research data repositories
-    builder.Services.AddScoped<IResearchRepository, ResearchRepository>();
-    builder.Services.AddScoped<IVolunteerRepository, VolunteerRepository>();
-    builder.Services.AddScoped<IResearcherRepository, ResearcherRepository>();
-    builder.Services.AddScoped<IApplicationRepository, ApplicationRepository>();
-    builder.Services.AddScoped<IDeviceRepository, DeviceRepository>();
-    builder.Services.AddScoped<ISensorRepository, SensorRepository>();
+// Research data repositories
+builder.Services.AddScoped<IResearchRepository, ResearchRepository>();
+builder.Services.AddScoped<IVolunteerRepository, VolunteerRepository>();
+builder.Services.AddScoped<IResearcherRepository, ResearcherRepository>();
+builder.Services.AddScoped<IApplicationRepository, ApplicationRepository>();
+builder.Services.AddScoped<IDeviceRepository, DeviceRepository>();
+builder.Services.AddScoped<ISensorRepository, SensorRepository>();
 
-    // Record repositories
-    builder.Services.AddScoped<IRecordSessionRepository, RecordSessionRepository>();
-    builder.Services.AddScoped<IRecordRepository, RecordRepository>();
-    builder.Services.AddScoped<IRecordChannelRepository, RecordChannelRepository>();
-    builder.Services.AddScoped<ITargetAreaRepository, TargetAreaRepository>();
+// Record repositories
+builder.Services.AddScoped<IRecordSessionRepository, RecordSessionRepository>();
+builder.Services.AddScoped<IRecordRepository, RecordRepository>();
+builder.Services.AddScoped<IRecordChannelRepository, RecordChannelRepository>();
+builder.Services.AddScoped<ITargetAreaRepository, TargetAreaRepository>();
 
-    // SNOMED CT repositories
-    builder.Services.AddScoped<ISnomedLateralityRepository, SnomedLateralityRepository>();
-    builder.Services.AddScoped<ISnomedTopographicalModifierRepository, SnomedTopographicalModifierRepository>();
-    builder.Services.AddScoped<ISnomedBodyRegionRepository, SnomedBodyRegionRepository>();
-    builder.Services.AddScoped<ISnomedBodyStructureRepository, SnomedBodyStructureRepository>();
+// SNOMED CT repositories
+builder.Services.AddScoped<ISnomedLateralityRepository, SnomedLateralityRepository>();
+builder.Services.AddScoped<ISnomedTopographicalModifierRepository, SnomedTopographicalModifierRepository>();
+builder.Services.AddScoped<ISnomedBodyRegionRepository, SnomedBodyRegionRepository>();
+builder.Services.AddScoped<ISnomedBodyStructureRepository, SnomedBodyStructureRepository>();
 
-    // Register services (business logic layer)
-    // Research data services
-    builder.Services.AddScoped<Bioteca.Prism.Service.Services.Research.IResearchService, Bioteca.Prism.Service.Services.Research.ResearchService>();
-    builder.Services.AddScoped<Bioteca.Prism.Service.Services.Volunteer.IVolunteerService, Bioteca.Prism.Service.Services.Volunteer.VolunteerService>();
-    builder.Services.AddScoped<Bioteca.Prism.Service.Services.Researcher.IResearcherService, Bioteca.Prism.Service.Services.Researcher.ResearcherService>();
-    builder.Services.AddScoped<Bioteca.Prism.Service.Services.Application.IApplicationService, Bioteca.Prism.Service.Services.Application.ApplicationService>();
-    builder.Services.AddScoped<Bioteca.Prism.Service.Services.Device.IDeviceService, Bioteca.Prism.Service.Services.Device.DeviceService>();
-    builder.Services.AddScoped<Bioteca.Prism.Service.Services.Sensor.ISensorService, Bioteca.Prism.Service.Services.Sensor.SensorService>();
+// Register services (business logic layer)
+// Research data services
+builder.Services.AddScoped<IResearchService, Bioteca.Prism.Service.Services.Research.ResearchService>();
+builder.Services.AddScoped<IVolunteerService, Bioteca.Prism.Service.Services.Volunteer.VolunteerService>();
+builder.Services.AddScoped<IResearcherService, Bioteca.Prism.Service.Services.Researcher.ResearcherService>();
+builder.Services.AddScoped<IApplicationService, Bioteca.Prism.Service.Services.Application.ApplicationService>();
+builder.Services.AddScoped<IDeviceService, Bioteca.Prism.Service.Services.Device.DeviceService>();
+builder.Services.AddScoped<ISensorService, Bioteca.Prism.Service.Services.Sensor.SensorService>();
 
-    // Record services
-    builder.Services.AddScoped<Bioteca.Prism.Service.Services.Record.IRecordSessionService, Bioteca.Prism.Service.Services.Record.RecordSessionService>();
-    builder.Services.AddScoped<Bioteca.Prism.Service.Services.Record.IRecordService, Bioteca.Prism.Service.Services.Record.RecordService>();
-    builder.Services.AddScoped<Bioteca.Prism.Service.Services.Record.IRecordChannelService, Bioteca.Prism.Service.Services.Record.RecordChannelService>();
-    builder.Services.AddScoped<Bioteca.Prism.Service.Services.Record.ITargetAreaService, Bioteca.Prism.Service.Services.Record.TargetAreaService>();
+// Record services
+builder.Services.AddScoped<IRecordSessionService, Bioteca.Prism.Service.Services.Record.RecordSessionService>();
+builder.Services.AddScoped<IRecordService, Bioteca.Prism.Service.Services.Record.RecordService>();
+builder.Services.AddScoped<IRecordChannelService, Bioteca.Prism.Service.Services.Record.RecordChannelService>();
+builder.Services.AddScoped<ITargetAreaService, Bioteca.Prism.Service.Services.Record.TargetAreaService>();
 
-    // SNOMED CT services
-    builder.Services.AddScoped<Bioteca.Prism.Service.Services.Snomed.ISnomedLateralityService, Bioteca.Prism.Service.Services.Snomed.SnomedLateralityService>();
-    builder.Services.AddScoped<Bioteca.Prism.Service.Services.Snomed.ISnomedTopographicalModifierService, Bioteca.Prism.Service.Services.Snomed.SnomedTopographicalModifierService>();
-    builder.Services.AddScoped<Bioteca.Prism.Service.Services.Snomed.ISnomedBodyRegionService, Bioteca.Prism.Service.Services.Snomed.SnomedBodyRegionService>();
-    builder.Services.AddScoped<Bioteca.Prism.Service.Services.Snomed.ISnomedBodyStructureService, Bioteca.Prism.Service.Services.Snomed.SnomedBodyStructureService>();
+// SNOMED CT services
+builder.Services.AddScoped<ISnomedLateralityService, Bioteca.Prism.Service.Services.Snomed.SnomedLateralityService>();
+builder.Services.AddScoped<ISnomedTopographicalModifierService, Bioteca.Prism.Service.Services.Snomed.SnomedTopographicalModifierService>();
+builder.Services.AddScoped<ISnomedBodyRegionService, Bioteca.Prism.Service.Services.Snomed.SnomedBodyRegionService>();
+builder.Services.AddScoped<ISnomedBodyStructureService, Bioteca.Prism.Service.Services.Snomed.SnomedBodyStructureService>();
 
-    // Register PostgreSQL-backed node registry service
-    builder.Services.AddScoped<Bioteca.Prism.Core.Middleware.Node.INodeRegistryService, PostgreSqlNodeRegistryService>();
-}
-else
-{
-    // Register in-memory node registry service (default)
-    builder.Services.AddSingleton<Bioteca.Prism.Core.Middleware.Node.INodeRegistryService, NodeRegistryService>();
-}
+// Register PostgreSQL-backed node registry service
+builder.Services.AddScoped<IResearchNodeService, ResearchNodeService>();
+
+
 
 // Register Phase 3 services (Mutual Authentication)
 builder.Services.AddSingleton<IChallengeService, ChallengeService>();
@@ -129,52 +136,30 @@ builder.Services.AddSingleton<IChallengeService, ChallengeService>();
 var useRedisForSessions = builder.Configuration.GetValue<bool>("FeatureFlags:UseRedisForSessions");
 var useRedisForChannels = builder.Configuration.GetValue<bool>("FeatureFlags:UseRedisForChannels");
 
-if (useRedisForSessions || useRedisForChannels)
-{
-    // Redis connection service (shared between sessions and channels)
-    builder.Services.AddSingleton<IRedisConnectionService, RedisConnectionService>();
-}
 
-// Register Channel Store (Phase 1)
-if (useRedisForChannels)
-{
-    builder.Services.AddSingleton<IChannelStore, RedisChannelStore>();
-}
-else
-{
-    builder.Services.AddSingleton<IChannelStore, ChannelStore>(); // In-memory (default)
-}
+builder.Services.AddSingleton<IRedisConnectionService, RedisConnectionService>();
 
-// Register Session Store (Phase 4)
-if (useRedisForSessions)
-{
-    builder.Services.AddSingleton<ISessionStore, RedisSessionStore>();
-}
-else
-{
-    builder.Services.AddSingleton<ISessionStore, InMemorySessionStore>(); // In-memory (default)
-}
 
-// Register Phase 4 services (Session Management)
+
+builder.Services.AddSingleton<IChannelStore, RedisChannelStore>();
+builder.Services.AddSingleton<ISessionStore, RedisSessionStore>();
 builder.Services.AddSingleton<ISessionService, SessionService>();
 
 var app = builder.Build();
 
 // Apply database migrations on startup (if using PostgreSQL)
-if (usePostgreSqlForNodes)
+
+using (var scope = app.Services.CreateScope())
 {
-    using (var scope = app.Services.CreateScope())
+    var dbContext = scope.ServiceProvider.GetRequiredService<PrismDbContext>();
+    try
     {
-        var dbContext = scope.ServiceProvider.GetRequiredService<PrismDbContext>();
-        try
-        {
-            dbContext.Database.Migrate();
-            app.Logger.LogInformation("Database migrations applied successfully");
-        }
-        catch (Exception ex)
-        {
-            app.Logger.LogError(ex, "Error applying database migrations");
-        }
+        dbContext.Database.Migrate();
+        app.Logger.LogInformation("Database migrations applied successfully");
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogError(ex, "Error applying database migrations");
     }
 }
 

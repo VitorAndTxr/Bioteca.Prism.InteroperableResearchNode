@@ -1,3 +1,5 @@
+using Bioteca.Prism.Core.Database;
+using Bioteca.Prism.Data.Interfaces.Device;
 using Bioteca.Prism.Data.Persistence.Contexts;
 using Microsoft.EntityFrameworkCore;
 
@@ -6,7 +8,7 @@ namespace Bioteca.Prism.Data.Repositories.Device;
 /// <summary>
 /// Repository implementation for device persistence operations
 /// </summary>
-public class DeviceRepository : Repository<Domain.Entities.Device.Device, Guid>, IDeviceRepository
+public class DeviceRepository : BaseRepository<Domain.Entities.Device.Device, Guid>, IDeviceRepository
 {
     public DeviceRepository(PrismDbContext context) : base(context)
     {

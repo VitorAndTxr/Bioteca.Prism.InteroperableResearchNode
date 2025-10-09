@@ -1,3 +1,5 @@
+using Bioteca.Prism.Core.Database;
+using Bioteca.Prism.Data.Interfaces.Snomed;
 using Bioteca.Prism.Data.Persistence.Contexts;
 using Bioteca.Prism.Domain.Entities.Snomed;
 using Microsoft.EntityFrameworkCore;
@@ -7,7 +9,7 @@ namespace Bioteca.Prism.Data.Repositories.Snomed;
 /// <summary>
 /// Repository implementation for SNOMED CT laterality codes
 /// </summary>
-public class SnomedLateralityRepository : Repository<SnomedLaterality, string>, ISnomedLateralityRepository
+public class SnomedLateralityRepository : BaseRepository<SnomedLaterality, string>, ISnomedLateralityRepository
 {
     public SnomedLateralityRepository(PrismDbContext context) : base(context)
     {
@@ -24,7 +26,7 @@ public class SnomedLateralityRepository : Repository<SnomedLaterality, string>, 
 /// <summary>
 /// Repository implementation for SNOMED CT topographical modifier codes
 /// </summary>
-public class SnomedTopographicalModifierRepository : Repository<SnomedTopographicalModifier, string>, ISnomedTopographicalModifierRepository
+public class SnomedTopographicalModifierRepository : BaseRepository<SnomedTopographicalModifier, string>, ISnomedTopographicalModifierRepository
 {
     public SnomedTopographicalModifierRepository(PrismDbContext context) : base(context)
     {
@@ -48,7 +50,7 @@ public class SnomedTopographicalModifierRepository : Repository<SnomedTopographi
 /// <summary>
 /// Repository implementation for SNOMED CT body region codes
 /// </summary>
-public class SnomedBodyRegionRepository : Repository<SnomedBodyRegion, string>, ISnomedBodyRegionRepository
+public class SnomedBodyRegionRepository : BaseRepository<SnomedBodyRegion, string>, ISnomedBodyRegionRepository
 {
     public SnomedBodyRegionRepository(PrismDbContext context) : base(context)
     {
@@ -79,7 +81,7 @@ public class SnomedBodyRegionRepository : Repository<SnomedBodyRegion, string>, 
 /// <summary>
 /// Repository implementation for SNOMED CT body structure codes
 /// </summary>
-public class SnomedBodyStructureRepository : Repository<SnomedBodyStructure, string>, ISnomedBodyStructureRepository
+public class SnomedBodyStructureRepository : BaseRepository<SnomedBodyStructure, string>, ISnomedBodyStructureRepository
 {
     public SnomedBodyStructureRepository(PrismDbContext context) : base(context)
     {

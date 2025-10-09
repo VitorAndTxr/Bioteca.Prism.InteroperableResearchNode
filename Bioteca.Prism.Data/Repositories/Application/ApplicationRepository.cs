@@ -1,3 +1,5 @@
+using Bioteca.Prism.Core.Database;
+using Bioteca.Prism.Data.Interfaces.Application;
 using Bioteca.Prism.Data.Persistence.Contexts;
 using Microsoft.EntityFrameworkCore;
 
@@ -6,7 +8,7 @@ namespace Bioteca.Prism.Data.Repositories.Application;
 /// <summary>
 /// Repository implementation for application persistence operations
 /// </summary>
-public class ApplicationRepository : Repository<Domain.Entities.Application.Application, Guid>, IApplicationRepository
+public class ApplicationRepository : BaseRepository<Domain.Entities.Application.Application, Guid>, IApplicationRepository
 {
     public ApplicationRepository(PrismDbContext context) : base(context)
     {

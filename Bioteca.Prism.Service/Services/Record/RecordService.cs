@@ -1,11 +1,13 @@
-using Bioteca.Prism.Data.Repositories.Record;
+using Bioteca.Prism.Core.Service;
+using Bioteca.Prism.Data.Interfaces.Record;
+using Bioteca.Prism.Service.Interfaces.Record;
 
 namespace Bioteca.Prism.Service.Services.Record;
 
 /// <summary>
 /// Service implementation for record operations
 /// </summary>
-public class RecordService : Service<Domain.Entities.Record.Record, Guid>, IRecordService
+public class RecordService : BaseService<Domain.Entities.Record.Record, Guid>, IRecordService
 {
     private readonly IRecordRepository _recordRepository;
 

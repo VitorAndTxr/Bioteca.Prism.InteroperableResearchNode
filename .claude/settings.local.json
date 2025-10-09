@@ -1,22 +1,7 @@
 {
   "permissions": {
     "allow": [
-      "Bash(curl:*)",
-      "Bash(docker logs:*)",
-      "Bash(docker exec:*)",
-      "Bash(docker-compose:*)",
-      "Bash(timeout 10 bash -c 'until docker logs irn-node-a 2>&1 | grep -q \"\"\"\"Now listening on\"\"\"\"; do sleep 1; done')",
-      "Bash(python:*)",
-      "Bash(dotnet test:*)",
-      "Bash(ConvertFrom-Json)",
-      "Bash(ConvertTo-Json -Depth 10)",
-      "Bash(python3:*)",
-      "Bash(Select-String -Pattern \"Error Message|Stack Trace|Failed|at Bioteca\" -Context 0,3)",
-      "Bash(dotnet build:*)",
-      "Bash(for file in *.md)",
-      "Bash(do echo \"=== $file ===\")",
-      "Bash(head:*)",
-      "Bash(done)"
+      "Bash(dotnet build:*)"
     ],
     "deny": [],
     "ask": []
