@@ -103,6 +103,19 @@ builder.Services.AddScoped<ISnomedTopographicalModifierRepository, SnomedTopogra
 builder.Services.AddScoped<ISnomedBodyRegionRepository, SnomedBodyRegionRepository>();
 builder.Services.AddScoped<ISnomedBodyStructureRepository, SnomedBodyStructureRepository>();
 
+// Clinical catalog repositories (using BaseRepository)
+builder.Services.AddScoped<IBaseRepository<Bioteca.Prism.Domain.Entities.Clinical.ClinicalCondition, string>, Bioteca.Prism.Core.Database.BaseRepository<Bioteca.Prism.Domain.Entities.Clinical.ClinicalCondition, string>>();
+builder.Services.AddScoped<IBaseRepository<Bioteca.Prism.Domain.Entities.Clinical.ClinicalEvent, string>, Bioteca.Prism.Core.Database.BaseRepository<Bioteca.Prism.Domain.Entities.Clinical.ClinicalEvent, string>>();
+builder.Services.AddScoped<IBaseRepository<Bioteca.Prism.Domain.Entities.Clinical.Medication, string>, Bioteca.Prism.Core.Database.BaseRepository<Bioteca.Prism.Domain.Entities.Clinical.Medication, string>>();
+builder.Services.AddScoped<IBaseRepository<Bioteca.Prism.Domain.Entities.Clinical.AllergyIntolerance, string>, Bioteca.Prism.Core.Database.BaseRepository<Bioteca.Prism.Domain.Entities.Clinical.AllergyIntolerance, string>>();
+
+// Volunteer clinical data repositories (using BaseRepository)
+builder.Services.AddScoped<IBaseRepository<Bioteca.Prism.Domain.Entities.Volunteer.VitalSigns, Guid>, Bioteca.Prism.Core.Database.BaseRepository<Bioteca.Prism.Domain.Entities.Volunteer.VitalSigns, Guid>>();
+builder.Services.AddScoped<IBaseRepository<Bioteca.Prism.Domain.Entities.Volunteer.VolunteerClinicalCondition, Guid>, Bioteca.Prism.Core.Database.BaseRepository<Bioteca.Prism.Domain.Entities.Volunteer.VolunteerClinicalCondition, Guid>>();
+builder.Services.AddScoped<IBaseRepository<Bioteca.Prism.Domain.Entities.Volunteer.VolunteerClinicalEvent, Guid>, Bioteca.Prism.Core.Database.BaseRepository<Bioteca.Prism.Domain.Entities.Volunteer.VolunteerClinicalEvent, Guid>>();
+builder.Services.AddScoped<IBaseRepository<Bioteca.Prism.Domain.Entities.Volunteer.VolunteerMedication, Guid>, Bioteca.Prism.Core.Database.BaseRepository<Bioteca.Prism.Domain.Entities.Volunteer.VolunteerMedication, Guid>>();
+builder.Services.AddScoped<IBaseRepository<Bioteca.Prism.Domain.Entities.Volunteer.VolunteerAllergyIntolerance, Guid>, Bioteca.Prism.Core.Database.BaseRepository<Bioteca.Prism.Domain.Entities.Volunteer.VolunteerAllergyIntolerance, Guid>>();
+
 // Register services (business logic layer)
 // Research data services
 builder.Services.AddScoped<IResearchService, Bioteca.Prism.Service.Services.Research.ResearchService>();
@@ -123,6 +136,14 @@ builder.Services.AddScoped<ISnomedLateralityService, Bioteca.Prism.Service.Servi
 builder.Services.AddScoped<ISnomedTopographicalModifierService, Bioteca.Prism.Service.Services.Snomed.SnomedTopographicalModifierService>();
 builder.Services.AddScoped<ISnomedBodyRegionService, Bioteca.Prism.Service.Services.Snomed.SnomedBodyRegionService>();
 builder.Services.AddScoped<ISnomedBodyStructureService, Bioteca.Prism.Service.Services.Snomed.SnomedBodyStructureService>();
+
+// Clinical services
+builder.Services.AddScoped<Bioteca.Prism.Service.Interfaces.Clinical.IClinicalConditionService, Bioteca.Prism.Service.Services.Clinical.ClinicalConditionService>();
+builder.Services.AddScoped<Bioteca.Prism.Service.Interfaces.Clinical.IClinicalEventService, Bioteca.Prism.Service.Services.Clinical.ClinicalEventService>();
+builder.Services.AddScoped<Bioteca.Prism.Service.Interfaces.Clinical.IMedicationService, Bioteca.Prism.Service.Services.Clinical.MedicationService>();
+builder.Services.AddScoped<Bioteca.Prism.Service.Interfaces.Clinical.IAllergyIntoleranceService, Bioteca.Prism.Service.Services.Clinical.AllergyIntoleranceService>();
+builder.Services.AddScoped<Bioteca.Prism.Service.Interfaces.Clinical.IVitalSignsService, Bioteca.Prism.Service.Services.Clinical.VitalSignsService>();
+builder.Services.AddScoped<Bioteca.Prism.Service.Interfaces.Clinical.IVolunteerClinicalService, Bioteca.Prism.Service.Services.Clinical.VolunteerClinicalService>();
 
 // Register PostgreSQL-backed node registry service
 builder.Services.AddScoped<IResearchNodeService, ResearchNodeService>();

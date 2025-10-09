@@ -47,32 +47,57 @@ English documentation ensures:
 
 **Interoperable Research Node (IRN)** - Core component of the PRISM framework for federated biomedical research data. Enables secure, standardized communication between research nodes using cryptographic handshakes, node authentication, and federated queries.
 
-**Current Status**: Phase 4 Complete + Redis Persistence + PostgreSQL Node Registry + Guid-Based Identifiers (Encrypted Channel + Node Identification + Mutual Authentication + Session Management + Persistent Node Registry)
+**Current Status**: Phase 4 Complete + Redis Persistence + PostgreSQL Persistence + Generic Repository Pattern + Complete Service Layer Architecture (Encrypted Channel + Node Identification + Mutual Authentication + Session Management + Clinical Data Model)
 
 ## Architecture
 
-### Project Structure (Clean Architecture)
+### Project Structure (Clean Architecture + Generic Base Pattern)
 
 ```
-Bioteca.Prism.Domain/          # Domain layer (entities, DTOs)
-├── Entities/Node/             # Domain entities
-│   └── ResearchNode.cs        # Node entity with Guid Id (primary key)
-├── Requests/Node/             # Request DTOs (use string NodeId for protocol)
-├── Responses/Node/            # Response DTOs (include both NodeId and RegistrationId)
-└── Errors/Node/               # Error models
+Bioteca.Prism.Domain/          # Domain layer (entities, DTOs, enums)
+├── Entities/                  # Domain entities organized by context
+│   ├── Node/                  # Node management entities
+│   ├── Research/              # Research project entities
+│   ├── Volunteer/             # Volunteer/participant entities
+│   ├── Researcher/            # Researcher entities
+│   ├── Application/           # Data collection applications
+│   ├── Device/                # Hardware devices
+│   ├── Sensor/                # Device sensors
+│   ├── Record/                # Data recording sessions
+│   ├── Clinical/              # Clinical catalogs (conditions, events, medications, allergies)
+│   ├── Snomed/                # SNOMED CT terminologies
+│   └── Session/               # Session management
+├── Requests/                  # Request DTOs
+├── Responses/                 # Response DTOs
+├── Enumerators/               # Domain enums
+├── Errors/                    # Error models
+└── Payloads/                  # Encrypted payload models
 
-Bioteca.Prism.Core/            # Core layer (middleware, attributes)
-├── Middleware/Channel/        # Channel validation attributes
-│   ├── PrismChannelConnectionAttribute.cs        # Channel validation (commented out)
-│   ├── PrismEncryptedChannelConnectionAttribute.cs  # Encrypted payload handling
-│   ├── ChannelContext.cs      # Channel state
-│   └── IChannelStore.cs       # Channel storage interface
-├── Middleware/Node/           # Node-specific middleware
-└── Security/                  # Security utilities
+Bioteca.Prism.Core/            # Core layer (interfaces, base implementations)
+├── Interfaces/                # Core interfaces
+│   ├── IBaseRepository<TEntity, TKey>    # Generic repository interface
+│   ├── IServiceBase<TEntity, TKey>       # Generic service interface
+│   ├── IChannelEncryptionService
+│   └── IEphemeralKeyService
+├── Database/                  # Database base implementations
+│   ├── Context/               # Base DbContext configurations
+│   └── Repositories/          # Generic BaseRepository<TEntity, TKey>
+├── Service/                   # Generic BaseService<TEntity, TKey>
+├── Middleware/                # Request processing middleware
+│   ├── Channel/               # Channel validation and encryption
+│   ├── Node/                  # Node identification and authentication
+│   └── Session/               # Session management
+├── Security/                  # Security utilities
+│   ├── Certificate/           # X.509 certificate helpers
+│   └── Cryptography/          # ECDH, AES-GCM, HKDF implementations
+└── Cache/                     # Cache interfaces
+    └── Session/               # Session store interfaces
 
-Bioteca.Prism.Data/            # Data layer (PostgreSQL persistence)
+Bioteca.Prism.Data/            # Data layer (PostgreSQL + Redis persistence)
 ├── Persistence/
-│   ├── Contexts/PrismDbContext.cs       # EF Core DbContext
+│   ├── Contexts/
+│   │   ├── PrismDbContext.cs            # EF Core DbContext
+│   │   └── PrismDbContextFactory.cs     # Design-time factory for migrations
 │   └── Configurations/                  # EF Core entity configurations (28 entities)
 │       ├── ResearchNodeConfiguration.cs
 │       ├── ResearchConfiguration.cs
@@ -103,63 +128,89 @@ Bioteca.Prism.Data/            # Data layer (PostgreSQL persistence)
 │       ├── ResearchDeviceConfiguration.cs
 │       ├── ResearchVolunteerConfiguration.cs
 │       └── ResearchResearcherConfiguration.cs
-├── Repositories/                        # Repository pattern (base + specialized)
-│   ├── IRepository.cs                   # Generic repository interface
-│   ├── Repository.cs                    # Generic repository implementation
-│   ├── Node/
-│   │   ├── INodeRepository.cs           # Node repository interface (Guid-based)
-│   │   └── NodeRepository.cs            # PostgreSQL node repository
-│   ├── Research/
-│   │   ├── IResearchRepository.cs
-│   │   └── ResearchRepository.cs
-│   ├── Volunteer/
-│   │   ├── IVolunteerRepository.cs
-│   │   └── VolunteerRepository.cs
-│   ├── Researcher/
-│   │   ├── IResearcherRepository.cs
-│   │   └── ResearcherRepository.cs
-│   ├── Application/
-│   │   ├── IApplicationRepository.cs
-│   │   └── ApplicationRepository.cs
-│   ├── Device/
-│   │   ├── IDeviceRepository.cs
-│   │   └── DeviceRepository.cs
-│   ├── Sensor/
-│   │   ├── ISensorRepository.cs
-│   │   └── SensorRepository.cs
-│   ├── Record/
+├── Interfaces/                          # Repository interfaces by domain
+│   ├── Node/INodeRepository.cs
+│   ├── Research/IResearchRepository.cs
+│   ├── Volunteer/IVolunteerRepository.cs
+│   ├── Researcher/IResearcherRepository.cs
+│   ├── Application/IApplicationRepository.cs
+│   ├── Device/IDeviceRepository.cs
+│   ├── Sensor/ISensorRepository.cs
+│   ├── Record/                          # Record-related repositories
 │   │   ├── IRecordSessionRepository.cs
-│   │   ├── RecordSessionRepository.cs
 │   │   ├── IRecordRepository.cs
-│   │   ├── RecordRepository.cs
 │   │   ├── IRecordChannelRepository.cs
+│   │   └── ITargetAreaRepository.cs
+│   └── Snomed/ISnomedRepository.cs
+├── Repositories/                        # Repository implementations by domain
+│   ├── Node/NodeRepository.cs           # Extends BaseRepository<ResearchNode, Guid>
+│   ├── Research/ResearchRepository.cs   # Extends BaseRepository<Research, Guid>
+│   ├── Volunteer/VolunteerRepository.cs # Extends BaseRepository<Volunteer, Guid>
+│   ├── Researcher/ResearcherRepository.cs
+│   ├── Application/ApplicationRepository.cs
+│   ├── Device/DeviceRepository.cs
+│   ├── Sensor/SensorRepository.cs
+│   ├── Record/                          # Record repositories
+│   │   ├── RecordSessionRepository.cs
+│   │   ├── RecordRepository.cs
 │   │   ├── RecordChannelRepository.cs
-│   │   ├── ITargetAreaRepository.cs
 │   │   └── TargetAreaRepository.cs
-│   └── Snomed/
-│       ├── ISnomedLateralityRepository.cs
-│       ├── ISnomedTopographicalModifierRepository.cs
-│       ├── ISnomedBodyRegionRepository.cs
-│       ├── ISnomedBodyStructureRepository.cs
-│       └── SnomedRepository.cs          # All 4 implementations in one file
+│   └── Snomed/SnomedRepository.cs       # All SNOMED implementations
 ├── Migrations/                          # EF Core migrations
+│   └── 20251008152728_CompleteSchema.cs # Current migration (28 tables)
 └── Cache/
-    └── Channel/RedisChannelStore.cs     # Redis channel persistence
+    └── Channel/
+        └── ChannelStore.cs              # In-memory channel storage (fallback)
 
 Bioteca.Prism.Service/         # Service layer (business logic)
-├── Services/Node/             # Node-specific services
-│   ├── NodeChannelClient.cs             # HTTP client for handshake
-│   ├── NodeRegistryService.cs           # Node registry (in-memory fallback)
-│   ├── PostgreSqlNodeRegistryService.cs # PostgreSQL-backed node registry
-│   ├── ChallengeService.cs              # Challenge-response authentication
-│   └── CertificateHelper.cs             # X.509 utilities
-├── Services/Session/          # Session management services
-│   └── SessionService.cs                # Session lifecycle (Phase 4)
-└── Services/Cache/            # Cache persistence services
-    ├── RedisConnectionService.cs        # Redis connection management
-    ├── RedisSessionStore.cs             # Redis session persistence
-    ├── InMemorySessionStore.cs          # In-memory session fallback
-    └── RedisChannelStore.cs             # Redis channel persistence
+├── Interfaces/                # Service interfaces by domain
+│   ├── Application/IApplicationService.cs
+│   ├── Clinical/              # Clinical service interfaces
+│   │   ├── IClinicalConditionService.cs
+│   │   ├── IClinicalEventService.cs
+│   │   ├── IMedicationService.cs
+│   │   ├── IAllergyIntoleranceService.cs
+│   │   ├── IVitalSignsService.cs
+│   │   └── IVolunteerClinicalService.cs
+│   ├── Device/IDeviceService.cs
+│   ├── Node/                  # Node-specific service interfaces
+│   ├── Record/                # Record service interfaces
+│   ├── Research/IResearchService.cs
+│   ├── Researcher/IResearcherService.cs
+│   ├── Sensor/ISensorService.cs
+│   ├── Snomed/ISnomedService.cs
+│   └── Volunteer/IVolunteerService.cs
+├── Services/                  # Service implementations by domain
+│   ├── Application/ApplicationService.cs     # Extends BaseService<Application, Guid>
+│   ├── Clinical/              # Clinical services
+│   │   ├── ClinicalConditionService.cs       # Extends BaseService<ClinicalCondition, string>
+│   │   ├── ClinicalEventService.cs           # Extends BaseService<ClinicalEvent, string>
+│   │   ├── MedicationService.cs              # Extends BaseService<Medication, string>
+│   │   ├── AllergyIntoleranceService.cs      # Extends BaseService<AllergyIntolerance, string>
+│   │   ├── VitalSignsService.cs              # Extends BaseService<VitalSigns, Guid>
+│   │   └── VolunteerClinicalService.cs       # Aggregate service (no base class)
+│   ├── Device/DeviceService.cs               # Extends BaseService<Device, Guid>
+│   ├── Node/                  # Node-specific services
+│   │   ├── NodeChannelClient.cs              # HTTP client for handshake
+│   │   ├── NodeRegistryService.cs            # Node registry (in-memory fallback)
+│   │   ├── PostgreSqlNodeRegistryService.cs  # PostgreSQL-backed node registry
+│   │   └── ChallengeService.cs               # Challenge-response authentication
+│   ├── Record/                # Record services
+│   │   ├── RecordSessionService.cs
+│   │   ├── RecordService.cs
+│   │   ├── RecordChannelService.cs
+│   │   └── TargetAreaService.cs
+│   ├── Research/ResearchService.cs           # Extends BaseService<Research, Guid>
+│   ├── Researcher/ResearcherService.cs       # Extends BaseService<Researcher, Guid>
+│   ├── Sensor/SensorService.cs               # Extends BaseService<Sensor, Guid>
+│   ├── Snomed/SnomedService.cs               # SNOMED terminology service
+│   ├── Volunteer/VolunteerService.cs         # Extends BaseService<Volunteer, Guid>
+│   ├── Session/SessionService.cs             # Session lifecycle (Phase 4)
+│   └── Cache/                 # Cache persistence services
+│       ├── RedisConnectionService.cs         # Redis connection management
+│       ├── RedisSessionStore.cs              # Redis session persistence
+│       ├── InMemorySessionStore.cs           # In-memory session fallback
+│       └── RedisChannelStore.cs              # Redis channel persistence
 
 Bioteca.Prism.InteroperableResearchNode/  # API layer
 ├── Controllers/
@@ -171,6 +222,96 @@ Bioteca.Prism.InteroperableResearchNode/  # API layer
 │   └── PrismAuthenticatedSessionAttribute.cs  # Session validation filter
 └── Program.cs                  # DI container
 ```
+
+### Generic Base Pattern Architecture
+
+**Design Philosophy**: DRY principle with type-safe generic base classes for repositories and services.
+
+**Core Interfaces** (`Bioteca.Prism.Core/Interfaces/`):
+
+```csharp
+// Generic repository interface
+public interface IBaseRepository<TEntity, TKey> where TEntity : class
+{
+    Task<TEntity?> GetByIdAsync(TKey id, CancellationToken cancellationToken = default);
+    Task<List<TEntity>> GetAllAsync(CancellationToken cancellationToken = default);
+    Task<TEntity> AddAsync(TEntity entity, CancellationToken cancellationToken = default);
+    Task<TEntity> UpdateAsync(TEntity entity, CancellationToken cancellationToken = default);
+    Task<bool> DeleteAsync(TKey id, CancellationToken cancellationToken = default);
+    Task<bool> ExistsAsync(TKey id, CancellationToken cancellationToken = default);
+}
+
+// Generic service interface
+public interface IServiceBase<TEntity, TKey> where TEntity : class
+{
+    Task<TEntity?> GetByIdAsync(TKey id, CancellationToken cancellationToken = default);
+    Task<List<TEntity>> GetAllAsync(CancellationToken cancellationToken = default);
+    Task<TEntity> CreateAsync(TEntity entity, CancellationToken cancellationToken = default);
+    Task<TEntity> UpdateAsync(TEntity entity, CancellationToken cancellationToken = default);
+    Task<bool> DeleteAsync(TKey id, CancellationToken cancellationToken = default);
+    Task<bool> ExistsAsync(TKey id, CancellationToken cancellationToken = default);
+}
+```
+
+**Base Implementations**:
+
+```csharp
+// Bioteca.Prism.Core/Database/Repositories/BaseRepository.cs
+public class BaseRepository<TEntity, TKey> : IBaseRepository<TEntity, TKey> where TEntity : class
+{
+    protected readonly DbContext _context;
+    protected readonly DbSet<TEntity> _dbSet;
+    // ... implementation with EF Core
+}
+
+// Bioteca.Prism.Core/Service/BaseService.cs
+public class BaseService<TEntity, TKey> : IServiceBase<TEntity, TKey> where TEntity : class
+{
+    protected readonly IBaseRepository<TEntity, TKey> _repository;
+    // ... implementation delegating to repository
+}
+```
+
+**Domain-Specific Extensions**:
+
+```csharp
+// Example: Bioteca.Prism.Service/Interfaces/Volunteer/IVolunteerService.cs
+public interface IVolunteerService : IServiceBase<Volunteer, Guid>
+{
+    // Inherits all base CRUD methods
+
+    // Add domain-specific methods:
+    Task<List<Volunteer>> GetByNodeIdAsync(Guid nodeId, CancellationToken cancellationToken = default);
+    Task<Volunteer?> GetByVolunteerCodeAsync(string volunteerCode, CancellationToken cancellationToken = default);
+}
+
+// Bioteca.Prism.Service/Services/Volunteer/VolunteerService.cs
+public class VolunteerService : BaseService<Volunteer, Guid>, IVolunteerService
+{
+    private readonly IVolunteerRepository _volunteerRepository;
+
+    public VolunteerService(IVolunteerRepository repository) : base(repository)
+    {
+        _volunteerRepository = repository;
+    }
+
+    // Base methods inherited: GetByIdAsync, GetAllAsync, CreateAsync, UpdateAsync, DeleteAsync, ExistsAsync
+
+    // Domain-specific implementations:
+    public async Task<List<Volunteer>> GetByNodeIdAsync(Guid nodeId, CancellationToken cancellationToken = default)
+    {
+        return await _volunteerRepository.GetByNodeIdAsync(nodeId, cancellationToken);
+    }
+}
+```
+
+**Benefits**:
+- ✅ **Code Reusability**: Base CRUD operations implemented once
+- ✅ **Type Safety**: Generic constraints ensure proper usage
+- ✅ **Consistency**: All repositories/services follow same pattern
+- ✅ **Extensibility**: Easy to add domain-specific methods
+- ✅ **Maintainability**: Changes to base pattern affect all implementations
+- ✅ **Testability**: Mock base interfaces for unit testing
 
 ### Node Identifier Architecture (Dual-Identifier System)
 
@@ -311,9 +452,24 @@ Stateless application services:
 - Node B (port 5001) - Research Node instance B
 
 **Features**:
-- Connects to external `irn-network`
+- Connects to external `irn-network` (created by persistence layer)
+- Environment variables override appsettings.json for Docker networking
+- Connection strings use Docker service names (e.g., `irn-postgres-node-a`, `irn-redis-node-a`)
 - Safe to restart without data loss
 - Fast rebuild/restart cycles
+
+**Important Environment Variables** (in docker-compose.application.yml):
+```yaml
+environment:
+  - ASPNETCORE_ENVIRONMENT=NodeA
+  - ConnectionStrings__PrismDatabase=Host=irn-postgres-node-a;Port=5432;Database=prism_node_a_registry;Username=prism_user_a;Password=prism_secure_password_2025_a
+  - Redis__ConnectionString=irn-redis-node-a:6379,password=prism-redis-password-node-a,abortConnect=false
+```
+
+**Network Configuration**:
+- All containers MUST be on the same `irn-network` for service discovery
+- Use Docker service names for container-to-container communication
+- `localhost` only works for host-to-container communication on published ports
 
 ### Legacy File (`docker-compose.yml`)
 All services in one file for backward compatibility and quick local development.
@@ -1186,6 +1342,29 @@ public IActionResult ProtectedEndpoint()
 
 ## Known Issues & Warnings
 
+### ⚠️ Docker Network Issues (Resolved 2025-10-08)
+
+**Issue**: PostgreSQL connection fails with "Name or service not known" when running in Docker.
+
+**Root Cause**: PostgreSQL/Redis containers running on different Docker network than application containers.
+- Old network: `interoperableresearchnode_irn-network` (legacy docker-compose.yml)
+- New network: `irn-network` (persistence layer)
+
+**Solution**: Ensure all containers are on the same network:
+```bash
+# 1. Check container networks
+docker ps --format "table {{.Names}}\t{{.Networks}}"
+
+# 2. If networks don't match, restart persistence layer
+docker-compose -f docker-compose.persistence.yml down
+docker-compose -f docker-compose.persistence.yml up -d
+
+# 3. Restart application containers
+docker-compose -f docker-compose.application.yml restart
+```
+
+**Prevention**: Always use the separated compose files (persistence + application) instead of the legacy docker-compose.yml.
+
 ### ✅ All Test Issues Resolved (2025-10-03)
 
 All 61 tests are now passing (56 from Phases 1-2, 5 new from Phase 3). Previous issues have been fixed:
@@ -1216,68 +1395,113 @@ All 61 tests are now passing (56 from Phases 1-2, 5 new from Phase 3). Previous 
 
 ## Next Steps
 
-### ✅ Phase 4 Complete + Redis Persistence
+### ✅ Completed Features (October 2025)
 
-All 4 phases of the handshake protocol are now implemented with Redis persistence:
+**Phase 1-4 Handshake Protocol:**
 - ✅ **Phase 1**: Encrypted channel establishment (ECDH + AES-256-GCM) + Redis/In-Memory storage
 - ✅ **Phase 2**: Node identification and registration (X.509 certificates)
 - ✅ **Phase 3**: Challenge-response mutual authentication (RSA signatures)
 - ✅ **Phase 4**: Session management and access control (Bearer tokens + capabilities) + Redis/In-Memory storage
 
-**Phase 4 Features Implemented:**
-- ✅ `SessionService` - Session lifecycle management (create, validate, renew, revoke)
-- ✅ `PrismAuthenticatedSessionAttribute` - Bearer token validation middleware
-- ✅ `SessionController` - Session endpoints (whoami, renew, revoke, metrics)
-- ✅ Capability-based authorization (query:read, data:write, admin:node, etc.)
-- ✅ Rate limiting (60 requests/minute per session)
-- ✅ Session metrics and monitoring
-- ✅ End-to-end testing (`test-phase4.sh`)
+**Persistence Layer:**
+- ✅ **Redis Persistence**: Multi-instance architecture with automatic TTL (sessions + channels)
+- ✅ **PostgreSQL Persistence**: 28 tables with complete clinical data model
+- ✅ **Generic Repository Pattern**: `BaseRepository<TEntity, TKey>` with domain-specific extensions
+- ✅ **Complete Service Layer**: `BaseService<TEntity, TKey>` with domain-specific business logic
 
-**Redis Persistence Features Implemented:**
-- ✅ Multi-instance Redis architecture (one per node)
-- ✅ `RedisSessionStore` - Session persistence with automatic TTL
-- ✅ `RedisChannelStore` - Channel persistence with automatic TTL
-- ✅ `InMemorySessionStore` - Fallback implementation
-- ✅ Feature flags for conditional Redis usage
-- ✅ Comprehensive testing documentation
+**Clinical Data Model (October 8, 2025):**
+- ✅ **10 New Clinical Entities**: Conditions, Events, Medications, Allergies, Vital Signs
+- ✅ **SNOMED CT Integration**: Severity codes, clinical terminologies
+- ✅ **HL7 FHIR Alignment**: Clinical data following healthcare interoperability standards
+- ✅ **Complete Migration**: `CompleteSchema` migration with 28 tables (applied successfully)
+- ✅ **6 Clinical Services**: Full CRUD operations with domain-specific methods
+  - `ClinicalConditionService` - Active conditions, search by name
+  - `ClinicalEventService` - Active events, search by name
+  - `MedicationService` - ANVISA code lookup, search by name/ingredient
+  - `AllergyIntoleranceService` - Filter by category/type
+  - `VitalSignsService` - Volunteer/session/date range filtering
+  - `VolunteerClinicalService` - Aggregate service with clinical summary
 
-### Phase 5 (Next - Federated Queries)
+**Architecture Improvements:**
+- ✅ **Generic Base Pattern**: Reusable `IBaseRepository<TEntity, TKey>` and `IServiceBase<TEntity, TKey>`
+- ✅ **Domain-Driven Design**: Organized by business contexts (Node, Research, Volunteer, Clinical, etc.)
+- ✅ **Clean Architecture**: Separation of concerns (Domain → Core → Data → Service → API)
+- ✅ **Complete Service Layer**: All 28 entities have services registered in DI container
 
-**Implement federated query endpoints using Phase 4 session management:**
+### 🔧 Immediate Tasks (Current Sprint)
 
-1. **Query Endpoints**
-   - `POST /api/query/execute` - Execute federated query (requires `query:read`)
-   - `POST /api/query/aggregate` - Aggregate query across nodes (requires `query:aggregate`)
-   - `GET /api/query/{queryId}/status` - Get query status
-   - `GET /api/query/{queryId}/results` - Get query results
+**1. ✅ Fix Database Migration Issue (COMPLETED - October 8, 2025):**
+- ✅ ~~Cleaned PostgreSQL databases and reapplied CompleteSchema migration~~
+- ✅ ~~Verified all 28 tables created correctly~~
+- ✅ ~~Tested data persistence across container restarts~~
+- ✅ ~~Migration `20251008152728_CompleteSchema` applied successfully~~
+- ✅ ~~Applications running on ports 5000 (Node A) and 5001 (Node B)~~
 
-2. **Data Submission Endpoints**
-   - `POST /api/data/submit` - Submit research data (requires `data:write`)
-   - `GET /api/data/{dataId}` - Get data by ID (requires `query:read`)
-   - `DELETE /api/data/{dataId}` - Delete owned data (requires `data:delete`)
+**2. ✅ Complete Clinical Services (COMPLETED - October 8, 2025):**
+- ✅ ~~Create service interfaces for clinical entities~~
+  - ✅ `IClinicalConditionService` - Clinical condition catalog operations
+  - ✅ `IClinicalEventService` - Clinical event catalog operations
+  - ✅ `IMedicationService` - Medication catalog with ANVISA code lookup
+  - ✅ `IAllergyIntoleranceService` - Allergy/intolerance catalog by category/type
+  - ✅ `IVitalSignsService` - Vital signs with volunteer/session filtering
+  - ✅ `IVolunteerClinicalService` - Aggregate service for volunteer clinical data
+- ✅ ~~Implement services extending `BaseService<TEntity, TKey>`~~
+- ✅ ~~Register services in `Program.cs` DI container (6 services + 9 repositories)~~
+- ✅ ~~Build solution successfully (0 errors, 20 pre-existing warnings)~~
 
-3. **Query Federation**
-   - Forward queries to connected nodes
-   - Aggregate results from multiple nodes
-   - Handle node failures and timeouts
-   - Cache federated query results
+**Database Schema Verified:**
+- 30 tables total (28 main + 2 system)
+- All foreign key constraints working
+- Proper indexes on frequently queried columns
+- JSONB columns for flexible metadata (manifestations, characteristics)
+
+### 🚀 Phase 5 - Federated Queries (Next Major Feature)
+
+**Query Endpoints:**
+- [ ] `POST /api/query/execute` - Execute federated query (requires `query:read`)
+- [ ] `POST /api/query/aggregate` - Aggregate query across nodes (requires `query:aggregate`)
+- [ ] `GET /api/query/{queryId}/status` - Get query status
+- [ ] `GET /api/query/{queryId}/results` - Get query results
+
+**Data Submission Endpoints:**
+- [ ] `POST /api/data/submit` - Submit research data (requires `data:write`)
+- [ ] `GET /api/data/{dataId}` - Get data by ID (requires `query:read`)
+- [ ] `DELETE /api/data/{dataId}` - Delete owned data (requires `data:delete`)
+
+**Query Federation Logic:**
+- [ ] Forward queries to connected nodes
+- [ ] Aggregate results from multiple nodes
+- [ ] Handle node failures and timeouts
+- [ ] Cache federated query results
 
 **Reference Architecture:**
-- See `docs/architecture/phase4-session-management.md`
+- See `docs/architecture/phase4-session-management.md` for similar patterns
 
-### Infrastructure Improvements
-- ✅ Redis persistence for sessions and channels (COMPLETED)
-- ✅ PostgreSQL for research data persistence (COMPLETED - 16 tables, repository pattern)
-- ✅ PostgreSQL for node registry persistence (COMPLETED)
-- [ ] Add structured logging (Serilog)
-- [ ] Implement distributed tracing (OpenTelemetry)
-- [ ] Add Prometheus metrics
-- [ ] Redis Sentinel for high availability (production)
+### 🏗️ Infrastructure Improvements (Production Readiness)
 
-### Documentation Updates Needed
-- Update `docs/testing/manual-testing-guide.md` with dotnet test commands
-- Create `docs/testing/test-troubleshooting.md` for common test failures
-- Document test architecture in `docs/development/testing-strategy.md`
+**Observability:**
+- [ ] Structured logging with Serilog
+- [ ] Distributed tracing with OpenTelemetry
+- [ ] Prometheus metrics for monitoring
+- [ ] Health check endpoints for all dependencies
+
+**Scalability:**
+- [ ] Redis Sentinel for high availability
+- [ ] PostgreSQL read replicas
+- [ ] API versioning (`/api/v1/...`)
+
+**Code Quality:**
+- [ ] Unit of Work pattern for transactional consistency
+- [ ] Result<T> pattern for better error handling
+- [ ] Specification pattern for complex queries
+
+### 📚 Documentation Tasks
+
+- [ ] Update `docs/testing/manual-testing-guide.md` with dotnet test commands
+- [ ] Create `docs/testing/test-troubleshooting.md` for common test failures
+- [ ] Document generic base pattern in `docs/architecture/repository-pattern.md`
+- [ ] Create `docs/architecture/service-layer.md`
+- [ ] Update ER diagram with clinical entities
 
 ## Reference
 
