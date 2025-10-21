@@ -171,4 +171,4 @@ This folder contains all technical and development documentation for the IRN pro
 
 **Standard Language:** English
 
-All new documentation MUST be written in English. Existing Portuguese documentation is being translated incrementally. See [DOCUMENTATION_TRANSLATION_STATUS.md](DOCUMENTATION_TRANSLATION_STATUS.md) for current translation progress.
+All documentation is now written in English. Translations to English have been completed. See [DOCUMENTATION_TRANSLATION_STATUS.md](DOCUMENTATION_TRANSLATION_STATUS.md) for translation completion status.

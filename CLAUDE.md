@@ -2,6 +2,177 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## PRISM Project - Master Architecture Overview
+
+**PRISM** (Project Research Interoperability and Standardization Model) is a comprehensive federated framework for biomedical research data management, designed to break down data silos and enable secure, standardized collaboration across research institutions.
+
+### Project Vision
+
+The PRISM ecosystem addresses the fundamental problem of data fragmentation in biomedical research by creating a federated network where each research institution maintains sovereignty over its data while enabling secure cross-institutional queries and collaboration.
+
+### Ecosystem Components
+
+The PRISM framework consists of four interconnected components:
+
+#### 1. **InteroperableResearchNode** (Backend - This Project)
+**Purpose**: Core backend server implementing the federated research data exchange protocol
+**Technology**: ASP.NET Core 8.0 (C#), PostgreSQL 18, Redis 7.2
+**Key Features**:
+- 4-phase cryptographic handshake protocol (ECDH + RSA-2048)
+- Node-to-node secure communication with Perfect Forward Secrecy
+- Clinical data model (28 tables) with HL7 FHIR alignment
+- SNOMED CT integration for medical terminologies
+- Multi-instance architecture (independent PostgreSQL + Redis per node)
+- Generic repository and service pattern with Clean Architecture
+
+**Role in Ecosystem**: Acts as the trusted gateway for each research institution, managing:
+- Authentication and authorization of other nodes
+- Secure storage of research data (volunteers, researchers, devices, sessions, biosignals)
+- Federated query execution across the network
+- Data validation and quality control
+
+#### 2. **InteroperableResearchsEMGDevice** (Embedded Firmware)
+**Purpose**: ESP32-based hardware device for electrostimulation and biosignal acquisition
+**Technology**: C++, FreeRTOS, ESP32 dual-core, PlatformIO
+**Key Features**:
+- Surface electromyography (sEMG) signal processing with Butterworth filtering
+- Functional Electrical Stimulation (FES) with programmable parameters
+- Real-time biosignal streaming (10-200 Hz) via Bluetooth
+- Dual-core architecture (Core 0: signal processing, Core 1: communication)
+- JSON-based Bluetooth protocol for mobile app communication
+
+**Role in Ecosystem**: Represents the **Device** abstraction in PRISM model - specialized hardware for biosignal capture and therapeutic stimulation, communicating with mobile applications for data collection.
+
+#### 3. **InteroperableResearchInterfaceSystem** (Interface Layer)
+**Purpose**: TypeScript/Node.js middleware for communication orchestration
+**Technology**: TypeScript, Node.js, MCP Tunnel
+**Key Features**:
+- Protocol translation between components
+- WebSocket/HTTP communication management
+- API gateway and routing
+
+**Role in Ecosystem**: Bridges the **Application** layer (mobile app) with the **Device** layer (ESP32 firmware) and potentially the **Node** backend for data submission.
+
+#### 4. **neurax_react_native_app** (Mobile Application)
+**Purpose**: React Native mobile application for research data collection
+**Technology**: React Native, Expo, TypeScript
+**Key Features**:
+- Bluetooth communication with sEMG device
+- Real-time biosignal visualization
+- Session management and FES parameter configuration
+- User interface for researchers and volunteers
+
+**Role in Ecosystem**: Represents the **Application** abstraction in PRISM model - general-purpose software that adds context (volunteer info, session metadata), controls hardware, and potentially submits data to research nodes.
+
+### Architectural Philosophy
+
+**PRISM Model Abstraction**:
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Research Institution                      │
+├─────────────────────────────────────────────────────────────┤
+│                                                               │
+│  ┌──────────────┐         ┌──────────────┐                  │
+│  │ Application  │────────▶│   Device     │                  │
+│  │ (Mobile App) │  BT     │  (sEMG/FES)  │                  │
+│  └──────┬───────┘         └──────────────┘                  │
+│         │ HTTPS                                              │
+│         │                                                     │
+│  ┌──────▼────────────────────────────────────────┐          │
+│  │    Interoperable Research Node (IRN)          │          │
+│  │    - Data validation and storage              │          │
+│  │    - Authentication and authorization         │          │
+│  │    - Federated query engine                   │          │
+│  └───────────────────────────┬───────────────────┘          │
+│                              │ Encrypted Channel              │
+└──────────────────────────────┼───────────────────────────────┘
+                               │
+                ┌──────────────▼──────────────┐
+                │   Federated PRISM Network   │
+                │  (Other Research Nodes)     │
+                └─────────────────────────────┘
+```
+
+**Key Design Principles**:
+1. **Data Sovereignty**: Each node maintains full control over its data
+2. **Cryptographic Trust**: 4-phase handshake ensures mutual authentication before data exchange
+3. **Standardization**: HL7 FHIR + SNOMED CT for interoperability
+4. **Separation of Concerns**: Device (capture) ≠ Application (context) ≠ Node (storage/federation)
+5. **Privacy by Design**: LGPD/GDPR compliance, encryption at rest and in transit
+
+### Data Flow Example (Complete Research Session)
+
+```
+1. Researcher prepares session via Mobile App
+   ├─> Configures FES parameters (amplitude, frequency, pulse width)
+   ├─> Selects volunteer and research project
+   └─> Connects to sEMG Device via Bluetooth
+
+2. sEMG Device acquires biosignals
+   ├─> Samples at 860 Hz with AD8232 sensor
+   ├─> Applies Butterworth filter (10-40 Hz)
+   ├─> Detects muscle activation threshold
+   └─> Triggers FES stimulation when threshold exceeded
+
+3. Mobile App collects session data
+   ├─> Receives real-time sEMG stream (13 samples/packet)
+   ├─> Logs FES events and trigger timestamps
+   ├─> Records volunteer vital signs and notes
+   └─> Packages data with SNOMED CT annotations
+
+4. Data submission to Research Node (future)
+   ├─> Authenticates with node via handshake protocol
+   ├─> Encrypts payload with AES-256-GCM
+   ├─> Submits biosignal files + metadata
+   └─> Node validates and stores in PostgreSQL
+
+5. Federated query across network (future)
+   ├─> Node A queries "sEMG sessions with spasticity events"
+   ├─> Request authenticated and encrypted to Node B, C, D
+   ├─> Each node executes query on local data
+   ├─> Aggregated results returned to Node A
+   └─> Privacy-preserving: raw data never leaves source nodes
+```
+
+### Technology Stack Overview
+
+| Component | Language | Runtime | Database | Communication |
+|-----------|----------|---------|----------|---------------|
+| **InteroperableResearchNode** | C# 12 | .NET 8.0 | PostgreSQL 18 + Redis 7.2 | HTTPS (TLS 1.3) |
+| **sEMG Device Firmware** | C++ | ESP32 FreeRTOS | N/A | Bluetooth SPP (JSON) |
+| **Interface System** | TypeScript | Node.js | N/A | WebSocket/HTTP |
+| **Mobile App** | TypeScript/JSX | React Native (Expo) | SQLite (local) | Bluetooth + HTTPS |
+
+### Current Development Status (October 2025)
+
+**✅ Completed (Production-Ready)**:
+- InteroperableResearchNode: Phases 1-4 + Clinical Data Model (28 tables)
+- sEMG Device: FES control + Real-time streaming + Bluetooth protocol
+- Mobile App: Basic UI + Bluetooth connection (partial)
+
+**🚧 In Progress**:
+- Phase 5 (Federated Queries): Cross-node data querying
+- Mobile App: Data submission to research nodes
+- Interface System: Protocol translation layer
+
+**📋 Planned**:
+- Production certificate management (Let's Encrypt)
+- Observability stack (Prometheus + OpenTelemetry)
+- Clinical trial management features
+- Multi-center research coordination tools
+
+### Navigation for AI Assistants
+
+When working on this codebase:
+
+1. **Backend/Node Development** → You are here (`InteroperableResearchNode/CLAUDE.md`)
+2. **Device Firmware** → See `InteroperableResearchsEMGDevice/CLAUDE.md`
+3. **Interface System** → See `InteroperableResearchInterfaceSystem/CLAUDE.md`
+4. **Mobile App** → See `neurax_react_native_app/` (limited AI guidance)
+5. **Master Overview** → See root `CLAUDE.md` for cross-component context
+
+---
+
 ## Documentation Standards for All LLM Providers
 
 **IMPORTANT: This section applies to ALL LLM technology providers and manufacturers (including but not limited to OpenAI, Anthropic, Google, Meta, Microsoft, Amazon, etc.)**

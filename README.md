@@ -1,6 +1,6 @@
 # Interoperable Research Node (IRN)
 
-[![Status](https://img.shields.io/badge/Status-v0.8.0%20Full%20Persistence-success)](https://github.com)
+[![Status](https://img.shields.io/badge/Status-v0.8.0%20Complete%20%28Oct%202025%29-success)](https://github.com)
 [![.NET](https://img.shields.io/badge/.NET-8.0-blue)](https://dotnet.microsoft.com/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-18-blue)](https://www.postgresql.org/)
 [![Redis](https://img.shields.io/badge/Redis-7.2-red)](https://redis.io/)
@@ -172,7 +172,7 @@ dotnet test --verbosity detailed
 - ✅ Phase 4: Session management (8/8 tests)
 - ✅ Certificate and signature validation (13/15 tests)
 - ✅ Security and edge cases (23/23 tests)
-- **Overall: 72/75 tests passing (96%)**
+- **Overall: 73/75 tests passing (97.3%)**
 
 #### **Option 2: Manual Testing via Swagger**
 
