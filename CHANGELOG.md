@@ -5,6 +5,73 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] - 2025-10-21
+
+### 📚 Documentation Reorganization (Major) ✅ COMPLETE
+
+**Token Reduction Achieved**: Reduced from 30.1k to ~8.5k tokens (**72% reduction**)
+- Root `CLAUDE.md`: 866 lines → 305 lines (**65% reduction**)
+- `InteroperableResearchNode/CLAUDE.md`: 1685 lines → 466 lines (**72% reduction**)
+- Total: 2551 lines → 771 lines (**70% line reduction**)
+- Backups created: `CLAUDE_OLD_BACKUP.md` (both root and IRN)
+
+- **New Documentation Structure** (15+ new files):
+  - `docs/components/` - Detailed component descriptions (4 files)
+    - `INTEROPERABLE_RESEARCH_NODE.md` - Complete backend description
+    - `SEMG_DEVICE.md` - sEMG device with Bluetooth protocol (14 message codes)
+    - `INTERFACE_SYSTEM.md` - Middleware layer
+    - `MOBILE_APP.md` - React Native application
+  - `docs/workflows/` - Step-by-step phase flows (4 files)
+    - `CHANNEL_FLOW.md` - Phase 1 encrypted channel establishment
+    - `PHASE2_IDENTIFICATION_FLOW.md` - Phase 2 node identification
+    - `PHASE3_AUTHENTICATION_FLOW.md` - Phase 3 challenge-response authentication
+    - `PHASE4_SESSION_FLOW.md` - Phase 4 session management
+  - `docs/ARCHITECTURE_PHILOSOPHY.md` - PRISM model, design principles, data flow
+  - `docs/SECURITY_OVERVIEW.md` - Complete security architecture (all 4 phases)
+  - `docs/REORGANIZATION_PROGRESS.md` - Reorganization tracking document
+
+- **Root CLAUDE.md (New Structure)**:
+  - Quick navigation by role (Backend, Device, Frontend, System Integrator)
+  - Quick navigation by topic (Architecture, Components, Workflows, Testing)
+  - Component summary table with links
+  - Common commands (most frequently used only)
+  - Quick reference card for fastest startup
+  - All detailed content moved to specialized docs
+
+### 🎯 Benefits
+- **For LLM Context Management**:
+  - 70% token reduction in core CLAUDE.md files
+  - Lazy loading: Only load detailed docs when needed
+  - Faster context parsing
+  - More room for code (109k free tokens)
+
+- **For Human Developers**:
+  - Better organization: Related content grouped together
+  - Easier navigation: Role-based and topic-based indexes
+  - Reduced duplication: Single source of truth per topic
+  - Maintainability: Update one file instead of multiple sections
+
+- **For Project Maintenance**:
+  - Version control: Smaller diffs, easier reviews
+  - Modularity: Update components independently
+  - Scalability: Add new components without bloating CLAUDE.md
+
+### ✅ Completed Tasks
+- ✅ Root `CLAUDE.md` rewritten as navigation index
+- ✅ `InteroperableResearchNode/CLAUDE.md` rewritten as project essentials
+- ✅ 4 component documentation files created
+- ✅ 4 workflow documentation files created (Phases 1-4)
+- ✅ Architecture philosophy and security overview created
+- ✅ `docs/NAVIGATION_INDEX.md` - Central documentation hub created
+- ✅ `docs/REORGANIZATION_PROGRESS.md` - Progress tracking document
+
+### 📋 Optional Future Enhancements
+- [ ] Extract remaining architecture details (PROJECT_STRUCTURE, GENERIC_BASE_PATTERN)
+- [ ] Extract development guides (COMMON_COMMANDS, PERSISTENCE_LAYER)
+- [ ] Create `docs/KNOWN_ISSUES.md` - Consolidated troubleshooting
+
+---
+
 ## [0.8.0] - 2025-10-07
 
 ### ✨ Added
