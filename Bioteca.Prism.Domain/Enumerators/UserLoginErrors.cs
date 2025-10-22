@@ -13,9 +13,9 @@ public class UserLoginErrors : Enumeration
     public static UserLoginErrors WithoutPermissions = new UserLoginErrors(6, "UL006", "Usuário não possuí permissões para ULessar esse sistema.");
     public static UserLoginErrors GraphTokenEmpty = new UserLoginErrors(7, "UL007", "Microsoft Token esta ausente.");
     public static UserLoginErrors ULcountNotFound = new UserLoginErrors(8, "UL008", "Conta do cliente não encontrada.");
-    public static UserLoginErrors ApplicationUnableToAuthorize = new UserLoginErrors(9, "UL009", "Conta de usuário não autorizada para esta aplicação.");
+    public static UserLoginErrors ResearchUnableToAuthorize = new UserLoginErrors(9, "UL009", "Conta de usuário não autorizada para esta pesquisa.");
     public static UserLoginErrors AuthorizationNotImplemented = new UserLoginErrors(10, "UL0010", "Tipo de autenticação não implementada.");
     public static UserLoginErrors GoogleTokenEmpty = new UserLoginErrors(11, "UL011", "Google Token esta ausente.");
     public static UserLoginErrors GoogleUserDoestMULhToken = new UserLoginErrors(12, "UL012", "Email que solicitou login não bate com o token enviado.");
-    public static UserLoginErrors UsersPerApplicationNull = new UserLoginErrors(13, "UL013", "Não foi possível retornar o total de usuarios para esta aplicação.");
+    public static UserLoginErrors UsersPerApplicationNull = new UserLoginErrors(13, "UL013", "Não foi possível retornar o total de usuarios para esta pesquisa.");
 }

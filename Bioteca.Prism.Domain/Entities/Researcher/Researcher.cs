@@ -36,6 +36,11 @@ public class Researcher
     public string Role { get; set; } = string.Empty;
 
     /// <summary>
+    /// ORCID identifier
+    /// </summary>
+    public string Orcid { get; set; } = string.Empty;
+
+    /// <summary>
     /// Creation timestamp
     /// </summary>
     public DateTime CreatedAt { get; set; }
@@ -49,10 +54,4 @@ public class Researcher
     public Node.ResearchNode ResearchNode { get; set; } = null!;
     public ICollection<Research.ResearchResearcher> ResearchResearchers { get; set; } = new List<Research.ResearchResearcher>();
 
-    // Clinical data recording navigation properties
-    public ICollection<Volunteer.VolunteerClinicalCondition> RecordedClinicalConditions { get; set; } = new List<Volunteer.VolunteerClinicalCondition>();
-    public ICollection<Volunteer.VolunteerClinicalEvent> RecordedClinicalEvents { get; set; } = new List<Volunteer.VolunteerClinicalEvent>();
-    public ICollection<Volunteer.VolunteerMedication> PrescribedMedications { get; set; } = new List<Volunteer.VolunteerMedication>();
-    public ICollection<Volunteer.VolunteerAllergyIntolerance> DocumentedAllergyIntolerances { get; set; } = new List<Volunteer.VolunteerAllergyIntolerance>();
-    public ICollection<Volunteer.VitalSigns> MeasuredVitalSigns { get; set; } = new List<Volunteer.VitalSigns>();
 }

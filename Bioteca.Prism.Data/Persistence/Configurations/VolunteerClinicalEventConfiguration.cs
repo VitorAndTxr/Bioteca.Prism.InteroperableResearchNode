@@ -109,11 +109,6 @@ public class VolunteerClinicalEventConfiguration : IEntityTypeConfiguration<Volu
             .HasForeignKey(x => x.RecordSessionId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        builder.HasOne(x => x.Recorder)
-            .WithMany(x => x.RecordedClinicalEvents)
-            .HasForeignKey(x => x.RecordedBy)
-            .OnDelete(DeleteBehavior.Restrict);
-
         // Indexes
         builder.HasIndex(x => x.VolunteerId)
             .HasDatabaseName("ix_volunteer_clinical_events_volunteer_id");

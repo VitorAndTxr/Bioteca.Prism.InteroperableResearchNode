@@ -82,10 +82,6 @@ public class VolunteerAllergyIntoleranceConfiguration : IEntityTypeConfiguration
             .HasForeignKey(x => x.AllergyIntoleranceSnomedCode)
             .OnDelete(DeleteBehavior.Restrict);
 
-        builder.HasOne(x => x.Recorder)
-            .WithMany(x => x.DocumentedAllergyIntolerances)
-            .HasForeignKey(x => x.RecordedBy)
-            .OnDelete(DeleteBehavior.Restrict);
 
         // Indexes
         builder.HasIndex(x => x.VolunteerId)

@@ -96,11 +96,6 @@ public class VolunteerMedicationConfiguration : IEntityTypeConfiguration<Volunte
             .HasForeignKey(x => x.ConditionId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        builder.HasOne(x => x.Recorder)
-            .WithMany(x => x.PrescribedMedications)
-            .HasForeignKey(x => x.RecordedBy)
-            .OnDelete(DeleteBehavior.Restrict);
-
         // Indexes
         builder.HasIndex(x => x.VolunteerId)
             .HasDatabaseName("ix_volunteer_medications_volunteer_id");

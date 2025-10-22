@@ -98,11 +98,6 @@ public class VitalSignsConfiguration : IEntityTypeConfiguration<VitalSigns>
             .HasForeignKey(x => x.RecordSessionId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        builder.HasOne(x => x.Recorder)
-            .WithMany(x => x.MeasuredVitalSigns)
-            .HasForeignKey(x => x.RecordedBy)
-            .OnDelete(DeleteBehavior.Restrict);
-
         // Indexes
         builder.HasIndex(x => x.VolunteerId)
             .HasDatabaseName("ix_vital_signs_volunteer_id");
