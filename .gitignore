@@ -22,3 +22,6 @@
 /Bioteca.Prism.Data/bin/Debug/net8.0
 /Bioteca.Prism.Data/obj
 prompt.md
+/Bioteca.Prism.CrossCutting/bin/Debug/net8.0
+/Bioteca.Prism.CrossCutting/obj/Debug/net8.0
+/Bioteca.Prism.CrossCutting/obj
