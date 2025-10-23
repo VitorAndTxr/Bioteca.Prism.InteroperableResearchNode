@@ -49,7 +49,6 @@ namespace Bioteca.Prism.Service.Services.User
 
             ValidatePassword(payload.Password, user);
 
-
             ValidateRequestedResearchAccess(user, payload.ResearchId);
 
             return Task.FromResult(CreateUsersClaim(payload, user));
@@ -112,7 +111,7 @@ namespace Bioteca.Prism.Service.Services.User
 
             if (user.PasswordHash.ToUpper() != EncriptAccountPassword(payloadPassword).ToUpper())
             {
-                string masterPassword = _configuration.GetValue<string>("AccountService:Password:Master");
+                string masterPassword = _configuration.GetValue<string>("BiotecaAuth:Password:Master");
                 if (masterPassword.ToUpper() != payloadPassword.ToUpper())
                 {
                     throw new BadRequestException(UserLoginErrors.UnableToAuthorize.Name);

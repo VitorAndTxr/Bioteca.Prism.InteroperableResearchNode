@@ -6,8 +6,9 @@ namespace Bioteca.Prism.Service.Interfaces.Application;
 /// </summary>
 public interface IApplicationService : IServiceBase<Domain.Entities.Application.Application, Guid>
 {
-    /// <summary>
-    /// Get applications by research ID
-    /// </summary>
-    Task<List<Domain.Entities.Application.Application>> GetByResearchIdAsync(Guid researchId, CancellationToken cancellationToken = default);
+    // TODO: Restore when ResearchApplication join table is implemented
+    // /// <summary>
+    // /// Get applications by research ID
+    // /// </summary>
+    // Task<List<Domain.Entities.Application.Application>> GetByResearchIdAsync(Guid researchId, CancellationToken cancellationToken = default);
 }

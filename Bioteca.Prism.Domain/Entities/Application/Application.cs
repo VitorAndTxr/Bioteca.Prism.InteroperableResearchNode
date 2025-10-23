@@ -11,6 +11,11 @@ public class Application
     public Guid ApplicationId { get; set; }
 
     /// <summary>
+    /// Research identifier
+    /// </summary>
+
+    public Guid ResearchId { get; set; }
+    /// <summary>
     /// Application name
     /// </summary>
     public string AppName { get; set; } = string.Empty;
@@ -40,9 +45,9 @@ public class Application
     /// </summary>
     public DateTime UpdatedAt { get; set; }
 
-    // Navigation properties
-    /// <summary>
-    /// Research projects using this application (many-to-many)
+    ///<summary>
+    /// Navigation property to Research
     /// </summary>
-    public ICollection<ResearchApplication> ResearchApplications { get; set; } = new List<ResearchApplication>();
+    public Research.Research Research { get; set; } = null!;
+
 }

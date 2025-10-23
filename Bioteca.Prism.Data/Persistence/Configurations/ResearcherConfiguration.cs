@@ -25,6 +25,11 @@ public class ResearcherConfiguration : IEntityTypeConfiguration<Researcher>
             .HasColumnName("research_node_id")
             .IsRequired();
 
+        builder.Property(x => x.Orcid)
+            .HasColumnName("orcid")
+            .HasMaxLength(16)
+            .IsRequired(true);
+
         // Basic properties
         builder.Property(x => x.Name)
             .HasColumnName("name")

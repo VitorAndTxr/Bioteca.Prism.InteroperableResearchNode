@@ -16,8 +16,9 @@ public class ApplicationService : BaseService<Domain.Entities.Application.Applic
         _applicationRepository = repository;
     }
 
-    public async Task<List<Domain.Entities.Application.Application>> GetByResearchIdAsync(Guid researchId, CancellationToken cancellationToken = default)
-    {
-        return await _applicationRepository.GetByResearchIdAsync(researchId, cancellationToken);
-    }
+    // TODO: Restore when ResearchApplication join table is implemented
+    // public async Task<List<Domain.Entities.Application.Application>> GetByResearchIdAsync(Guid researchId, CancellationToken cancellationToken = default)
+    // {
+    //     return await _applicationRepository.GetByResearchIdAsync(researchId, cancellationToken);
+    // }
 }

@@ -100,9 +100,4 @@ public class VitalSigns
     /// Record session during which these vital signs were collected
     /// </summary>
     public Record.RecordSession RecordSession { get; set; } = null!;
-
-    /// <summary>
-    /// Researcher who measured these vital signs
-    /// </summary>
-    public Researcher.Researcher Recorder { get; set; } = null!;
 }

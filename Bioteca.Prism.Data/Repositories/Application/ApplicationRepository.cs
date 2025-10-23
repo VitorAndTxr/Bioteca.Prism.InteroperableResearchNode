@@ -14,10 +14,11 @@ public class ApplicationRepository : BaseRepository<Domain.Entities.Application.
     {
     }
 
-    public async Task<List<Domain.Entities.Application.Application>> GetByResearchIdAsync(Guid researchId, CancellationToken cancellationToken = default)
-    {
-        return await _dbSet
-            .Where(a => a.ResearchApplications.Any(ra => ra.ResearchId == researchId))
-            .ToListAsync(cancellationToken);
-    }
+    // TODO: Restore when ResearchApplication join table is implemented
+    // public async Task<List<Domain.Entities.Application.Application>> GetByResearchIdAsync(Guid researchId, CancellationToken cancellationToken = default)
+    // {
+    //     return await _dbSet
+    //         .Where(a => a.ResearchApplications.Any(ra => ra.ResearchId == researchId))
+    //         .ToListAsync(cancellationToken);
+    // }
 }

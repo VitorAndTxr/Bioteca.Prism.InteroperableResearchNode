@@ -20,6 +20,10 @@ public class ApplicationConfiguration : IEntityTypeConfiguration<Application>
             .IsRequired()
             .ValueGeneratedOnAdd();
 
+        builder.Property(x => x.ResearchId)
+            .HasColumnName("research_id")
+            .IsRequired();
+
         // Basic properties
         builder.Property(x => x.AppName)
             .HasColumnName("app_name")

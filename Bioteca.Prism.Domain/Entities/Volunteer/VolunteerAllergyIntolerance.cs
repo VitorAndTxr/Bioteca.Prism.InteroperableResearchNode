@@ -75,9 +75,4 @@ public class VolunteerAllergyIntolerance
     /// Allergy/intolerance catalog entry
     /// </summary>
     public Clinical.AllergyIntolerance AllergyIntolerance { get; set; } = null!;
-
-    /// <summary>
-    /// Researcher who documented this allergy/intolerance
-    /// </summary>
-    public Researcher.Researcher Recorder { get; set; } = null!;
 }

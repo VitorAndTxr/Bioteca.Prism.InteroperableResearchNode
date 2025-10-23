@@ -13,6 +13,7 @@ using Bioteca.Prism.Data.Interfaces.Research;
 using Bioteca.Prism.Data.Interfaces.Researcher;
 using Bioteca.Prism.Data.Interfaces.Sensor;
 using Bioteca.Prism.Data.Interfaces.Snomed;
+using Bioteca.Prism.Data.Interfaces.User;
 using Bioteca.Prism.Data.Interfaces.Volunteer;
 using Bioteca.Prism.Data.Repositories.Application;
 using Bioteca.Prism.Data.Repositories.Device;
@@ -22,6 +23,7 @@ using Bioteca.Prism.Data.Repositories.Research;
 using Bioteca.Prism.Data.Repositories.Researcher;
 using Bioteca.Prism.Data.Repositories.Sensor;
 using Bioteca.Prism.Data.Repositories.Snomed;
+using Bioteca.Prism.Data.Repositories.User;
 using Bioteca.Prism.Data.Repositories.Volunteer;
 using Bioteca.Prism.Service.Interfaces.Application;
 using Bioteca.Prism.Service.Interfaces.Clinical;
@@ -118,6 +120,7 @@ namespace Bioteca.Prism.CrossCutting
             services.AddScoped<IApplicationRepository, ApplicationRepository>();
             services.AddScoped<IDeviceRepository, DeviceRepository>();
             services.AddScoped<ISensorRepository, SensorRepository>();
+            services.AddScoped<IUserRepository, UserRepository>();
 
             // Record repositories
             services.AddScoped<IRecordSessionRepository, RecordSessionRepository>();
@@ -143,7 +146,6 @@ namespace Bioteca.Prism.CrossCutting
         public static void RegisterCache(IServiceCollection services)
         {
             services.AddSingleton<IRedisConnectionService, RedisConnectionService>();
-
         }
     }
 }

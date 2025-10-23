@@ -90,9 +90,4 @@ public class VolunteerMedication
     /// Clinical condition being treated (optional)
     /// </summary>
     public VolunteerClinicalCondition? Condition { get; set; }
-
-    /// <summary>
-    /// Researcher who prescribed this medication
-    /// </summary>
-    public Researcher.Researcher Recorder { get; set; } = null!;
 }

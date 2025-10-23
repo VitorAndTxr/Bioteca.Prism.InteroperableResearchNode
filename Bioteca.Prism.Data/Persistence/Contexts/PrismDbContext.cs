@@ -7,6 +7,7 @@ using Bioteca.Prism.Domain.Entities.Research;
 using Bioteca.Prism.Domain.Entities.Researcher;
 using Bioteca.Prism.Domain.Entities.Sensor;
 using Bioteca.Prism.Domain.Entities.Snomed;
+using Bioteca.Prism.Domain.Entities.User;
 using Bioteca.Prism.Domain.Entities.Volunteer;
 using Microsoft.EntityFrameworkCore;
 
@@ -159,11 +160,6 @@ public class PrismDbContext : DbContext
 
     // Join tables
     /// <summary>
-    /// Research-Application many-to-many relationship
-    /// </summary>
-    public DbSet<ResearchApplication> ResearchApplications => Set<ResearchApplication>();
-
-    /// <summary>
     /// Research-Device many-to-many relationship
     /// </summary>
     public DbSet<ResearchDevice> ResearchDevices => Set<ResearchDevice>();
@@ -177,6 +173,11 @@ public class PrismDbContext : DbContext
     /// Research-Researcher many-to-many relationship
     /// </summary>
     public DbSet<ResearchResearcher> ResearchResearchers => Set<ResearchResearcher>();
+
+    /// <summary>
+    /// User accounts for system access
+    /// </summary>
+    public DbSet<User> Users => Set<User>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

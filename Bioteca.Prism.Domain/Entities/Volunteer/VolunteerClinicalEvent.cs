@@ -105,9 +105,4 @@ public class VolunteerClinicalEvent
     /// Record session during which event was captured (optional)
     /// </summary>
     public Record.RecordSession? RecordSession { get; set; }
-
-    /// <summary>
-    /// Researcher who observed this event
-    /// </summary>
-    public Researcher.Researcher Recorder { get; set; } = null!;
 }

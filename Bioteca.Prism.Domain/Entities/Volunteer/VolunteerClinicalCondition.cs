@@ -82,16 +82,6 @@ public class VolunteerClinicalCondition
     public Snomed.SnomedSeverityCode? Severity { get; set; }
 
     /// <summary>
-    /// Researcher who documented this condition
-    /// </summary>
-    public Researcher.Researcher Recorder { get; set; } = null!;
-
-    /// <summary>
-    /// Clinical events related to this condition
-    /// </summary>
-    public ICollection<VolunteerClinicalEvent> ClinicalEvents { get; set; } = new List<VolunteerClinicalEvent>();
-
-    /// <summary>
     /// Medications prescribed to treat this condition
     /// </summary>
     public ICollection<VolunteerMedication> Medications { get; set; } = new List<VolunteerMedication>();
