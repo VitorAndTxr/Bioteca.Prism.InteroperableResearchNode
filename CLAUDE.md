@@ -76,6 +76,52 @@ Service Layer (Business Logic, Domain Services)
 API Layer (Controllers, Middleware, Filters)
 ```
 
+### Two Authentication Systems
+
+PRISM implements **two separate authentication systems** for different purposes:
+
+#### 1. User Authentication (Human Researchers)
+
+**Purpose**: Authenticate researchers accessing the system via web/mobile interfaces.
+
+**Technology**:
+- JWT Bearer tokens (RS256 signature)
+- SHA512 password hashing
+- Role-based access control
+
+**Endpoints**:
+- `POST /api/userauth/login` - User login
+- `POST /api/userauth/refreshtoken` - Token refresh
+- `POST /api/userauth/encrypt` - Password hashing utility
+
+**Usage Pattern**:
+```http
+Authorization: Bearer {jwt_token}
+```
+
+**Details**: `docs/architecture/USER_SESSION_ARCHITECTURE.md`
+
+#### 2. Node Session Authentication (Federated Nodes)
+
+**Purpose**: Authenticate remote research nodes for federated data exchange.
+
+**Technology**:
+- 4-phase handshake protocol
+- AES-256-GCM encryption
+- Capability-based authorization
+
+**Endpoints**: See "4-Phase Handshake Protocol" below
+
+**Usage Pattern**:
+```http
+X-Channel-Id: {channel_id}
+X-Session-Id: {session_token}
+```
+
+**Key Difference**: User auth uses HTTPS for transport security, while node auth uses end-to-end encryption (AES-256-GCM) over HTTPS for federated trust.
+
+**Detailed Comparison**: `docs/architecture/USER_SESSION_ARCHITECTURE.md`
+
 ### 4-Phase Handshake Protocol
 
 **Phase 1 - Encrypted Channel**: ECDH P-384 + AES-256-GCM + Perfect Forward Secrecy
@@ -440,6 +486,12 @@ docker-compose -f docker-compose.application.yml down
 ```
 
 **Key Endpoints**:
+
+*User Authentication*:
+- User Login: `/api/userauth/login`
+- Token Refresh: `/api/userauth/refreshtoken`
+
+*Node Authentication (4-Phase Handshake)*:
 - Phase 1: `/api/channel/open`, `/api/channel/initiate`
 - Phase 2: `/api/channel/identify`, `/api/node/register`
 - Phase 3: `/api/node/challenge`, `/api/node/authenticate`
@@ -454,12 +506,14 @@ docker-compose -f docker-compose.application.yml down
 - **Components**: `docs/components/INTEROPERABLE_RESEARCH_NODE.md`
 - **Architecture**: `docs/ARCHITECTURE_PHILOSOPHY.md`
 - **Security**: `docs/SECURITY_OVERVIEW.md`
+- **User & Session Architecture**: `docs/architecture/USER_SESSION_ARCHITECTURE.md`
 - **Workflows**: `docs/workflows/` (Phase 1-4 step-by-step guides)
 - **Testing**: `docs/testing/manual-testing-guide.md`
 - **Project Status**: `docs/PROJECT_STATUS.md`
 - **Ecosystem Overview**: See root `../CLAUDE.md`
 
 **For Step-by-Step Implementation**:
+- User Authentication: `docs/architecture/USER_SESSION_ARCHITECTURE.md` (Section 3)
 - Phase 1: `docs/workflows/CHANNEL_FLOW.md`
 - Phase 2: `docs/workflows/PHASE2_IDENTIFICATION_FLOW.md`
 - Phase 3: `docs/workflows/PHASE3_AUTHENTICATION_FLOW.md`

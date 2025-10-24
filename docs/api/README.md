@@ -13,7 +13,7 @@ The PRISM InteroperableResearchNode implements a secure 4-phase handshake protoc
 
 ## Authentication Systems
 
-The application implements **two distinct authentication systems**:
+The application implements **two distinct authentication systems** for different purposes:
 
 ### System A: User Authentication (Researchers)
 - **Pattern**: Standard Bearer JWT in `Authorization` header
@@ -26,6 +26,29 @@ The application implements **two distinct authentication systems**:
 - **Headers**: `X-Channel-Id`, `X-Session-Id` (v0.10.0+)
 - **Usage**: Federated node communication
 - **Documentation**: Phase 1-4 documents below
+
+### Detailed Comparison
+
+| Aspect | User Authentication | Node Authentication |
+|--------|-------------------|---------------------|
+| **Purpose** | Human researchers accessing the system | Node-to-node federated communication |
+| **Target Users** | Researchers, data analysts, admins, mobile app users | Other PRISM nodes, federated query engines |
+| **Token Type** | JWT Bearer token (client-side) | Session GUID (server-side in Redis) |
+| **Token Header** | `Authorization: Bearer {jwt}` | `X-Session-Id: {guid}` |
+| **Storage** | Client-side (localStorage/cookies) | Server-side (Redis/in-memory) |
+| **Encryption** | HTTPS (TLS 1.3) only | HTTPS + AES-256-GCM (end-to-end) |
+| **Authentication Flow** | Single POST to `/api/userauth/login` | 4-phase handshake (Phase 1→2→3→4) |
+| **Authorization Model** | Role-based (User, Admin) | Capability-based (ReadOnly, ReadWrite, Admin) |
+| **Rate Limiting** | Application-level | Redis Sorted Sets (60 req/min) |
+| **Token Duration** | 1 hour (renewable via refresh) | 1 hour (renewable via `/api/session/renew`) |
+| **Signature Algorithm** | RS256 (RSA-2048) | RSA-2048 + ECDH P-384 |
+| **Password Hashing** | SHA512 (migrate to PBKDF2/Argon2) | N/A (certificate-based) |
+| **Token Claims** | sub, login, name, email, orcid, researches | SessionToken, NodeId, ChannelId, Capabilities |
+| **Token Validation** | JWT signature + expiration + issuer/audience | Redis lookup + expiration + capability check |
+| **Session Storage** | Stateless (JWT contains all claims) | Stateful (Redis stores SessionData) |
+| **Perfect Forward Secrecy** | No (standard TLS) | Yes (ephemeral ECDH keys) |
+
+**Detailed Architecture**: See [../architecture/USER_SESSION_ARCHITECTURE.md](../architecture/USER_SESSION_ARCHITECTURE.md)
 
 ## API Endpoint Categories
 
@@ -254,6 +277,8 @@ open http://localhost:5000/swagger
 ### Related Documentation
 - [Architecture Philosophy](../ARCHITECTURE_PHILOSOPHY.md)
 - [Security Overview](../SECURITY_OVERVIEW.md)
+- [User & Session Architecture](../architecture/USER_SESSION_ARCHITECTURE.md)
+- [Middleware Execution Patterns](../development/MIDDLEWARE_PATTERNS.md)
 - [Handshake Protocol](../architecture/handshake-protocol.md)
 - [Manual Testing Guide](../testing/manual-testing-guide.md)
 - [Project Status](../PROJECT_STATUS.md)

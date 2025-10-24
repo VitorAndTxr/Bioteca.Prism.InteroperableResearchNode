@@ -24,6 +24,118 @@ Layer 5: Data Validation (Input Sanitization + Integrity Checks)
 
 ---
 
+## Two Authentication Mechanisms
+
+PRISM implements **two separate authentication systems** with different security requirements:
+
+### 1. User Authentication (Human Researchers)
+
+**Purpose**: Authenticate researchers accessing the system via web interfaces or mobile applications.
+
+**Target Audience**:
+- Clinical researchers
+- Data analysts
+- System administrators
+- Mobile app users
+
+**Security Mechanisms**:
+
+**Password Hashing**:
+- Algorithm: SHA512 (256-bit output)
+- Encoding: UTF-8
+- Storage: `PasswordHash` field in `Users` table
+- **Note**: Production deployments should migrate to PBKDF2 or Argon2 with salt
+
+**JWT Token Authentication**:
+- Algorithm: RS256 (RSA Signature with SHA-256)
+- Key Size: 2048 bits (RSA-2048)
+- Token Lifetime: 1 hour (configurable)
+- Issuer: `PRISM-IRN`
+- Audience: `PRISM-IRN`
+
+**Token Claims**:
+```json
+{
+  "sub": "user-guid",
+  "login": "researcher@institution.edu",
+  "name": "Dr. Jane Researcher",
+  "email": "researcher@institution.edu",
+  "orcid": "0000-0001-2345-6789",
+  "researches": ["research-guid-1", "research-guid-2"],
+  "exp": 1729783800,
+  "iss": "PRISM-IRN",
+  "aud": "PRISM-IRN"
+}
+```
+
+**Security Properties**:
+- **Authentication**: Username + password
+- **Authorization**: Role-based access control (User, Admin)
+- **Transport Security**: HTTPS (TLS 1.3)
+- **Token Validation**: Signature verification, expiration check, issuer/audience validation
+- **Token Refresh**: Renewable before expiration
+
+**Endpoints**:
+- `POST /api/userauth/login` - Authenticate with credentials
+- `POST /api/userauth/refreshtoken` - Refresh JWT token
+- `POST /api/userauth/encrypt` - Password hashing utility (dev only)
+
+**Usage Pattern**:
+```http
+POST /api/research/12345678 HTTP/1.1
+Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...
+Content-Type: application/json
+```
+
+### 2. Node Session Authentication (Federated Nodes)
+
+**Purpose**: Authenticate remote research nodes for secure federated data exchange.
+
+**Target Audience**:
+- Other PRISM nodes in the federation
+- Federated query engines
+- Inter-institutional data exchanges
+
+**Security Mechanisms**:
+- 4-phase handshake protocol (detailed in sections below)
+- End-to-end encryption with AES-256-GCM
+- Mutual authentication via challenge-response
+- Capability-based authorization (ReadOnly, ReadWrite, Admin)
+- Rate limiting (60 requests/minute)
+
+**Endpoints**:
+- Phase 1: `/api/channel/open`, `/api/channel/initiate`
+- Phase 2: `/api/channel/identify`, `/api/node/register`
+- Phase 3: `/api/node/challenge`, `/api/node/authenticate`
+- Phase 4: `/api/session/whoami`, `/api/session/renew`, `/api/session/revoke`
+
+**Usage Pattern**:
+```http
+POST /api/session/whoami HTTP/1.1
+X-Channel-Id: channel-12345678
+X-Session-Id: session-87654321
+Content-Type: application/json
+
+{encrypted payload}
+```
+
+### Key Differences
+
+| Aspect | User Authentication | Node Authentication |
+|--------|-------------------|---------------------|
+| **Token Type** | JWT Bearer token | Session GUID (server-side) |
+| **Header** | `Authorization: Bearer {jwt}` | `X-Session-Id: {guid}` |
+| **Storage** | Client-side (localStorage) | Server-side (Redis/in-memory) |
+| **Encryption** | HTTPS only | HTTPS + AES-256-GCM (end-to-end) |
+| **Phases** | Single login | 4-phase handshake |
+| **Authorization** | Role-based | Capability-based |
+| **Rate Limiting** | Application-level | Redis Sorted Sets (60 req/min) |
+| **Duration** | 1 hour (renewable) | 1 hour (renewable) |
+
+**Detailed Architecture**: See `docs/architecture/USER_SESSION_ARCHITECTURE.md`
+
+---
+
 ## Phase 1: Encrypted Channel Establishment
 
 ### Purpose
@@ -556,8 +668,10 @@ All requests after Phase 1 use encrypted payloads:
 
 For detailed implementation, see:
 
+- **User & Session Architecture**: `docs/architecture/USER_SESSION_ARCHITECTURE.md`
 - **Handshake Protocol**: `docs/architecture/handshake-protocol.md`
 - **Phase 4 Sessions**: `docs/architecture/phase4-session-management.md`
+- **User Authentication API**: `docs/api/user-authentication.md`
 - **Persistence**: `docs/development/PERSISTENCE_LAYER.md`
 - **Workflows**: `docs/workflows/` (Phase 1-4 flows)
 - **Testing Guide**: `docs/testing/manual-testing-guide.md`
