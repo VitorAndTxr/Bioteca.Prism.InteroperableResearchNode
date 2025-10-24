@@ -8,9 +8,30 @@ namespace Bioteca.Prism.InteroperableResearchNode.Middleware;
 
 /// <summary>
 /// Action filter that validates session tokens and enforces capability-based authorization
-/// Expects the session token to be in the decrypted request (HttpContext.Items["DecryptedRequest"])
+///
+/// Session Token Sources (in order of precedence):
+/// 1. X-Session-Id header (RECOMMENDED) - Fast, standard HTTP header pattern
+/// 2. SessionToken in decrypted request body (DEPRECATED) - Legacy pattern, will be removed in v0.11.0
+///
+/// Automatic Behaviors:
+/// - Validates session token and enforces capability requirements
+/// - Applies rate limiting (60 requests/minute)
+/// - Automatically adds X-Session-Id header to successful responses
+///
 /// Must be used AFTER PrismEncryptedChannelConnection attribute
-/// Usage: [PrismAuthenticatedSession(RequiredCapability = "query:read")]
+///
+/// Usage: [PrismAuthenticatedSession(RequiredCapability = NodeAccessTypeEnum.ReadOnly)]
+///
+/// Example Request:
+/// POST /api/session/whoami
+/// X-Channel-Id: {channelId}
+/// X-Session-Id: {sessionToken}
+/// Content-Type: application/json
+///
+/// Example Response:
+/// HTTP/1.1 200 OK
+/// X-Session-Id: {sessionToken}
+/// Content-Type: application/json
 /// </summary>
 [AttributeUsage(AttributeTargets.Method | AttributeTargets.Class, AllowMultiple = false)]
 public class PrismAuthenticatedSessionAttribute : Attribute, IAsyncActionFilter
@@ -31,44 +52,64 @@ public class PrismAuthenticatedSessionAttribute : Attribute, IAsyncActionFilter
         var sessionService = context.HttpContext.RequestServices
             .GetRequiredService<ISessionService>();
 
-        // 1. Extract session token from decrypted request
-        var decryptedRequest = context.HttpContext.Items["DecryptedRequest"];
-
-        if (decryptedRequest == null)
-        {
-            logger.LogWarning("No decrypted request found - PrismEncryptedChannelConnection must run first");
-            context.Result = new UnauthorizedObjectResult(new
-            {
-                error = "ERR_NO_DECRYPTED_REQUEST",
-                message = "Request must be encrypted via channel"
-            });
-            return;
-        }
-
-        // Use reflection to get SessionToken property from any request type
-        var sessionTokenProperty = decryptedRequest.GetType().GetProperty("SessionToken");
-        if (sessionTokenProperty == null)
-        {
-            logger.LogWarning("Decrypted request does not contain SessionToken property");
-            context.Result = new UnauthorizedObjectResult(new
-            {
-                error = "ERR_NO_SESSION_TOKEN_IN_REQUEST",
-                message = "Request must include sessionToken field"
-            });
-            return;
-        }
-
-        var sessionToken = sessionTokenProperty.GetValue(decryptedRequest) as string;
+        // 1. Extract session token from X-Session-Id header (new pattern)
+        var sessionToken = context.HttpContext.Request.Headers["X-Session-Id"].FirstOrDefault();
 
         if (string.IsNullOrWhiteSpace(sessionToken))
         {
-            logger.LogWarning("Empty session token in decrypted request");
-            context.Result = new UnauthorizedObjectResult(new
+            // 2. Fallback to body extraction (deprecated pattern) for backward compatibility
+            logger.LogDebug("X-Session-Id header not found, attempting to extract from request body");
+
+            var decryptedRequest = context.HttpContext.Items["DecryptedRequest"];
+
+            if (decryptedRequest == null)
             {
-                error = "ERR_EMPTY_TOKEN",
-                message = "Session token cannot be empty"
-            });
-            return;
+                logger.LogWarning("No session token in header and no decrypted request found");
+                context.Result = new UnauthorizedObjectResult(new
+                {
+                    error = "ERR_NO_SESSION_TOKEN",
+                    message = "Session token must be provided via X-Session-Id header",
+                    hint = "Add X-Session-Id header with your session token"
+                });
+                return;
+            }
+
+            // Use reflection to get SessionToken property from any request type
+            var sessionTokenProperty = decryptedRequest.GetType().GetProperty("SessionToken");
+            if (sessionTokenProperty == null)
+            {
+                logger.LogWarning("No session token in header and decrypted request does not contain SessionToken property");
+                context.Result = new UnauthorizedObjectResult(new
+                {
+                    error = "ERR_NO_SESSION_TOKEN",
+                    message = "Session token must be provided via X-Session-Id header",
+                    hint = "Add X-Session-Id header with your session token"
+                });
+                return;
+            }
+
+            sessionToken = sessionTokenProperty.GetValue(decryptedRequest) as string;
+
+            if (string.IsNullOrWhiteSpace(sessionToken))
+            {
+                logger.LogWarning("Session token is empty in both header and request body");
+                context.Result = new UnauthorizedObjectResult(new
+                {
+                    error = "ERR_EMPTY_TOKEN",
+                    message = "Session token cannot be empty",
+                    hint = "Add X-Session-Id header with your session token"
+                });
+                return;
+            }
+
+            // Log deprecation warning
+            logger.LogWarning(
+                "Session token extracted from request body. This is deprecated. Use X-Session-Id header instead. " +
+                "Body token support will be removed in v0.11.0");
+        }
+        else
+        {
+            logger.LogDebug("Session token extracted from X-Session-Id header: {SessionToken}", sessionToken);
         }
 
         // 2. Validate session
@@ -136,7 +177,28 @@ public class PrismAuthenticatedSessionAttribute : Attribute, IAsyncActionFilter
         // 5. Store SessionContext in HttpContext for controller access
         context.HttpContext.Items["SessionContext"] = sessionContext;
 
-        // 6. Continue to controller action
-        await next();
+        // 6. Execute controller action
+        var executedContext = await next();
+
+        // 7. Add session token to response header automatically
+        // Only add if the action executed successfully (no exception and not an error status)
+        if (executedContext.Exception == null)
+        {
+            var shouldAddHeader = executedContext.Result switch
+            {
+                UnauthorizedObjectResult => false,
+                ObjectResult objResult when objResult.StatusCode >= 400 => false,
+                _ => true
+            };
+
+            if (shouldAddHeader)
+            {
+                executedContext.HttpContext.Response.Headers.Append(
+                    "X-Session-Id",
+                    sessionContext.SessionToken);
+
+                logger.LogDebug("Added X-Session-Id header to response: {SessionToken}", sessionContext.SessionToken);
+            }
+        }
     }
 }

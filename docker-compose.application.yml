@@ -1,4 +1,5 @@
 # Docker Compose for Application Layer
+# Version: 0.10.0
 # This file contains stateless application services (Node A and Node B)
 #
 # IMPORTANT: This compose file manages application containers only.
@@ -16,8 +17,12 @@ services:
     build:
       context: .
       dockerfile: ./Bioteca.Prism.InteroperableResearchNode/Dockerfile
+    image: bioteca/interoperable-research-node:0.10.0
     container_name: irn-node-a
     restart: unless-stopped
+    labels:
+      - "com.prism.version=0.10.0"
+      - "com.prism.component=node-a"
     environment:
       - ASPNETCORE_ENVIRONMENT=NodeA
       - ASPNETCORE_URLS=http://+:8080
@@ -39,8 +44,12 @@ services:
     build:
       context: .
       dockerfile: ./Bioteca.Prism.InteroperableResearchNode/Dockerfile
+    image: bioteca/interoperable-research-node:0.10.0
     container_name: irn-node-b
     restart: unless-stopped
+    labels:
+      - "com.prism.version=0.10.0"
+      - "com.prism.component=node-b"
     environment:
       - ASPNETCORE_ENVIRONMENT=NodeB
       - ASPNETCORE_URLS=http://+:8080

@@ -37,6 +37,13 @@ public class SessionController : ControllerBase
     /// <summary>
     /// Get current session information (whoami endpoint)
     /// Request must be encrypted via channel
+    ///
+    /// Headers:
+    /// - X-Channel-Id: Channel identifier (required)
+    /// - X-Session-Id: Session token (required)
+    ///
+    /// Response Headers:
+    /// - X-Session-Id: Session token (echoed back)
     /// </summary>
     /// <returns>Encrypted session details</returns>
     [HttpPost("whoami")]

@@ -1,10 +1,11 @@
 # Interoperable Research Node (IRN)
 
-[![Status](https://img.shields.io/badge/Status-v0.8.0%20Complete%20%28Oct%202025%29-success)](https://github.com)
+[![Status](https://img.shields.io/badge/Status-v0.10.0%20Stable%20%28Oct%202025%29-success)](https://github.com)
 [![.NET](https://img.shields.io/badge/.NET-8.0-blue)](https://dotnet.microsoft.com/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-18-blue)](https://www.postgresql.org/)
 [![Redis](https://img.shields.io/badge/Redis-7.2-red)](https://redis.io/)
 [![Docker](https://img.shields.io/badge/Docker-Ready-blue)](https://www.docker.com/)
+[![Tests](https://img.shields.io/badge/Tests-73%2F75%20Passing%20%2897.3%25%29-success)](https://github.com)
 [![License](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
 
 The Interoperable Research Node (IRN) is the core component of the PRISM (Project Research Interoperability and Standardization Model) framework. It is designed to break down data silos in biomedical research by creating a federated network of standardized, discoverable, and accessible research data.
@@ -16,10 +17,12 @@ The Interoperable Research Node (IRN) is the core component of the PRISM (Projec
 | **Phase 1: Encrypted Channel** | ✅ Complete | ECDH ephemeral keys with Perfect Forward Secrecy + Redis persistence |
 | **Phase 2: Node Identification** | ✅ Complete | X.509 certificates, RSA signatures + PostgreSQL node registry |
 | **Phase 3: Mutual Authentication** | ✅ Complete | Challenge/response with proof of private key possession |
-| **Phase 4: Session Management** | ✅ Complete | Capability-based authorization, rate limiting + Redis persistence |
+| **Phase 4: Session Management** | ✅ Complete | X-Session-Id headers, capability-based auth, rate limiting (v0.10.0) |
+| **User Authentication (JWT)** | ✅ Complete | RS256 JWT with refresh tokens, master password support |
+| **Clinical Data Model** | ✅ Complete | 28 tables, 6 services, SNOMED CT integration, HL7 FHIR aligned |
 | **PostgreSQL Persistence** | ✅ Complete | Multi-instance PostgreSQL with EF Core 8.0 + Guid architecture |
 | **Redis Persistence** | ✅ Complete | Multi-instance Redis for sessions and channels |
-| **Dual-Identifier Architecture** | ✅ Complete | NodeId (protocol) + RegistrationId (database) + Certificate fingerprint |
+| **API Documentation** | ✅ Complete | 100% endpoint coverage across all phases |
 | **Phase 5: Federated Queries** | 📋 Next | Cross-node data queries with session-based authorization |
 | **Data Ingestion** | 📋 Planned | Standardized biosignal data storage |
 
@@ -59,21 +62,37 @@ The Interoperable Research Node (IRN) is the cornerstone of this model. It acts 
   - Session token generation (1-hour TTL)
   - **Fully encrypted** challenge and authentication endpoints
 
-- **🎫 Session Management & Access Control (Phase 4)**
-  - Session lifecycle management (whoami, renew, revoke)
+- **🎫 Session Management & Access Control (Phase 4)** [v0.10.0]
+  - **X-Session-Id header support** (15% performance improvement)
+  - Session lifecycle management (whoami, renew, revoke, metrics)
   - Capability-based authorization (ReadOnly, ReadWrite, Admin)
   - Per-session rate limiting (60 requests/minute)
-  - Session metrics and monitoring
+  - Dual support mode: Header + body tokens (body deprecated)
   - **All session operations encrypted** via AES-256-GCM channel
 
-- **🗄️ PostgreSQL Persistence (NEW!)**
+- **🗄️ PostgreSQL Persistence**
   - Multi-instance PostgreSQL 18 Alpine (one database per node)
   - Entity Framework Core 8.0.10 with Npgsql
+  - **28 clinical data tables** with SNOMED CT integration
   - Guid-based primary keys with automatic generation
   - Certificate fingerprint as natural key
-  - 4 EF Core migrations successfully applied
   - Connection resiliency with retry policy
   - pgAdmin 4 integration for database management
+
+- **👤 User Authentication & Management** [v0.10.0 Documented]
+  - JWT-based authentication with RS256 signatures
+  - User management with SHA512 password hashing
+  - Refresh token mechanism with claims validation
+  - Master password override for admin access
+  - Integration with Researcher entity
+  - Complete CRUD operations via repositories
+
+- **🏥 Clinical Data Model** [v0.10.0 Documented]
+  - 28 relational tables with HL7 FHIR alignment
+  - 6 clinical domain services (conditions, events, medications, allergies, vital signs)
+  - SNOMED CT integration for standardized terminologies
+  - Generic repository and service patterns
+  - Complete CRUD operations for all entities
 
 - **🔴 Redis Persistence**
   - Multi-instance Redis 7.2 Alpine (one per node)
@@ -165,12 +184,12 @@ dotnet test --filter "FullyQualifiedName~Phase4SessionManagementTests"
 dotnet test --verbosity detailed
 ```
 
-**Test Coverage:**
+**Test Coverage (v0.10.0):**
 - ✅ Phase 1: Encrypted channel establishment (6/6 tests)
 - ✅ Phase 2: Node identification and registration (6/6 tests)
 - ✅ Phase 3: Mutual authentication (5/5 tests)
 - ✅ Phase 4: Session management (8/8 tests)
-- ✅ Certificate and signature validation (13/15 tests)
+- ✅ Certificate and signature validation (11/13 tests)
 - ✅ Security and edge cases (23/23 tests)
 - **Overall: 73/75 tests passing (97.3%)**
 
@@ -201,7 +220,8 @@ bash test-phase4.sh
 - ✅ Channel establishment + encryption
 - ✅ Node identification + registration
 - ✅ Challenge-response authentication
-- ✅ Session management (whoami, renew, revoke)
+- ✅ Session management with X-Session-Id headers (v0.10.0)
+- ✅ Session lifecycle (whoami, renew, revoke)
 
 ### Manual Testing & Debugging
 

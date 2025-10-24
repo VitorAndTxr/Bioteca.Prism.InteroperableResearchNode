@@ -1,0 +1,715 @@
+{
+  "info": {
+    "name": "PRISM InteroperableResearchNode API",
+    "description": "Complete API collection for PRISM IRN including 4-phase handshake and user authentication. Version 0.10.0 with X-Session-Id header support.",
+    "version": "0.10.0",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000",
+      "type": "string"
+    },
+    {
+      "key": "remoteNodeUrl",
+      "value": "http://localhost:5001",
+      "type": "string"
+    },
+    {
+      "key": "channelId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "sessionToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "jwtToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "symmetricKey",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "registrationId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Phase 1: Channel Establishment",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/channel/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "channel", "health"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Open Channel (Server)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const channelId = pm.response.headers.get('X-Channel-Id');",
+                  "    pm.environment.set('channelId', channelId);",
+                  "    ",
+                  "    const response = pm.response.json();",
+                  "    pm.environment.set('serverPublicKey', response.ephemeralPublicKey);",
+                  "    pm.environment.set('serverNonce', response.nonce);",
+                  "    ",
+                  "    pm.test('Channel established', () => {",
+                  "        pm.expect(channelId).to.not.be.empty;",
+                  "    });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// Generate mock ephemeral key and nonce for testing",
+                  "const mockPublicKey = 'MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE...',",
+                  "const mockNonce = btoa(Math.random().toString(36).substring(2));",
+                  "",
+                  "pm.environment.set('clientPublicKey', mockPublicKey);",
+                  "pm.environment.set('clientNonce', mockNonce);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"protocolVersion\": \"1.0\",\n  \"ephemeralPublicKey\": \"{{clientPublicKey}}\",\n  \"keyExchangeAlgorithm\": \"ECDH-P384\",\n  \"supportedCiphers\": [\"AES-256-GCM\", \"ChaCha20-Poly1305\"],\n  \"nonce\": \"{{clientNonce}}\",\n  \"timestamp\": \"{{$isoTimestamp}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/channel/open",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "channel", "open"]
+            }
+          }
+        },
+        {
+          "name": "Initiate Handshake (Client)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.environment.set('channelId', response.channelId);",
+                  "    ",
+                  "    pm.test('Handshake initiated', () => {",
+                  "        pm.expect(response.success).to.be.true;",
+                  "    });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"remoteNodeUrl\": \"{{remoteNodeUrl}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/channel/initiate",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "channel", "initiate"]
+            }
+          }
+        },
+        {
+          "name": "Get Channel Info",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/channel/{{channelId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "channel", "{{channelId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Phase 2: Node Identification",
+      "item": [
+        {
+          "name": "Identify Node",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// Mock certificate and signature for testing",
+                  "const mockCertificate = 'MIID...base64-encoded-certificate...',",
+                  "const mockSignature = 'base64-encoded-signature';",
+                  "",
+                  "pm.environment.set('nodeCertificate', mockCertificate);",
+                  "pm.environment.set('nodeSignature', mockSignature);"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    // Response is encrypted, would need decryption in real scenario",
+                  "    pm.test('Node identified', () => {",
+                  "        pm.response.to.have.status(200);",
+                  "    });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Channel-Id",
+                "value": "{{channelId}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nodeId\": \"node-a\",\n  \"certificate\": \"{{nodeCertificate}}\",\n  \"signature\": \"{{nodeSignature}}\",\n  \"timestamp\": \"{{$isoTimestamp}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/node/identify",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "node", "identify"]
+            }
+          }
+        },
+        {
+          "name": "Register Node",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Channel-Id",
+                "value": "{{channelId}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nodeId\": \"node-a\",\n  \"nodeName\": \"Research Node Alpha\",\n  \"certificate\": \"{{nodeCertificate}}\",\n  \"organizationName\": \"University Research Lab\",\n  \"contactEmail\": \"admin@research-lab.edu\",\n  \"nodeAccessLevel\": \"ReadWrite\",\n  \"nodeUrl\": \"http://localhost:5000\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/node/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "node", "register"]
+            }
+          }
+        },
+        {
+          "name": "List All Nodes",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const nodes = pm.response.json();",
+                  "    if (nodes.length > 0) {",
+                  "        pm.environment.set('registrationId', nodes[0].id);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/node/nodes",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "node", "nodes"]
+            }
+          }
+        },
+        {
+          "name": "Update Node Status",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"Authorized\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/node/{{registrationId}}/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "node", "{{registrationId}}", "status"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Phase 3: Authentication",
+      "item": [
+        {
+          "name": "Request Challenge",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// In real scenario, would decrypt and extract challenge",
+                  "pm.test('Challenge received', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Channel-Id",
+                "value": "{{channelId}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nodeId\": \"node-a\",\n  \"timestamp\": \"{{$isoTimestamp}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/node/challenge",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "node", "challenge"]
+            }
+          }
+        },
+        {
+          "name": "Submit Authentication",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// In real scenario, would decrypt and extract session token",
+                  "// For testing, use a mock token",
+                  "if (pm.response.code === 200) {",
+                  "    pm.environment.set('sessionToken', 'mock-session-token-guid');",
+                  "    pm.test('Authentication successful', () => {",
+                  "        pm.response.to.have.status(200);",
+                  "    });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Channel-Id",
+                "value": "{{channelId}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nodeId\": \"node-a\",\n  \"challenge\": \"base64-encoded-challenge\",\n  \"signature\": \"base64-encoded-signature\",\n  \"timestamp\": \"{{$isoTimestamp}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/node/authenticate",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "node", "authenticate"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Phase 4: Session Management",
+      "item": [
+        {
+          "name": "Who Am I (v0.10.0 Header)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Channel-Id",
+                "value": "{{channelId}}"
+              },
+              {
+                "key": "X-Session-Id",
+                "value": "{{sessionToken}}",
+                "description": "NEW in v0.10.0"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"channelId\": \"{{channelId}}\",\n  \"timestamp\": \"{{$isoTimestamp}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/session/whoami",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "session", "whoami"]
+            },
+            "description": "Get session information using new X-Session-Id header pattern (v0.10.0+)"
+          }
+        },
+        {
+          "name": "Who Am I (v0.9.x Body - Deprecated)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Channel-Id",
+                "value": "{{channelId}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sessionToken\": \"{{sessionToken}}\",\n  \"channelId\": \"{{channelId}}\",\n  \"timestamp\": \"{{$isoTimestamp}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/session/whoami",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "session", "whoami"]
+            },
+            "description": "DEPRECATED: Get session information using old body pattern (will be removed in v0.11.0)"
+          }
+        },
+        {
+          "name": "Renew Session",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Channel-Id",
+                "value": "{{channelId}}"
+              },
+              {
+                "key": "X-Session-Id",
+                "value": "{{sessionToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"additionalSeconds\": 3600,\n  \"timestamp\": \"{{$isoTimestamp}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/session/renew",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "session", "renew"]
+            }
+          }
+        },
+        {
+          "name": "Get Metrics (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Channel-Id",
+                "value": "{{channelId}}"
+              },
+              {
+                "key": "X-Session-Id",
+                "value": "{{sessionToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nodeId\": \"{{registrationId}}\",\n  \"timestamp\": \"{{$isoTimestamp}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/session/metrics",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "session", "metrics"]
+            },
+            "description": "Requires Admin capability"
+          }
+        },
+        {
+          "name": "Revoke Session",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Channel-Id",
+                "value": "{{channelId}}"
+              },
+              {
+                "key": "X-Session-Id",
+                "value": "{{sessionToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Normal logout\",\n  \"timestamp\": \"{{$isoTimestamp}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/session/revoke",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "session", "revoke"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "User Authentication (JWT)",
+      "item": [
+        {
+          "name": "User Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.success) {",
+                  "        pm.environment.set('jwtToken', response.token);",
+                  "        pm.environment.set('researcherId', response.researcher.id);",
+                  "        ",
+                  "        pm.test('Login successful', () => {",
+                  "            pm.expect(response.token).to.not.be.empty;",
+                  "        });",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"researcher@university.edu\",\n  \"password\": \"SecurePassword123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/userauth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "userauth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Refresh JWT Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.success) {",
+                  "        pm.environment.set('jwtToken', response.token);",
+                  "        ",
+                  "        pm.test('Token refreshed', () => {",
+                  "            pm.expect(response.token).to.not.be.empty;",
+                  "        });",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwtToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"researchId\": \"{{researcherId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/userauth/refreshtoken",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "userauth", "refreshtoken"]
+            }
+          }
+        },
+        {
+          "name": "Encrypt Text (Utility)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"MySecretPassword\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/userauth/encrypt",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "userauth", "encrypt"]
+            }
+          }
+        },
+        {
+          "name": "Protected Endpoint Example",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwtToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/research/data",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "research", "data"]
+            },
+            "description": "Example of using JWT token for protected endpoints"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Complete Flows",
+      "item": [
+        {
+          "name": "Complete 4-Phase Handshake",
+          "description": "Run these requests in order to complete the full handshake:\n1. Open Channel\n2. Identify Node\n3. Request Challenge\n4. Submit Authentication\n5. Use Session",
+          "item": []
+        },
+        {
+          "name": "Migration Test (v0.10.0)",
+          "description": "Test both session token patterns:\n1. Who Am I with header (new)\n2. Who Am I with body (deprecated)\n3. Verify both work in v0.10.0",
+          "item": []
+        }
+      ]
+    }
+  ],
+  "auth": {
+    "type": "noauth"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Global pre-request script",
+          "// Add any global setup here"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Global test script",
+          "// Add any global assertions here"
+        ]
+      }
+    }
+  ]
+}
