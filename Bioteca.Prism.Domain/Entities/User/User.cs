@@ -9,6 +9,6 @@
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
 
-        public Researcher.Researcher? Researcher { get; set; } 
+        public Researcher.Researcher? Researcher { get; set; } = null;
     }
 }

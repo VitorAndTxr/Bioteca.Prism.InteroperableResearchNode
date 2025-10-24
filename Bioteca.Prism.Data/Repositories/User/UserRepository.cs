@@ -1,6 +1,7 @@
 ﻿using Bioteca.Prism.Core.Database;
 using Bioteca.Prism.Data.Interfaces.User;
 using Bioteca.Prism.Data.Persistence.Contexts;
+using Microsoft.EntityFrameworkCore;
 
 namespace Bioteca.Prism.Data.Repositories.User
 {
@@ -14,7 +15,10 @@ namespace Bioteca.Prism.Data.Repositories.User
         {
             try
             {
-                return _dbSet.FirstOrDefault(u => u.Login == username);
+                return _dbSet
+                    .Include(u => u.Researcher)
+                        .ThenInclude(r => r.ResearchResearchers)
+                    .FirstOrDefault(u => u.Login == username);
             }
             catch (Exception)
             {

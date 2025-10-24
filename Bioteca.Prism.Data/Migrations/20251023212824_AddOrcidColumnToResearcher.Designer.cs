@@ -4,6 +4,7 @@ using System.Text.Json;
 using Bioteca.Prism.Data.Persistence.Contexts;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -12,9 +13,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Bioteca.Prism.Data.Migrations
 {
     [DbContext(typeof(PrismDbContext))]
-    partial class PrismDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251023212824_AddOrcidColumnToResearcher")]
+    partial class AddOrcidColumnToResearcher
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

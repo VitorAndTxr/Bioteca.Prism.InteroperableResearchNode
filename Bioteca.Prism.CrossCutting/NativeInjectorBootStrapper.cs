@@ -1,9 +1,11 @@
 ﻿using Bioteca.Prism.Core.Cache;
 using Bioteca.Prism.Core.Cache.Session;
+using Bioteca.Prism.Core.Context;
 using Bioteca.Prism.Core.Interfaces;
 using Bioteca.Prism.Core.Middleware.Channel;
 using Bioteca.Prism.Core.Middleware.Node;
 using Bioteca.Prism.Core.Middleware.Session;
+using Bioteca.Prism.Core.Security;
 using Bioteca.Prism.Core.Security.Cryptography;
 using Bioteca.Prism.Data.Interfaces.Application;
 using Bioteca.Prism.Data.Interfaces.Device;
@@ -33,6 +35,7 @@ using Bioteca.Prism.Service.Interfaces.Research;
 using Bioteca.Prism.Service.Interfaces.Researcher;
 using Bioteca.Prism.Service.Interfaces.Sensor;
 using Bioteca.Prism.Service.Interfaces.Snomed;
+using Bioteca.Prism.Service.Interfaces.User;
 using Bioteca.Prism.Service.Interfaces.Volunteer;
 using Bioteca.Prism.Service.Services.Application;
 using Bioteca.Prism.Service.Services.Cache;
@@ -44,7 +47,8 @@ using Bioteca.Prism.Service.Services.Research;
 using Bioteca.Prism.Service.Services.Researcher;
 using Bioteca.Prism.Service.Services.Sensor;
 using Bioteca.Prism.Service.Services.Session;
-using Bioteca.Prism.Service.Services.Snomed; 
+using Bioteca.Prism.Service.Services.Snomed;
+using Bioteca.Prism.Service.Services.User;
 using Bioteca.Prism.Service.Services.Volunteer;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -55,6 +59,7 @@ namespace Bioteca.Prism.CrossCutting
 
         public static void RegisterAllDependencies(IServiceCollection services)
         {
+            RegisterUtility(services);  
             RegisterCache(services);
             RegisterDatabase(services);
             RegisterRepositories(services);
@@ -103,6 +108,12 @@ namespace Bioteca.Prism.CrossCutting
             services.AddScoped<IVitalSignsService, VitalSignsService>();
             services.AddScoped<IVolunteerClinicalService, VolunteerClinicalService>();
 
+            // JWT utility
+            services.AddScoped<IJwtUtil, JwtUtil>();
+
+            // User authentication service
+            services.AddScoped<IUserAuthService, UserAuthService>();
+
             // Register PostgreSQL-backed node registry service
             services.AddScoped<IResearchNodeService, ResearchNodeService>();
         }
@@ -140,12 +151,18 @@ namespace Bioteca.Prism.CrossCutting
 
         public static void RegisterDatabase(IServiceCollection services)
         {
-
+            // DbContext is registered in Program.cs via AddDbContext
+            // This method is kept for potential future database-related registrations
         }
 
         public static void RegisterCache(IServiceCollection services)
         {
             services.AddSingleton<IRedisConnectionService, RedisConnectionService>();
+        }
+
+        public static void RegisterUtility(IServiceCollection services)
+        {
+            services.AddSingleton<IApiContext, ApiContext>();
         }
     }
 }

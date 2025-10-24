@@ -19,6 +19,7 @@ namespace Bioteca.Prism.Service.Services.User
     {
         private readonly IConfiguration _configuration;
         private readonly IJwtUtil _jwtUtil;
+        private readonly IApiContext _apiContext;
         
         private readonly IUserRepository _userRepository;
         private readonly IResearchResearcherRepository _researchResearcherRepository;
@@ -27,6 +28,7 @@ namespace Bioteca.Prism.Service.Services.User
             IConfiguration configuration,
             IJwtUtil jwtUtil,
             IUserRepository userRepository,
+            IApiContext apiContext,
             IResearchResearcherRepository researchResearcherRepository
             )
         {
@@ -34,6 +36,7 @@ namespace Bioteca.Prism.Service.Services.User
             _jwtUtil = jwtUtil;
 
             _userRepository = userRepository;
+            _apiContext = apiContext;
             _researchResearcherRepository = researchResearcherRepository;
         }
 
@@ -49,14 +52,43 @@ namespace Bioteca.Prism.Service.Services.User
 
             ValidatePassword(payload.Password, user);
 
-            ValidateRequestedResearchAccess(user, payload.ResearchId);
+            // Only validate research access if ResearchId is provided
+            if (payload.ResearchId.HasValue)
+            {
+                ValidateRequestedResearchAccess(user, payload.ResearchId.Value);
+            }
 
             return Task.FromResult(CreateUsersClaim(payload, user));
         }
 
-        public Task<UserLoginResponse> RefreshTokenAsync()
+        public Task<UserLoginResponse> RefreshTokenAsync(Guid researchId)
         {
-            throw new NotImplementedException();
+            string sub = _apiContext.SecurityContext.User.Id.ToString();
+            string login = _apiContext.SecurityContext.User.Login;
+
+            if (string.IsNullOrEmpty(sub) || string.IsNullOrEmpty(login))
+            {
+                throw new BadRequestException(UserLoginErrors.PayloadIsNull.Name);
+            }
+
+            UserLoginPayload payload = new UserLoginPayload
+            {
+                Username = login
+            };
+
+            return Task.FromResult(AuthorizationByRefreshToken(payload));
+        }
+
+
+        private UserLoginResponse AuthorizationByRefreshToken(UserLoginPayload payload)
+        {
+            var user =  _userRepository.GetByUsername(payload.Username);
+            if (user == null)
+            {
+                throw new BadRequestException(UserLoginErrors.UnableToAuthorize.Name);
+            }
+
+            return CreateUsersClaim(payload, user, true);
         }
 
         public Task<string> EncryptAsync(string password)
@@ -81,9 +113,13 @@ namespace Bioteca.Prism.Service.Services.User
                 AddResearchToClaims(claims, researches);
             }
 
+            var expirationMinutes = _configuration.GetValue<string>("Jwt:Expiration:Minutes")!;
+
+            int expiration = int.Parse(expirationMinutes);
             UserLoginResponse authorizationResult = new UserLoginResponse
             {
-                Token = _jwtUtil.CreateJwt(claims)
+                Token = _jwtUtil.CreateJwt(claims),
+                Expiration = DateTime.UtcNow.AddMinutes(expiration!)
             };
 
             return authorizationResult;
