@@ -1,4 +1,6 @@
-﻿using Bioteca.Prism.Core.Middleware.Channel;
+﻿using Bioteca.Prism.Core.Interfaces;
+using Bioteca.Prism.Core.Middleware.Channel;
+using Bioteca.Prism.Core.Middleware.Session;
 using Bioteca.Prism.Core.Security.Authorization;
 using Bioteca.Prism.Domain.Payloads;
 using Bioteca.Prism.Domain.Requests.Session;
@@ -14,9 +16,14 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
     public class UserAuthController : ControllerBase
     {
         private readonly IUserAuthService _userAuthService;
-        public UserAuthController(IUserAuthService userAuthService)
+        private readonly IChannelEncryptionService _encryptionService;
+        public UserAuthController(
+            IUserAuthService userAuthService,
+            IChannelEncryptionService encryptionService
+            )
         {
             _userAuthService = userAuthService;
+            _encryptionService = encryptionService;
         }
 
         [Route("[action]")]
@@ -24,9 +31,13 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
         [PrismEncryptedChannelConnection<UserLoginPayload>]
         [PrismAuthenticatedSession]
         [ProducesDefaultResponseType(typeof(UserLoginResponse))]
-        public IActionResult Login(UserLoginPayload userLoginPayload)
+        public IActionResult Login()
         {
-            var response =  _userAuthService.LoginAsync(userLoginPayload).Result;
+            var channelContext = HttpContext.Items["ChannelContext"] as ChannelContext;
+            var sessionContext = HttpContext.Items["SessionContext"] as SessionContext;
+            var request = HttpContext.Items["DecryptedRequest"] as UserLoginPayload;
+
+            var response =  _userAuthService.LoginAsync(request).Result;
             return Ok(response);  
         }
 

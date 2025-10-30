@@ -51,6 +51,18 @@ builder.Services.AddSwaggerGen(options =>
 
 DependencyInjectionConfig.AddDependencyInjectionConfiguration(builder.Services);
 
+// Configure CORS
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowViteDevelopment", policy =>
+    {
+        policy.WithOrigins("http://localhost:5173")
+              .AllowAnyMethod()
+              .AllowAnyHeader()
+              .AllowCredentials();
+    });
+});
+
 // Configure HttpClient with timeout from configuration (default: 5 minutes)
 var httpTimeoutSeconds = builder.Configuration.GetValue<int>("HttpClient:TimeoutSeconds", 300);
 builder.Services.AddHttpClient(string.Empty, client =>
@@ -107,6 +119,9 @@ if (app.Environment.IsProduction())
 {
     app.UseHttpsRedirection();
 }
+
+// Use CORS policy
+app.UseCors("AllowViteDevelopment");
 
 app.UseAuthorization();
 

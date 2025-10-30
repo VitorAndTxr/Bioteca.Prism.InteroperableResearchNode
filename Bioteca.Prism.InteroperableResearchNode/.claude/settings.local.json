@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//d/Repos/Faculdade/PRISM/InteroperableResearchNode/**)",
+      "Bash(docker image rm:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
