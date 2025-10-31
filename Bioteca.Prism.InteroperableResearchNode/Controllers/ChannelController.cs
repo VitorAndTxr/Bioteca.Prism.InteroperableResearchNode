@@ -110,7 +110,17 @@ public class ChannelController : ControllerBase
             // Derive symmetric key using HKDF
             var salt = CombineNonces(request.Nonce, responseNonce);
             var info = System.Text.Encoding.UTF8.GetBytes("IRN-Channel-v1.0");
+
+            // 🔍 DEBUG: Log nonces before key derivation
+            _logger.LogInformation("=== Backend Channel Open Debug ===");
+            _logger.LogInformation("Client Nonce (Base64): {ClientNonce}", request.Nonce);
+            _logger.LogInformation("Server Nonce (Base64): {ServerNonce}", responseNonce);
+            _logger.LogInformation("Combined Salt (Base64): {Salt}", Convert.ToBase64String(salt));
+            _logger.LogInformation("Calling DeriveKey with HKDF...");
+
             var symmetricKey = _encryptionService.DeriveKey(sharedSecret, salt, info);
+
+            _logger.LogInformation("=== Key Derivation Complete ===");
 
             // Store channel context (with expiration)
             var channelId = Guid.NewGuid().ToString();

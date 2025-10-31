@@ -80,7 +80,9 @@ public partial class EphemeralKeyService : IEphemeralKeyService
         try
         {
             var remotePublicKey = remoteEcdh.PublicKey;
-            var sharedSecret = localEcdh.DeriveKeyMaterial(remotePublicKey);
+            // Use DeriveRawSecretAgreement to get raw ECDH output (48 bytes for P-384)
+            // NOT DeriveKeyMaterial which applies SHA-256 hash (32 bytes)
+            var sharedSecret = localEcdh.DeriveRawSecretAgreement(remotePublicKey);
 
             _logger.LogDebug("Derived shared secret ({Length} bytes)", sharedSecret.Length);
 

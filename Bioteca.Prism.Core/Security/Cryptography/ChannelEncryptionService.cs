@@ -34,9 +34,24 @@ public class ChannelEncryptionService : IChannelEncryptionService
     {
         try
         {
+            // 🔍 DEBUG: Log all derivation inputs
+            _logger.LogInformation("=== HKDF Key Derivation Inputs ===");
+            _logger.LogInformation("Shared Secret (Base64): {SharedSecret}", Convert.ToBase64String(sharedSecret));
+            _logger.LogInformation("Shared Secret (Length): {Length} bytes", sharedSecret.Length);
+            _logger.LogInformation("Salt (Base64): {Salt}", Convert.ToBase64String(salt));
+            _logger.LogInformation("Salt (Length): {Length} bytes", salt.Length);
+            _logger.LogInformation("Info Context (Base64): {Info}", Convert.ToBase64String(info));
+            _logger.LogInformation("Info Context (String): {InfoString}", Encoding.UTF8.GetString(info));
+            _logger.LogInformation("Info Context (Length): {Length} bytes", info.Length);
+
             using var hkdf = new HKDF(HashAlgorithmName.SHA256, sharedSecret, salt, info);
             var derivedKey = new byte[keyLength];
             hkdf.DeriveKey(derivedKey);
+
+            // 🔍 DEBUG: Log derived key
+            _logger.LogInformation("Derived Key (Base64): {DerivedKey}", Convert.ToBase64String(derivedKey));
+            _logger.LogInformation("Derived Key (Length): {Length} bytes", derivedKey.Length);
+            _logger.LogInformation("===================================");
 
             _logger.LogDebug("Derived {KeyLength}-byte key using HKDF-SHA256", keyLength);
 
@@ -201,11 +216,13 @@ internal class HKDF : IDisposable
 {
     private readonly HashAlgorithmName _hashAlgorithm;
     private readonly byte[] _prk;
+    private readonly byte[] _info;
     private bool _disposed;
 
     public HKDF(HashAlgorithmName hashAlgorithm, byte[] inputKeyMaterial, byte[]? salt, byte[]? info)
     {
         _hashAlgorithm = hashAlgorithm;
+        _info = info ?? Array.Empty<byte>();
         _prk = Extract(inputKeyMaterial, salt);
     }
 
@@ -230,6 +247,7 @@ internal class HKDF : IDisposable
         for (byte i = 1; i <= iterations; i++)
         {
             hmac.AppendData(t);
+            hmac.AppendData(_info);  // RFC 5869 compliance
             hmac.AppendData(new[] { i });
 
             t = hmac.GetHashAndReset();
@@ -259,6 +277,7 @@ internal class HKDF : IDisposable
         if (!_disposed)
         {
             Array.Clear(_prk, 0, _prk.Length);
+            Array.Clear(_info, 0, _info.Length);
             _disposed = true;
         }
     }

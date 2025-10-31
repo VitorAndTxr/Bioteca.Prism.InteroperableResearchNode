@@ -59,7 +59,17 @@ builder.Services.AddCors(options =>
         policy.WithOrigins("http://localhost:5173")
               .AllowAnyMethod()
               .AllowAnyHeader()
-              .AllowCredentials();
+              .AllowCredentials()
+              .WithExposedHeaders("X-Channel-Id");
+    });
+
+    // Allow Electron desktop app (no Origin header or file:// origin)
+    options.AddPolicy("AllowAll", policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader()
+              .WithExposedHeaders("X-Channel-Id");
     });
 });
 
@@ -120,8 +130,18 @@ if (app.Environment.IsProduction())
     app.UseHttpsRedirection();
 }
 
-// Use CORS policy
-app.UseCors("AllowViteDevelopment");
+// Use CORS policy - AllowAll for development (includes Electron and Vite)
+// In production, this should be restricted to specific origins
+if (app.Environment.IsDevelopment() ||
+    app.Environment.EnvironmentName == "NodeA" ||
+    app.Environment.EnvironmentName == "NodeB")
+{
+    app.UseCors("AllowAll");
+}
+else
+{
+    app.UseCors("AllowViteDevelopment");
+}
 
 app.UseAuthorization();
 
