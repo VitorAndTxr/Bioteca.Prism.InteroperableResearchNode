@@ -79,9 +79,9 @@ public class NodeChannelClient : INodeChannelClient
 
             if (!response.IsSuccessStatusCode)
             {
-                var error = await response.Content.ReadFromJsonAsync<HandshakeError>();
+                var error = await response.Content.ReadFromJsonAsync<Error>();
                 _logger.LogWarning("Channel handshake failed: {ErrorCode} - {ErrorMessage}",
-                    error?.Error?.Code, error?.Error?.Message);
+                    error?.ErrorDetail?.Code, error?.ErrorDetail?.Message);
 
                 return new ChannelEstablishmentResult
                 {
@@ -214,8 +214,8 @@ public class NodeChannelClient : INodeChannelClient
 
         if (!response.IsSuccessStatusCode)
         {
-            var error = await response.Content.ReadFromJsonAsync<HandshakeError>();
-            throw new Exception($"Identification failed: {error?.Error?.Message}");
+            var error = await response.Content.ReadFromJsonAsync<Error>();
+            throw new Exception($"Identification failed: {error?.ErrorDetail?.Message}");
         }
 
         // Decrypt response
@@ -248,8 +248,8 @@ public class NodeChannelClient : INodeChannelClient
 
         if (!response.IsSuccessStatusCode)
         {
-            var error = await response.Content.ReadFromJsonAsync<HandshakeError>();
-            throw new Exception($"Registration failed: {error?.Error?.Message}");
+            var error = await response.Content.ReadFromJsonAsync<Error>();
+            throw new Exception($"Registration failed: {error?.ErrorDetail?.Message}");
         }
 
         // Decrypt response
@@ -289,8 +289,8 @@ public class NodeChannelClient : INodeChannelClient
 
         if (!response.IsSuccessStatusCode)
         {
-            var error = await response.Content.ReadFromJsonAsync<HandshakeError>();
-            throw new Exception($"Challenge request failed: {error?.Error?.Message}");
+            var error = await response.Content.ReadFromJsonAsync<Error>();
+            throw new Exception($"Challenge request failed: {error?.ErrorDetail?.Message}");
         }
 
         // Decrypt response
@@ -323,8 +323,8 @@ public class NodeChannelClient : INodeChannelClient
 
         if (!response.IsSuccessStatusCode)
         {
-            var error = await response.Content.ReadFromJsonAsync<HandshakeError>();
-            throw new Exception($"Authentication failed: {error?.Error?.Message}");
+            var error = await response.Content.ReadFromJsonAsync<Error>();
+            throw new Exception($"Authentication failed: {error?.ErrorDetail?.Message}");
         }
 
         // Decrypt response
@@ -354,11 +354,11 @@ public class NodeChannelClient : INodeChannelClient
         return combined;
     }
 
-    private HandshakeError CreateError(string code, string message)
+    private Error CreateError(string code, string message)
     {
-        return new HandshakeError
+        return new Error
         {
-            Error = new ErrorDetails
+            ErrorDetail = new ErrorDetails
             {
                 Code = code,
                 Message = message,

@@ -12,16 +12,17 @@ using System.Text.Json;
 namespace Bioteca.Prism.Core.Middleware.Channel
 {
     [AttributeUsage(AttributeTargets.Method, AllowMultiple = false)]
-    public class PrismEncryptedChannelConnectionAttribute<T> : Attribute, IAsyncResourceFilter
+    public class PrismEncryptedChannelConnectionAttribute<T> : ActionFilterAttribute
     {
-        public async Task OnResourceExecutionAsync(ResourceExecutingContext context, ResourceExecutionDelegate next)
+        public override async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
         {
             if (!context.HttpContext.Request.Headers.TryGetValue("X-Channel-Id", out var channelIdHeader))
             {
-                context.Result = new BadRequestObjectResult(new HandshakeError
+                context.Result = new BadRequestObjectResult(new Error
                 {
-                    Error = new ErrorDetails
+                    ErrorDetail = new ErrorDetails
                     {
+
                         Code = "ERR_MISSING_CHANNEL_ID",
                         Message = "X-Channel-Id header is required",
                         Retryable = false
@@ -36,9 +37,9 @@ namespace Bioteca.Prism.Core.Middleware.Channel
 
             if (channelContext == null)
             {
-                context.Result = new BadRequestObjectResult(new HandshakeError
+                context.Result = new BadRequestObjectResult(new Error
                 {
-                    Error = new ErrorDetails
+                    ErrorDetail = new ErrorDetails
                     {
                         Code = "ERR_INVALID_CHANNEL",
                         Message = "Channel does not exist or has expired",
@@ -47,8 +48,6 @@ namespace Bioteca.Prism.Core.Middleware.Channel
                 });
                 return;
             }
-
-
 
             var encryptionService = context.HttpContext.RequestServices.GetRequiredService<IChannelEncryptionService>();
             var nodeRegistryService = context.HttpContext.RequestServices.GetRequiredService<IResearchNodeService>();
@@ -66,9 +65,9 @@ namespace Bioteca.Prism.Core.Middleware.Channel
 
             if (string.IsNullOrWhiteSpace(body))
             {
-                context.Result = new BadRequestObjectResult(new HandshakeError
+                context.Result = new BadRequestObjectResult(new Error
                 {
-                    Error = new ErrorDetails
+                    ErrorDetail = new ErrorDetails
                     {
                         Code = "ERR_EMPTY_BODY",
                         Message = "Request body is empty",
@@ -82,9 +81,9 @@ namespace Bioteca.Prism.Core.Middleware.Channel
 
             if (encryptedRequest == null)
             {
-                context.Result = new BadRequestObjectResult(new HandshakeError
+                context.Result = new BadRequestObjectResult(new Error
                 {
-                    Error = new ErrorDetails
+                    ErrorDetail = new ErrorDetails
                     {
                         Code = "ERR_INVALID_PAYLOAD",
                         Message = "Failed to deserialize encrypted payload",
@@ -102,9 +101,9 @@ namespace Bioteca.Prism.Core.Middleware.Channel
             }
             catch (Exception ex)
             {
-                context.Result = new BadRequestObjectResult(new HandshakeError
+                context.Result = new BadRequestObjectResult(new Error
                 {
-                    Error = new ErrorDetails
+                    ErrorDetail = new ErrorDetails
                     {
                         Code = "ERR_DECRYPTION_FAILED",
                         Message = $"Failed to decrypt request payload: {ex.Message}",
@@ -133,9 +132,9 @@ namespace Bioteca.Prism.Core.Middleware.Channel
                     var signatureValid = await nodeRegistryService.VerifyNodeSignatureAsync(identifyRequest);
                     if (!signatureValid)
                     {
-                        context.Result = new BadRequestObjectResult(new HandshakeError
+                        context.Result = new BadRequestObjectResult(new Error
                         {
-                            Error = new ErrorDetails
+                            ErrorDetail = new ErrorDetails
                             {
                                 Code = "ERR_INVALID_SIGNATURE",
                                 Message = "Node signature verification failed",
@@ -150,8 +149,20 @@ namespace Bioteca.Prism.Core.Middleware.Channel
             context.HttpContext.Items["ChannelId"] = channelId;
             context.HttpContext.Items["ChannelContext"] = channelContext;
             context.HttpContext.Items["DecryptedRequest"] = request;
+            context.HttpContext.Response.Headers.Append("X-Channel-Id", channelId);
 
-            await next();
+            // Execute the action
+            var executedContext = await next();
+
+            // Encrypt the response if the action executed successfully
+            if (executedContext.Result is ObjectResult objectResult && objectResult.Value != null)
+            {
+                var encryptedResponse = encryptionService.EncryptPayload(objectResult.Value, channelContext.SymmetricKey);
+                executedContext.Result = new ObjectResult(encryptedResponse)
+                {
+                    StatusCode = objectResult.StatusCode ?? StatusCodes.Status200OK
+                };
+            }
         }
     }
 }

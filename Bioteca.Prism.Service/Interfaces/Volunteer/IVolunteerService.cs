@@ -1,4 +1,6 @@
 using Bioteca.Prism.Core.Interfaces;
+using Bioteca.Prism.Domain.Requests.Node;
+using Microsoft.AspNetCore.Mvc;
 
 
 namespace Bioteca.Prism.Service.Interfaces.Volunteer;
@@ -18,3 +20,4 @@ public interface IVolunteerService : IServiceBase<Domain.Entities.Volunteer.Volu
     /// </summary>
     Task<Domain.Entities.Volunteer.Volunteer?> GetByVolunteerCodeAsync(string volunteerCode, CancellationToken cancellationToken = default);
 }
+

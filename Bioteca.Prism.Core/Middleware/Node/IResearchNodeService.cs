@@ -23,6 +23,8 @@ public interface IResearchNodeService
     /// <returns>Node information if found, null otherwise</returns>
     Task<ResearchNode?> GetNodeByCertificateAsync(string certificateFingerprint);
 
+    Task<ResearchNode?> GetNodeByRequestAsync(NodeIdentifyRequest request);
+
     /// <summary>
     /// Verify node's certificate signature
     /// </summary>

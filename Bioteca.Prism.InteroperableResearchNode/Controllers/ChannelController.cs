@@ -2,10 +2,15 @@
 using Bioteca.Prism.Core.Interfaces;
 using Bioteca.Prism.Core.Middleware.Channel;
 using Bioteca.Prism.Core.Middleware.Node;
+using Bioteca.Prism.Core.Controllers;
 using Bioteca.Prism.Domain.Errors.Node;
 using Bioteca.Prism.Domain.Requests.Node;
 using Bioteca.Prism.Domain.Responses.Node;
+using Bioteca.Prism.Service.Interfaces.Volunteer;
+using Bioteca.Prism.Service.Services.Volunteer;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
+using System.Threading.Channels;
 
 namespace Bioteca.Prism.InteroperableResearchNode.Controllers;
 
@@ -14,7 +19,7 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/channel")]
-public class ChannelController : ControllerBase
+public class ChannelController : BaseController
 {
     private readonly ILogger<ChannelController> _logger;
     private readonly IEphemeralKeyService _ephemeralKeyService;
@@ -31,7 +36,9 @@ public class ChannelController : ControllerBase
         IConfiguration configuration,
         INodeChannelClient channelClient,
         IResearchNodeService nodeRegistry,
-        IChannelStore channelStore)
+        IChannelStore channelStore
+        
+        ):base(logger, configuration)
     {
         _logger = logger;
         _ephemeralKeyService = ephemeralKeyService;
@@ -49,22 +56,18 @@ public class ChannelController : ControllerBase
     /// <returns>Channel ready response with server's ephemeral public key</returns>
     [HttpPost("open")]
     [ProducesResponseType(typeof(ChannelReadyResponse), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(HandshakeError), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(typeof(HandshakeError), StatusCodes.Status500InternalServerError)]
+    [ProducesResponseType(typeof(Error), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(Error), StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> OpenChannel([FromBody] ChannelOpenRequest request)
     {
         try
         {
-            _logger.LogInformation("Received channel open request from client");
-
-            // Validate request
             var validationError = ValidateChannelOpenRequest(request);
             if (validationError != null)
             {
                 return BadRequest(validationError);
             }
 
-            // Validate ephemeral public key
             var curve = ExtractCurveFromAlgorithm(request.KeyExchangeAlgorithm);
             if (!_ephemeralKeyService.ValidatePublicKey(request.EphemeralPublicKey, curve))
             {
@@ -111,16 +114,7 @@ public class ChannelController : ControllerBase
             var salt = CombineNonces(request.Nonce, responseNonce);
             var info = System.Text.Encoding.UTF8.GetBytes("IRN-Channel-v1.0");
 
-            // 🔍 DEBUG: Log nonces before key derivation
-            _logger.LogInformation("=== Backend Channel Open Debug ===");
-            _logger.LogInformation("Client Nonce (Base64): {ClientNonce}", request.Nonce);
-            _logger.LogInformation("Server Nonce (Base64): {ServerNonce}", responseNonce);
-            _logger.LogInformation("Combined Salt (Base64): {Salt}", Convert.ToBase64String(salt));
-            _logger.LogInformation("Calling DeriveKey with HKDF...");
-
             var symmetricKey = _encryptionService.DeriveKey(sharedSecret, salt, info);
-
-            _logger.LogInformation("=== Key Derivation Complete ===");
 
             // Store channel context (with expiration)
             var channelId = Guid.NewGuid().ToString();
@@ -136,9 +130,8 @@ public class ChannelController : ControllerBase
                 Role = "server"
             };
 
-            await _channelStore.AddChannelAsync(channelId, channelContext);
+            _channelStore.AddChannelAsync(channelId, channelContext).Wait();
 
-            // Clean up ECDH objects
             serverEcdh.Dispose();
             clientEcdh.Dispose();
             Array.Clear(sharedSecret, 0, sharedSecret.Length);
@@ -157,8 +150,8 @@ public class ChannelController : ControllerBase
                 Nonce = responseNonce
             };
 
-            // Add channel ID in response header for client to use in subsequent requests
-            Response.Headers.Append("X-Channel-Id", channelId);
+
+            HttpContext.Response.Headers.Append("X-Channel-Id", channelId);
 
             return Ok(response);
         }
@@ -168,12 +161,13 @@ public class ChannelController : ControllerBase
 
             return StatusCode(StatusCodes.Status500InternalServerError, CreateError(
                 "ERR_CHANNEL_FAILED",
-                "Failed to establish encrypted channel",
+                "Failed to establish encrypted channel:" + ex.Message,
                 new Dictionary<string, object> { ["reason"] = "internal_error" },
                 retryable: true
             ));
         }
     }
+
 
     /// <summary>
     /// Initiate handshake with a remote node (acting as client)
@@ -182,7 +176,7 @@ public class ChannelController : ControllerBase
     /// <returns>Channel establishment result</returns>
     [HttpPost("initiate")]
     [ProducesResponseType(typeof(ChannelEstablishmentResult), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(HandshakeError), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(Error), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> InitiateHandshake([FromBody] InitiateHandshakeRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.RemoteNodeUrl))
@@ -237,7 +231,7 @@ public class ChannelController : ControllerBase
         return Ok(new { status = "healthy", timestamp = DateTime.UtcNow });
     }
 
-    private HandshakeError? ValidateChannelOpenRequest(ChannelOpenRequest request)
+    private Error? ValidateChannelOpenRequest(ChannelOpenRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.ProtocolVersion))
         {
@@ -340,20 +334,20 @@ public class ChannelController : ControllerBase
         return null;
     }
 
-    private List<string> GetSupportedCiphers()
-    {
-        var ciphers = _configuration.GetSection("ChannelSecurity:SupportedCiphers").Get<List<string>>();
-        return ciphers ?? new List<string> { "AES-256-GCM", "ChaCha20-Poly1305" };
-    }
-
-    private string ExtractCurveFromAlgorithm(string algorithm)
+    protected string ExtractCurveFromAlgorithm(string algorithm)
     {
         // Extract curve from "ECDH-P384" -> "P384"
         var parts = algorithm.Split('-');
         return parts.Length > 1 ? parts[1] : "P384";
     }
 
-    private byte[] CombineNonces(string nonce1, string nonce2)
+    protected List<string> GetSupportedCiphers()
+    {
+        var ciphers = _configuration.GetSection("ChannelSecurity:SupportedCiphers").Get<List<string>>();
+        return ciphers ?? new List<string> { "AES-256-GCM", "ChaCha20-Poly1305" };
+    }
+
+    protected byte[] CombineNonces(string nonce1, string nonce2)
     {
         var bytes1 = Convert.FromBase64String(nonce1);
         var bytes2 = Convert.FromBase64String(nonce2);
@@ -361,25 +355,5 @@ public class ChannelController : ControllerBase
         Buffer.BlockCopy(bytes1, 0, combined, 0, bytes1.Length);
         Buffer.BlockCopy(bytes2, 0, combined, bytes1.Length, bytes2.Length);
         return combined;
-    }
-
-    private HandshakeError CreateError(
-        string code,
-        string message,
-        Dictionary<string, object>? details = null,
-        bool retryable = false,
-        string? retryAfter = null)
-    {
-        return new HandshakeError
-        {
-            Error = new ErrorDetails
-            {
-                Code = code,
-                Message = message,
-                Details = details,
-                Retryable = retryable,
-                RetryAfter = retryAfter
-            }
-        };
     }
 }

@@ -21,16 +21,13 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers;
 public class SessionController : ControllerBase
 {
     private readonly ISessionService _sessionService;
-    private readonly IChannelEncryptionService _encryptionService;
     private readonly ILogger<SessionController> _logger;
 
     public SessionController(
         ISessionService sessionService,
-        IChannelEncryptionService encryptionService,
         ILogger<SessionController> logger)
     {
         _sessionService = sessionService;
-        _encryptionService = encryptionService;
         _logger = logger;
     }
 
@@ -50,10 +47,9 @@ public class SessionController : ControllerBase
     [PrismEncryptedChannelConnection<WhoAmIRequest>]
     [PrismAuthenticatedSession]
     [ProducesResponseType(typeof(EncryptedPayload), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(HandshakeError), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(Error), StatusCodes.Status401Unauthorized)]
     public IActionResult WhoAmI()
     {
-        var channelContext = HttpContext.Items["ChannelContext"] as ChannelContext;
         var sessionContext = HttpContext.Items["SessionContext"] as SessionContext;
         var request = HttpContext.Items["DecryptedRequest"] as WhoAmIRequest;
 
@@ -79,10 +75,7 @@ public class SessionController : ControllerBase
             timestamp = DateTime.UtcNow
         };
 
-        // Encrypt response
-        var encryptedResponse = _encryptionService.EncryptPayload(response, channelContext!.SymmetricKey);
-
-        return Ok(encryptedResponse);
+        return Ok(response);
     }
 
     /// <summary>
@@ -94,10 +87,9 @@ public class SessionController : ControllerBase
     [PrismEncryptedChannelConnection<RenewSessionRequest>]
     [PrismAuthenticatedSession]
     [ProducesResponseType(typeof(EncryptedPayload), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(HandshakeError), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(Error), StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> RenewSession()
     {
-        var channelContext = HttpContext.Items["ChannelContext"] as ChannelContext;
         var sessionContext = HttpContext.Items["SessionContext"] as SessionContext;
         var request = HttpContext.Items["DecryptedRequest"] as RenewSessionRequest;
 
@@ -137,10 +129,7 @@ public class SessionController : ControllerBase
             timestamp = DateTime.UtcNow
         };
 
-        // Encrypt response
-        var encryptedResponse = _encryptionService.EncryptPayload(response, channelContext!.SymmetricKey);
-
-        return Ok(encryptedResponse);
+        return Ok(response);
     }
 
     /// <summary>
@@ -152,10 +141,9 @@ public class SessionController : ControllerBase
     [PrismEncryptedChannelConnection<RevokeSessionRequest>]
     [PrismAuthenticatedSession]
     [ProducesResponseType(typeof(EncryptedPayload), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(HandshakeError), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(Error), StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> RevokeSession()
     {
-        var channelContext = HttpContext.Items["ChannelContext"] as ChannelContext;
         var sessionContext = HttpContext.Items["SessionContext"] as SessionContext;
         var request = HttpContext.Items["DecryptedRequest"] as RevokeSessionRequest;
 
@@ -189,10 +177,7 @@ public class SessionController : ControllerBase
             timestamp = DateTime.UtcNow
         };
 
-        // Encrypt response
-        var encryptedResponse = _encryptionService.EncryptPayload(response, channelContext!.SymmetricKey);
-
-        return Ok(encryptedResponse);
+        return Ok(response);
     }
 
     /// <summary>
@@ -205,11 +190,10 @@ public class SessionController : ControllerBase
     [PrismEncryptedChannelConnection<GetMetricsRequest>]
     [PrismAuthenticatedSession(RequiredCapability = NodeAccessTypeEnum.Admin)]
     [ProducesResponseType(typeof(EncryptedPayload), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(HandshakeError), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(Error), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetMetrics()
     {
-        var channelContext = HttpContext.Items["ChannelContext"] as ChannelContext;
         var sessionContext = HttpContext.Items["SessionContext"] as SessionContext;
         var request = HttpContext.Items["DecryptedRequest"] as GetMetricsRequest;
 
@@ -236,9 +220,6 @@ public class SessionController : ControllerBase
 
         var metrics = await _sessionService.GetSessionMetricsAsync(targetNodeId);
 
-        // Encrypt response
-        var encryptedResponse = _encryptionService.EncryptPayload(metrics, channelContext!.SymmetricKey);
-
-        return Ok(encryptedResponse);
+        return Ok(metrics);
     }
 }

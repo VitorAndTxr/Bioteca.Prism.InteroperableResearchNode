@@ -3,12 +3,12 @@ namespace Bioteca.Prism.Domain.Errors.Node;
 /// <summary>
 /// Error response for handshake failures
 /// </summary>
-public class HandshakeError
+public class Error
 {
     /// <summary>
     /// Error details
     /// </summary>
-    public ErrorDetails Error { get; set; } = new();
+    public ErrorDetails ErrorDetail { get; set; } = new();
 }
 
 /// <summary>

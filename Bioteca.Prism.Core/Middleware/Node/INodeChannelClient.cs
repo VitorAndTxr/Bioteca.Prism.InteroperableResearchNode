@@ -88,7 +88,7 @@ public class ChannelEstablishmentResult
     /// <summary>
     /// Error details if establishment failed
     /// </summary>
-    public HandshakeError? Error { get; set; }
+    public Error? Error { get; set; }
 
     /// <summary>
     /// Client and server nonces for key derivation

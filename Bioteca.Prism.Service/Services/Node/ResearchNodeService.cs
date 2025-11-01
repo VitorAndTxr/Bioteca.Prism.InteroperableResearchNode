@@ -33,6 +33,17 @@ public class ResearchNodeService : IResearchNodeService
     {
         return await _repository.GetByCertificateFingerprintAsync(certificateFingerprint);
     }
+    public Task<ResearchNode?> GetNodeByRequestAsync(NodeIdentifyRequest request)
+    {
+        var certBytes = Convert.FromBase64String(request.Certificate);
+        string certificateFingerprint;
+        using (var sha256 = SHA256.Create())
+        {
+            var hash = sha256.ComputeHash(certBytes);
+            certificateFingerprint = Convert.ToBase64String(hash);
+        }
+        return GetNodeByCertificateAsync(certificateFingerprint);
+    }
 
     public async Task<bool> VerifyNodeSignatureAsync(NodeIdentifyRequest request)
     {
@@ -265,4 +276,6 @@ public class ResearchNodeService : IResearchNodeService
         var hash = sha256.ComputeHash(certificateBytes);
         return Convert.ToBase64String(hash);
     }
+
+
 }

@@ -1,4 +1,5 @@
-﻿using Bioteca.Prism.Core.Interfaces;
+﻿using Bioteca.Prism.Core.Controllers;
+using Bioteca.Prism.Core.Interfaces;
 using Bioteca.Prism.Core.Middleware.Channel;
 using Bioteca.Prism.Core.Middleware.Node;
 using Bioteca.Prism.Domain.Errors.Node;
@@ -10,32 +11,26 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
 {
     [ApiController]
     [Route("api/node")]
-    public class NodeConnectionController : ControllerBase
+    public class NodeConnectionController : BaseController
     {
         private readonly ILogger<NodeConnectionController> _logger;
-        private readonly IEphemeralKeyService _ephemeralKeyService;
         private readonly IChannelEncryptionService _encryptionService;
-        private readonly IConfiguration _configuration;
-        private readonly INodeChannelClient _channelClient;
         private readonly IResearchNodeService _nodeRegistry;
         private readonly IChannelStore _channelStore;
         private readonly IChallengeService _challengeService;
 
         public NodeConnectionController(
             ILogger<NodeConnectionController> logger,
-             IEphemeralKeyService ephemeralKeyService,
+            IEphemeralKeyService ephemeralKeyService,
             IChannelEncryptionService encryptionService,
             IConfiguration configuration,
             INodeChannelClient channelClient,
             IResearchNodeService nodeRegistry,
             IChannelStore channelStore,
-            IChallengeService challengeService)
+            IChallengeService challengeService): base(logger, configuration)
         {
             _logger = logger;
-            _ephemeralKeyService = ephemeralKeyService;
             _encryptionService = encryptionService;
-            _configuration = configuration;
-            _channelClient = channelClient;
             _nodeRegistry = nodeRegistry;
             _channelStore = channelStore;
             _challengeService = challengeService;
@@ -48,28 +43,14 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
         [HttpPost("identify")]
         [PrismEncryptedChannelConnection<NodeIdentifyRequest>]
         [ProducesResponseType(typeof(EncryptedPayload), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(HandshakeError), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(Error), StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> IdentifyNode()
         {
             try
             {
-                var channelId = HttpContext.Items["ChannelId"] as string;
-
-                var channelContext = HttpContext.Items["ChannelContext"] as ChannelContext;
-
                 var request = HttpContext.Items["DecryptedRequest"] as NodeIdentifyRequest;
 
-                // Calculate certificate fingerprint
-                var certBytes = Convert.FromBase64String(request.Certificate);
-                string certificateFingerprint;
-                using (var sha256 = System.Security.Cryptography.SHA256.Create())
-                {
-                    var hash = sha256.ComputeHash(certBytes);
-                    certificateFingerprint = Convert.ToBase64String(hash);
-                }
-
-                // Check if node is known by certificate fingerprint
-                var registeredNode = await _nodeRegistry.GetNodeByCertificateAsync(certificateFingerprint);
+                var registeredNode = await _nodeRegistry.GetNodeByRequestAsync(request);
 
                 if (registeredNode == null)
                 {
@@ -86,11 +67,10 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
                         Message = "Node is not registered. Please register using the provided URL.",
                         NextPhase = null
                     };
-
-                    // Encrypt response
-                    var encryptedUnknownResponse = _encryptionService.EncryptPayload(unknownResponse, channelContext.SymmetricKey);
-                    return Ok(encryptedUnknownResponse);
+                    return Ok(unknownResponse);
                 }
+
+                var channelContext = HttpContext.Items["ChannelContext"] as ChannelContext;
 
                 // Known node - check authorization status
                 _logger.LogInformation("Known node identified: {NodeId} (DB ID: {DbId}) with status {Status}",
@@ -100,8 +80,8 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
                 channelContext.IdentifiedNodeId = registeredNode.Id;
                 channelContext.CertificateFingerprint = registeredNode.CertificateFingerprint;
                 // Update the channel context by removing and re-adding
-                await _channelStore.RemoveChannelAsync(channelId!);
-                await _channelStore.AddChannelAsync(channelId!, channelContext);
+                await _channelStore.RemoveChannelAsync(channelContext.ChannelId);
+                await _channelStore.AddChannelAsync(channelContext.ChannelId!, channelContext);
 
                 var response = new NodeStatusResponse
                 {
@@ -131,11 +111,9 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
                         break;
                 }
 
-                // Encrypt response
-                var encryptedResponse = _encryptionService.EncryptPayload(response, channelContext.SymmetricKey);
-
-                return Ok(encryptedResponse);
+                return Ok(response);
             }
+
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error identifying node");
@@ -155,16 +133,15 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
         [HttpPost("/api/node/register")]
         [PrismEncryptedChannelConnection<NodeRegistrationRequest>]
         [ProducesResponseType(typeof(EncryptedPayload), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(HandshakeError), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(Error), StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> RegisterNode()
         {
             try
             {
-                var channelId = HttpContext.Items["ChannelId"] as string;
-                var channelContext = HttpContext.Items["ChannelContext"] as ChannelContext;
-                var request = HttpContext.Items["DecryptedRequest"] as NodeRegistrationRequest;
 
-                var response = await _nodeRegistry.RegisterNodeAsync(request);
+                var decryptedPayload = HttpContext.Items["DecryptedRequest"] as NodeRegistrationRequest;
+
+                var response = await _nodeRegistry.RegisterNodeAsync(decryptedPayload);
 
                 // Check if registration was successful
                 if (!response.Success)
@@ -176,10 +153,7 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
                     ));
                 }
 
-                // Encrypt response
-                var encryptedResponse = _encryptionService.EncryptPayload(response, channelContext.SymmetricKey);
-
-                return Ok(encryptedResponse);
+                return Ok(response);
             }
             catch (Exception ex)
             {
@@ -238,12 +212,11 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
         [HttpPost("challenge")]
         [PrismEncryptedChannelConnection<ChallengeRequest>]
         [ProducesResponseType(typeof(EncryptedPayload), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(HandshakeError), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(Error), StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> RequestChallenge()
         {
             try
             {
-                var channelId = HttpContext.Items["ChannelId"] as string;
                 var channelContext = HttpContext.Items["ChannelContext"] as ChannelContext;
                 var request = HttpContext.Items["DecryptedRequest"] as ChallengeRequest;
 
@@ -278,12 +251,9 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
                 }
 
                 // Generate challenge
-                var challengeResponse = await _challengeService.GenerateChallengeAsync(channelId!, request.NodeId);
+                var challengeResponse = await _challengeService.GenerateChallengeAsync(channelContext.ChannelId, request.NodeId);
 
-                // Encrypt response
-                var encryptedResponse = _encryptionService.EncryptPayload(challengeResponse, channelContext!.SymmetricKey);
-
-                return Ok(encryptedResponse);
+                return Ok(challengeResponse);
             }
             catch (Exception ex)
             {
@@ -302,12 +272,11 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
         [HttpPost("authenticate")]
         [PrismEncryptedChannelConnection<ChallengeResponseRequest>]
         [ProducesResponseType(typeof(EncryptedPayload), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(HandshakeError), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(Error), StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> Authenticate()
         {
             try
             {
-                var channelId = HttpContext.Items["ChannelId"] as string;
                 var channelContext = HttpContext.Items["ChannelContext"] as ChannelContext;
                 var request = HttpContext.Items["DecryptedRequest"] as ChallengeResponseRequest;
 
@@ -346,7 +315,7 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
 
                 if (!isValid)
                 {
-                    await _challengeService.InvalidateChallengeAsync(channelId!, request.NodeId);
+                    await _challengeService.InvalidateChallengeAsync(channelContext.ChannelId, request.NodeId);
 
                     return BadRequest(CreateError(
                         "ERR_INVALID_CHALLENGE_RESPONSE",
@@ -358,21 +327,16 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
                 // Generate authentication result
                 var authResponse = await _challengeService.GenerateAuthenticationResultAsync(
                     registeredNode.Id,
-                    channelId!,
+                    channelContext.ChannelId,
                     registeredNode.NodeAccessLevel);
 
                 // Update last authentication timestamp
                 await _nodeRegistry.UpdateLastAuthenticationAsync(registeredNode.Id);
 
                 // Invalidate challenge (one-time use)
-                await _challengeService.InvalidateChallengeAsync(channelId!, request.NodeId);
+                await _challengeService.InvalidateChallengeAsync(channelContext.ChannelId, request.NodeId);
 
-                // Encrypt response
-                var encryptedResponse = _encryptionService.EncryptPayload(authResponse, channelContext!.SymmetricKey);
-
-                _logger.LogInformation("Node {NodeId} authenticated successfully", request.NodeId);
-
-                return Ok(encryptedResponse);
+                return Ok(authResponse);
             }
             catch (Exception ex)
             {
@@ -383,26 +347,6 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
                     retryable: true
                 ));
             }
-        }
-
-        private HandshakeError CreateError(
-            string code,
-            string message,
-            Dictionary<string, object>? details = null,
-            bool retryable = false,
-            string? retryAfter = null)
-        {
-            return new HandshakeError
-            {
-                Error = new ErrorDetails
-                {
-                    Code = code,
-                    Message = message,
-                    Details = details,
-                    Retryable = retryable,
-                    RetryAfter = retryAfter
-                }
-            };
         }
     }
 }

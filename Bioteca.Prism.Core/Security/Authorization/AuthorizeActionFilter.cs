@@ -7,6 +7,7 @@ using Newtonsoft.Json;
 using System.Globalization;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Threading.Tasks;
 
 namespace Bioteca.Prism.Core.Security.Authorization
 {
@@ -195,6 +196,7 @@ namespace Bioteca.Prism.Core.Security.Authorization
                 return;
             }
         }
+
 
         /// <summary>
         /// Gets the JWT from the current request headers
