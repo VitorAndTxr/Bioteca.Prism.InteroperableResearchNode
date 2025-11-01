@@ -1,12 +1,10 @@
 ﻿using Bioteca.Prism.Core.Controllers;
 using Bioteca.Prism.Core.Interfaces;
 using Bioteca.Prism.Core.Middleware.Channel;
-using Bioteca.Prism.Core.Middleware.Session;
 using Bioteca.Prism.Core.Security.Authorization;
 using Bioteca.Prism.Domain.Errors.Node;
 using Bioteca.Prism.Domain.Payloads;
 using Bioteca.Prism.Domain.Requests.Session;
-using Bioteca.Prism.Domain.Responses;
 using Bioteca.Prism.InteroperableResearchNode.Middleware;
 using Bioteca.Prism.Service.Interfaces.User;
 using Microsoft.AspNetCore.Mvc;
@@ -44,14 +42,12 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
         {
             try
             {
-
-                var channelContext = HttpContext.Items["ChannelContext"] as ChannelContext;
-                var sessionContext = HttpContext.Items["SessionContext"] as SessionContext;
                 var request = HttpContext.Items["DecryptedRequest"] as UserLoginPayload;
 
                 var response =  _userAuthService.LoginAsync(request).Result;
 
                 return Ok(response);
+
             }
             catch (Exception ex)
             {
@@ -77,13 +73,7 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
         {
             try
             {
-
-                var channelContext = HttpContext.Items["ChannelContext"] as ChannelContext;
-                var sessionContext = HttpContext.Items["SessionContext"] as SessionContext;
-                var request = HttpContext.Items["DecryptedRequest"] as WhoAmIRequest;
-
                 var response = _userAuthService.RefreshTokenAsync(researchId).Result;
-
                 return Ok(response);
             }
             catch (Exception ex)
