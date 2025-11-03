@@ -1,3 +1,4 @@
+using Bioteca.Prism.Core.Interfaces;
 using Bioteca.Prism.Core.Service;
 using Bioteca.Prism.Data.Interfaces.Snomed;
 using Bioteca.Prism.Domain.Entities.Snomed;
@@ -12,7 +13,7 @@ public class SnomedTopographicalModifierService : BaseService<SnomedTopographica
 {
     private readonly ISnomedTopographicalModifierRepository _snomedTopographicalModifierRepository;
 
-    public SnomedTopographicalModifierService(ISnomedTopographicalModifierRepository repository) : base(repository)
+    public SnomedTopographicalModifierService(ISnomedTopographicalModifierRepository repository, IApiContext apiContext) : base(repository, apiContext)
     {
         _snomedTopographicalModifierRepository = repository;
     }

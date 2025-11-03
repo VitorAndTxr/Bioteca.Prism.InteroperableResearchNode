@@ -1,4 +1,5 @@
 using Bioteca.Prism.Core.Database;
+using Bioteca.Prism.Core.Interfaces;
 using Bioteca.Prism.Data.Interfaces.Device;
 using Bioteca.Prism.Data.Persistence.Contexts;
 using Microsoft.EntityFrameworkCore;
@@ -10,8 +11,14 @@ namespace Bioteca.Prism.Data.Repositories.Device;
 /// </summary>
 public class DeviceRepository : BaseRepository<Domain.Entities.Device.Device, Guid>, IDeviceRepository
 {
-    public DeviceRepository(PrismDbContext context) : base(context)
+
+    private readonly IApiContext _apiContext;
+    public DeviceRepository(
+        PrismDbContext context,
+        IApiContext apiContext
+        ) : base(context, apiContext)
     {
+        _apiContext = apiContext;
     }
 
     public async Task<List<Domain.Entities.Device.Device>> GetByResearchIdAsync(Guid researchId, CancellationToken cancellationToken = default)

@@ -12,28 +12,28 @@ public class AllergyIntoleranceService : BaseService<AllergyIntolerance, string>
 {
     private readonly IBaseRepository<AllergyIntolerance, string> _allergyRepository;
 
-    public AllergyIntoleranceService(IBaseRepository<AllergyIntolerance, string> repository) : base(repository)
+    public AllergyIntoleranceService(IBaseRepository<AllergyIntolerance, string> repository, IApiContext apiContext) : base(repository, apiContext)
     {
         _allergyRepository = repository;
     }
 
-    public async Task<List<AllergyIntolerance>> GetActiveAsync(CancellationToken cancellationToken = default)
+    public async Task<List<AllergyIntolerance>> GetActiveAsync()
     {
-        var allAllergies = await _allergyRepository.GetAllAsync(cancellationToken);
+        var allAllergies = await _allergyRepository.GetAllAsync();
         return allAllergies.Where(a => a.IsActive).ToList();
     }
 
-    public async Task<List<AllergyIntolerance>> GetByCategoryAsync(string category, CancellationToken cancellationToken = default)
+    public async Task<List<AllergyIntolerance>> GetByCategoryAsync(string category)
     {
-        var allAllergies = await _allergyRepository.GetAllAsync(cancellationToken);
+        var allAllergies = await _allergyRepository.GetAllAsync();
         return allAllergies
             .Where(a => a.Category.Equals(category, StringComparison.OrdinalIgnoreCase))
             .ToList();
     }
 
-    public async Task<List<AllergyIntolerance>> GetByTypeAsync(string type, CancellationToken cancellationToken = default)
+    public async Task<List<AllergyIntolerance>> GetByTypeAsync(string type)
     {
-        var allAllergies = await _allergyRepository.GetAllAsync(cancellationToken);
+        var allAllergies = await _allergyRepository.GetAllAsync();
         return allAllergies
             .Where(a => a.Type.Equals(type, StringComparison.OrdinalIgnoreCase))
             .ToList();

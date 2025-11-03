@@ -1,4 +1,5 @@
 using Bioteca.Prism.Core.Database;
+using Bioteca.Prism.Core.Interfaces;
 using Bioteca.Prism.Data.Interfaces.Snomed;
 using Bioteca.Prism.Data.Persistence.Contexts;
 using Bioteca.Prism.Domain.Entities.Snomed;
@@ -11,7 +12,7 @@ namespace Bioteca.Prism.Data.Repositories.Snomed;
 /// </summary>
 public class SnomedLateralityRepository : BaseRepository<SnomedLaterality, string>, ISnomedLateralityRepository
 {
-    public SnomedLateralityRepository(PrismDbContext context) : base(context)
+    public SnomedLateralityRepository(PrismDbContext context, IApiContext apiContext) : base(context, apiContext)
     {
     }
 
@@ -28,7 +29,7 @@ public class SnomedLateralityRepository : BaseRepository<SnomedLaterality, strin
 /// </summary>
 public class SnomedTopographicalModifierRepository : BaseRepository<SnomedTopographicalModifier, string>, ISnomedTopographicalModifierRepository
 {
-    public SnomedTopographicalModifierRepository(PrismDbContext context) : base(context)
+    public SnomedTopographicalModifierRepository(PrismDbContext context, IApiContext apiContext) : base(context, apiContext)
     {
     }
 
@@ -52,7 +53,7 @@ public class SnomedTopographicalModifierRepository : BaseRepository<SnomedTopogr
 /// </summary>
 public class SnomedBodyRegionRepository : BaseRepository<SnomedBodyRegion, string>, ISnomedBodyRegionRepository
 {
-    public SnomedBodyRegionRepository(PrismDbContext context) : base(context)
+    public SnomedBodyRegionRepository(PrismDbContext context, IApiContext apiContext) : base(context, apiContext)
     {
     }
 
@@ -83,7 +84,7 @@ public class SnomedBodyRegionRepository : BaseRepository<SnomedBodyRegion, strin
 /// </summary>
 public class SnomedBodyStructureRepository : BaseRepository<SnomedBodyStructure, string>, ISnomedBodyStructureRepository
 {
-    public SnomedBodyStructureRepository(PrismDbContext context) : base(context)
+    public SnomedBodyStructureRepository(PrismDbContext context, IApiContext apiContext) : base(context, apiContext)
     {
     }
 

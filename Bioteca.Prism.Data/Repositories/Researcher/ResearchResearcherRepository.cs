@@ -1,4 +1,5 @@
 using Bioteca.Prism.Core.Database;
+using Bioteca.Prism.Core.Interfaces;
 using Bioteca.Prism.Data.Interfaces.Researcher;
 using Bioteca.Prism.Data.Persistence.Contexts;
 using Microsoft.EntityFrameworkCore;
@@ -10,7 +11,7 @@ namespace Bioteca.Prism.Data.Repositories.Researcher;
 /// </summary>
 public class ResearchResearcherRepository : BaseRepository<Domain.Entities.Research.ResearchResearcher, Guid>, IResearchResearcherRepository
 {
-    public ResearchResearcherRepository(PrismDbContext context) : base(context)
+    public ResearchResearcherRepository(PrismDbContext context, IApiContext apiContext) : base(context, apiContext)
     {
     }
     public async Task<List<Domain.Entities.Research.ResearchResearcher>> GetByResearchIdAsync(Guid researchId, CancellationToken cancellationToken = default)

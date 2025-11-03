@@ -1,4 +1,5 @@
 using Bioteca.Prism.Core.Database;
+using Bioteca.Prism.Core.Interfaces;
 using Bioteca.Prism.Data.Interfaces.Record;
 using Bioteca.Prism.Data.Persistence.Contexts;
 using Bioteca.Prism.Domain.Entities.Record;
@@ -11,8 +12,13 @@ namespace Bioteca.Prism.Data.Repositories.Record;
 /// </summary>
 public class RecordChannelRepository : BaseRepository<RecordChannel, Guid>, IRecordChannelRepository
 {
-    public RecordChannelRepository(PrismDbContext context) : base(context)
+    private readonly IApiContext _apiContext;
+    public RecordChannelRepository(
+        PrismDbContext context,
+        IApiContext apiContext
+        ) : base(context, apiContext)
     {
+        _apiContext = apiContext;
     }
 
     public async Task<List<RecordChannel>> GetByRecordIdAsync(Guid recordId, CancellationToken cancellationToken = default)

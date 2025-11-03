@@ -1,4 +1,4 @@
-﻿namespace Bioteca.Prism.Domain.Payloads
+﻿namespace Bioteca.Prism.Domain.Payloads.User
 {
     public class UserLoginPayload
     {

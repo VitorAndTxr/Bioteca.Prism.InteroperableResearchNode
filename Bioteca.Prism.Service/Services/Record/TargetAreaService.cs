@@ -1,3 +1,5 @@
+using Bioteca.Prism.Core.Context;
+using Bioteca.Prism.Core.Interfaces;
 using Bioteca.Prism.Core.Service;
 using Bioteca.Prism.Data.Interfaces.Record;
 using Bioteca.Prism.Domain.Entities.Record;
@@ -12,7 +14,7 @@ public class TargetAreaService : BaseService<TargetArea, Guid>, ITargetAreaServi
 {
     private readonly ITargetAreaRepository _targetAreaRepository;
 
-    public TargetAreaService(ITargetAreaRepository repository) : base(repository)
+    public TargetAreaService(ITargetAreaRepository repository, IApiContext apiContext) : base(repository, apiContext)
     {
         _targetAreaRepository = repository;
     }

@@ -1,3 +1,4 @@
+using Bioteca.Prism.Core.Interfaces;
 using Bioteca.Prism.Core.Service;
 using Bioteca.Prism.Data.Interfaces.Application;
 using Bioteca.Prism.Service.Interfaces.Application;
@@ -11,7 +12,7 @@ public class ApplicationService : BaseService<Domain.Entities.Application.Applic
 {
     private readonly IApplicationRepository _applicationRepository;
 
-    public ApplicationService(IApplicationRepository repository) : base(repository)
+    public ApplicationService(IApplicationRepository repository, IApiContext apiContext) : base(repository, apiContext)
     {
         _applicationRepository = repository;
     }

@@ -1,4 +1,5 @@
 using Bioteca.Prism.Core.Database;
+using Bioteca.Prism.Core.Interfaces;
 using Bioteca.Prism.Data.Interfaces.Record;
 using Bioteca.Prism.Data.Persistence.Contexts;
 using Bioteca.Prism.Domain.Entities.Record;
@@ -11,7 +12,7 @@ namespace Bioteca.Prism.Data.Repositories.Record;
 /// </summary>
 public class RecordSessionRepository : BaseRepository<RecordSession, Guid>, IRecordSessionRepository
 {
-    public RecordSessionRepository(PrismDbContext context) : base(context)
+    public RecordSessionRepository(PrismDbContext context, IApiContext apiContext) : base(context, apiContext)
     {
     }
 

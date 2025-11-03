@@ -3,7 +3,7 @@ using Bioteca.Prism.Core.Interfaces;
 using Bioteca.Prism.Core.Middleware.Channel;
 using Bioteca.Prism.Core.Security.Authorization;
 using Bioteca.Prism.Domain.Errors.Node;
-using Bioteca.Prism.Domain.Payloads;
+using Bioteca.Prism.Domain.Payloads.User;
 using Bioteca.Prism.Domain.Requests.Session;
 using Bioteca.Prism.InteroperableResearchNode.Middleware;
 using Bioteca.Prism.Service.Interfaces.User;
@@ -16,18 +16,17 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
     public class UserAuthController : BaseController
     {
         private readonly IUserAuthService _userAuthService;
-        private readonly IChannelEncryptionService _encryptionService;
         private readonly ILogger<UserAuthController> _logger;
         private readonly IConfiguration _configuration;
+
         public UserAuthController(
             IUserAuthService userAuthService,
-            IChannelEncryptionService encryptionService,
             ILogger<UserAuthController> logger,
-            IConfiguration configuration
-            ): base( logger, configuration)
+            IConfiguration configuration,
+            IApiContext apiContext
+            ) : base( logger, configuration, apiContext)
         {
             _userAuthService = userAuthService;
-            _encryptionService = encryptionService;
             _logger = logger;
             _configuration = configuration;
         }
@@ -44,9 +43,7 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
             {
                 var request = HttpContext.Items["DecryptedRequest"] as UserLoginPayload;
 
-                var response =  _userAuthService.LoginAsync(request).Result;
-
-                return Ok(response);
+                return ServiceInvoke(_userAuthService.LoginAsync, request).Result;
 
             }
             catch (Exception ex)
@@ -73,8 +70,7 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
         {
             try
             {
-                var response = _userAuthService.RefreshTokenAsync(researchId).Result;
-                return Ok(response);
+                return ServiceInvoke(_userAuthService.RefreshTokenAsync, researchId).Result;
             }
             catch (Exception ex)
             {

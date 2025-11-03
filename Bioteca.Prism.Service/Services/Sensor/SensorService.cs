@@ -1,3 +1,4 @@
+using Bioteca.Prism.Core.Interfaces;
 using Bioteca.Prism.Core.Service;
 using Bioteca.Prism.Data.Interfaces.Sensor;
 using Bioteca.Prism.Service.Interfaces.Sensor;
@@ -11,7 +12,7 @@ public class SensorService : BaseService<Domain.Entities.Sensor.Sensor, Guid>, I
 {
     private readonly ISensorRepository _sensorRepository;
 
-    public SensorService(ISensorRepository repository) : base(repository)
+    public SensorService(ISensorRepository repository, IApiContext apiContext) : base(repository, apiContext)
     {
         _sensorRepository = repository;
     }

@@ -12,20 +12,20 @@ public class ClinicalEventService : BaseService<ClinicalEvent, string>, IClinica
 {
     private readonly IBaseRepository<ClinicalEvent, string> _eventRepository;
 
-    public ClinicalEventService(IBaseRepository<ClinicalEvent, string> repository) : base(repository)
+    public ClinicalEventService(IBaseRepository<ClinicalEvent, string> repository, IApiContext apiContext) : base(repository, apiContext)
     {
         _eventRepository = repository;
     }
 
-    public async Task<List<ClinicalEvent>> GetActiveEventsAsync(CancellationToken cancellationToken = default)
+    public async Task<List<ClinicalEvent>> GetActiveEventsAsync()
     {
-        var allEvents = await _eventRepository.GetAllAsync(cancellationToken);
+        var allEvents = await _eventRepository.GetAllAsync();
         return allEvents.Where(e => e.IsActive).ToList();
     }
 
-    public async Task<List<ClinicalEvent>> SearchByNameAsync(string searchTerm, CancellationToken cancellationToken = default)
+    public async Task<List<ClinicalEvent>> SearchByNameAsync(string searchTerm)
     {
-        var allEvents = await _eventRepository.GetAllAsync(cancellationToken);
+        var allEvents = await _eventRepository.GetAllAsync();
         return allEvents
             .Where(e => e.DisplayName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
                        e.Description.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))

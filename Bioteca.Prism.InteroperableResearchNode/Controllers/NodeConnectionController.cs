@@ -27,7 +27,9 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
             INodeChannelClient channelClient,
             IResearchNodeService nodeRegistry,
             IChannelStore channelStore,
-            IChallengeService challengeService): base(logger, configuration)
+            IChallengeService challengeService,
+            IApiContext apiContext
+            ) : base(logger, configuration, apiContext)
         {
             _logger = logger;
             _encryptionService = encryptionService;

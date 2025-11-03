@@ -11,10 +11,10 @@ public interface IClinicalEventService : IServiceBase<ClinicalEvent, string>
     /// <summary>
     /// Get active clinical events
     /// </summary>
-    Task<List<ClinicalEvent>> GetActiveEventsAsync(CancellationToken cancellationToken = default);
+    Task<List<ClinicalEvent>> GetActiveEventsAsync();
 
     /// <summary>
     /// Search events by display name
     /// </summary>
-    Task<List<ClinicalEvent>> SearchByNameAsync(string searchTerm, CancellationToken cancellationToken = default);
+    Task<List<ClinicalEvent>> SearchByNameAsync(string searchTerm);
 }

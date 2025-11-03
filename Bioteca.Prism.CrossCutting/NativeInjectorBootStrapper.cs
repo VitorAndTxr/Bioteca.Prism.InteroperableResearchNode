@@ -114,6 +114,9 @@ namespace Bioteca.Prism.CrossCutting
             // User authentication service
             services.AddScoped<IUserAuthService, UserAuthService>();
 
+            // User management service
+            services.AddScoped<IUserService, UserService>();
+
             // Register PostgreSQL-backed node registry service
             services.AddScoped<IResearchNodeService, ResearchNodeService>();
         }
@@ -162,7 +165,10 @@ namespace Bioteca.Prism.CrossCutting
 
         public static void RegisterUtility(IServiceCollection services)
         {
-            services.AddSingleton<IApiContext, ApiContext>();
+            // Changed from Singleton to Scoped to fix thread-safety issues
+            // Each HTTP request gets its own ApiContext instance, preventing
+            // concurrent requests from overwriting each other's context data
+            services.AddScoped<IApiContext, ApiContext>();
         }
     }
 }

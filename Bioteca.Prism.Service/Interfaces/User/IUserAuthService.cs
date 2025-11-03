@@ -1,4 +1,4 @@
-﻿using Bioteca.Prism.Domain.Payloads;
+﻿using Bioteca.Prism.Domain.Payloads.User;
 using Bioteca.Prism.Domain.Responses;
 
 namespace Bioteca.Prism.Service.Interfaces.User

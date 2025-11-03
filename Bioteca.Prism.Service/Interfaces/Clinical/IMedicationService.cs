@@ -11,15 +11,15 @@ public interface IMedicationService : IServiceBase<Medication, string>
     /// <summary>
     /// Get active medications
     /// </summary>
-    Task<List<Medication>> GetActiveMedicationsAsync(CancellationToken cancellationToken = default);
+    Task<List<Medication>> GetActiveMedicationsAsync();
 
     /// <summary>
     /// Search medications by name or active ingredient
     /// </summary>
-    Task<List<Medication>> SearchAsync(string searchTerm, CancellationToken cancellationToken = default);
+    Task<List<Medication>> SearchAsync(string searchTerm);
 
     /// <summary>
     /// Get medication by ANVISA code
     /// </summary>
-    Task<Medication?> GetByAnvisaCodeAsync(string anvisaCode, CancellationToken cancellationToken = default);
+    Task<Medication?> GetByAnvisaCodeAsync(string anvisaCode);
 }

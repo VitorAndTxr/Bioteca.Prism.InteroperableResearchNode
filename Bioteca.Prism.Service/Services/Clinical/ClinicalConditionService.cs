@@ -13,20 +13,20 @@ public class ClinicalConditionService : BaseService<ClinicalCondition, string>, 
 {
     private readonly IBaseRepository<ClinicalCondition, string> _conditionRepository;
 
-    public ClinicalConditionService(IBaseRepository<ClinicalCondition, string> repository) : base(repository)
+    public ClinicalConditionService(IBaseRepository<ClinicalCondition, string> repository, IApiContext apiContext) : base(repository, apiContext)
     {
         _conditionRepository = repository;
     }
 
-    public async Task<List<ClinicalCondition>> GetActiveConditionsAsync(CancellationToken cancellationToken = default)
+    public async Task<List<ClinicalCondition>> GetActiveConditionsAsync()
     {
-        var allConditions = await _conditionRepository.GetAllAsync(cancellationToken);
+        var allConditions = await _conditionRepository.GetAllAsync();
         return allConditions.Where(c => c.IsActive).ToList();
     }
 
-    public async Task<List<ClinicalCondition>> SearchByNameAsync(string searchTerm, CancellationToken cancellationToken = default)
+    public async Task<List<ClinicalCondition>> SearchByNameAsync(string searchTerm)
     {
-        var allConditions = await _conditionRepository.GetAllAsync(cancellationToken);
+        var allConditions = await _conditionRepository.GetAllAsync();
         return allConditions
             .Where(c => c.DisplayName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
                        c.Description.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))

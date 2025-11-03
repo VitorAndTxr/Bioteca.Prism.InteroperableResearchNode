@@ -1,4 +1,5 @@
 using Bioteca.Prism.Core.Database;
+using Bioteca.Prism.Core.Interfaces;
 using Bioteca.Prism.Data.Interfaces.Record;
 using Bioteca.Prism.Data.Persistence.Contexts;
 using Bioteca.Prism.Domain.Entities.Record;
@@ -11,7 +12,7 @@ namespace Bioteca.Prism.Data.Repositories.Record;
 /// </summary>
 public class TargetAreaRepository : BaseRepository<TargetArea, Guid>, ITargetAreaRepository
 {
-    public TargetAreaRepository(PrismDbContext context) : base(context)
+    public TargetAreaRepository(PrismDbContext context, IApiContext apiContext) : base(context, apiContext)
     {
     }
 

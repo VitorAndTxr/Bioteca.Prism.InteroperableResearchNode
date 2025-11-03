@@ -36,9 +36,10 @@ public class ChannelController : BaseController
         IConfiguration configuration,
         INodeChannelClient channelClient,
         IResearchNodeService nodeRegistry,
-        IChannelStore channelStore
-        
-        ):base(logger, configuration)
+        IChannelStore channelStore,
+        IApiContext apiContext
+
+        ) :base(logger, configuration, apiContext)
     {
         _logger = logger;
         _ephemeralKeyService = ephemeralKeyService;

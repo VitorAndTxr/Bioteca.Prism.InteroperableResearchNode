@@ -1,3 +1,4 @@
+using Bioteca.Prism.Core.Interfaces;
 using Bioteca.Prism.Core.Service;
 using Bioteca.Prism.Data.Interfaces.Snomed;
 using Bioteca.Prism.Domain.Entities.Snomed;
@@ -12,7 +13,7 @@ public class SnomedLateralityService : BaseService<SnomedLaterality, string>, IS
 {
     private readonly ISnomedLateralityRepository _snomedLateralityRepository;
 
-    public SnomedLateralityService(ISnomedLateralityRepository repository) : base(repository)
+    public SnomedLateralityService(ISnomedLateralityRepository repository, IApiContext apiContext) : base(repository, apiContext)
     {
         _snomedLateralityRepository = repository;
     }

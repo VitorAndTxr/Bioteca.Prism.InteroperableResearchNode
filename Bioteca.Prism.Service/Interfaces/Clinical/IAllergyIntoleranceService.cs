@@ -11,15 +11,15 @@ public interface IAllergyIntoleranceService : IServiceBase<AllergyIntolerance, s
     /// <summary>
     /// Get active allergies/intolerances
     /// </summary>
-    Task<List<AllergyIntolerance>> GetActiveAsync(CancellationToken cancellationToken = default);
+    Task<List<AllergyIntolerance>> GetActiveAsync();
 
     /// <summary>
     /// Get allergies/intolerances by category
     /// </summary>
-    Task<List<AllergyIntolerance>> GetByCategoryAsync(string category, CancellationToken cancellationToken = default);
+    Task<List<AllergyIntolerance>> GetByCategoryAsync(string category);
 
     /// <summary>
     /// Get allergies/intolerances by type
     /// </summary>
-    Task<List<AllergyIntolerance>> GetByTypeAsync(string type, CancellationToken cancellationToken = default);
+    Task<List<AllergyIntolerance>> GetByTypeAsync(string type);
 }

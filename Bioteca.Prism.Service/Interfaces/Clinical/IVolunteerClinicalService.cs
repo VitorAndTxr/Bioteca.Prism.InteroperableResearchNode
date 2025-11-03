@@ -8,23 +8,23 @@ namespace Bioteca.Prism.Service.Interfaces.Clinical;
 public interface IVolunteerClinicalService
 {
     // Volunteer Clinical Conditions
-    Task<List<VolunteerClinicalCondition>> GetVolunteerConditionsAsync(Guid volunteerId, CancellationToken cancellationToken = default);
-    Task<VolunteerClinicalCondition> AddConditionAsync(VolunteerClinicalCondition condition, CancellationToken cancellationToken = default);
-    Task<VolunteerClinicalCondition> UpdateConditionAsync(VolunteerClinicalCondition condition, CancellationToken cancellationToken = default);
+    Task<List<VolunteerClinicalCondition>> GetVolunteerConditionsAsync(Guid volunteerId);
+    Task<VolunteerClinicalCondition> AddConditionAsync(VolunteerClinicalCondition condition);
+    Task<VolunteerClinicalCondition> UpdateConditionAsync(VolunteerClinicalCondition condition);
 
     // Volunteer Clinical Events
-    Task<List<VolunteerClinicalEvent>> GetVolunteerEventsAsync(Guid volunteerId, CancellationToken cancellationToken = default);
-    Task<VolunteerClinicalEvent> AddEventAsync(VolunteerClinicalEvent clinicalEvent, CancellationToken cancellationToken = default);
+    Task<List<VolunteerClinicalEvent>> GetVolunteerEventsAsync(Guid volunteerId);
+    Task<VolunteerClinicalEvent> AddEventAsync(VolunteerClinicalEvent clinicalEvent);
 
     // Volunteer Medications
-    Task<List<VolunteerMedication>> GetVolunteerMedicationsAsync(Guid volunteerId, CancellationToken cancellationToken = default);
-    Task<List<VolunteerMedication>> GetActiveMedicationsAsync(Guid volunteerId, CancellationToken cancellationToken = default);
-    Task<VolunteerMedication> AddMedicationAsync(VolunteerMedication medication, CancellationToken cancellationToken = default);
+    Task<List<VolunteerMedication>> GetVolunteerMedicationsAsync(Guid volunteerId);
+    Task<List<VolunteerMedication>> GetActiveMedicationsAsync(Guid volunteerId);
+    Task<VolunteerMedication> AddMedicationAsync(VolunteerMedication medication);
 
     // Volunteer Allergies/Intolerances
-    Task<List<VolunteerAllergyIntolerance>> GetVolunteerAllergiesAsync(Guid volunteerId, CancellationToken cancellationToken = default);
-    Task<VolunteerAllergyIntolerance> AddAllergyAsync(VolunteerAllergyIntolerance allergy, CancellationToken cancellationToken = default);
+    Task<List<VolunteerAllergyIntolerance>> GetVolunteerAllergiesAsync(Guid volunteerId);
+    Task<VolunteerAllergyIntolerance> AddAllergyAsync(VolunteerAllergyIntolerance allergy);
 
     // Clinical Summary
-    Task<object> GetClinicalSummaryAsync(Guid volunteerId, CancellationToken cancellationToken = default);
+    Task<object> GetClinicalSummaryAsync(Guid volunteerId);
 }

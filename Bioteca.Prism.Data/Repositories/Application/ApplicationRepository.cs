@@ -1,4 +1,6 @@
+using Bioteca.Prism.Core.Context;
 using Bioteca.Prism.Core.Database;
+using Bioteca.Prism.Core.Interfaces;
 using Bioteca.Prism.Data.Interfaces.Application;
 using Bioteca.Prism.Data.Persistence.Contexts;
 using Microsoft.EntityFrameworkCore;
@@ -10,7 +12,11 @@ namespace Bioteca.Prism.Data.Repositories.Application;
 /// </summary>
 public class ApplicationRepository : BaseRepository<Domain.Entities.Application.Application, Guid>, IApplicationRepository
 {
-    public ApplicationRepository(PrismDbContext context) : base(context)
+    private readonly IApiContext _apiContext;
+    public ApplicationRepository(
+        PrismDbContext context,
+        IApiContext apiContext
+        ) : base(context,apiContext)
     {
     }
 

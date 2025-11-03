@@ -12,29 +12,29 @@ public class MedicationService : BaseService<Medication, string>, IMedicationSer
 {
     private readonly IBaseRepository<Medication, string> _medicationRepository;
 
-    public MedicationService(IBaseRepository<Medication, string> repository) : base(repository)
+    public MedicationService(IBaseRepository<Medication, string> repository, IApiContext apiContext) : base(repository, apiContext)
     {
         _medicationRepository = repository;
     }
 
-    public async Task<List<Medication>> GetActiveMedicationsAsync(CancellationToken cancellationToken = default)
+    public async Task<List<Medication>> GetActiveMedicationsAsync( )
     {
-        var allMedications = await _medicationRepository.GetAllAsync(cancellationToken);
+        var allMedications = await _medicationRepository.GetAllAsync();
         return allMedications.Where(m => m.IsActive).ToList();
     }
 
-    public async Task<List<Medication>> SearchAsync(string searchTerm, CancellationToken cancellationToken = default)
+    public async Task<List<Medication>> SearchAsync(string searchTerm)
     {
-        var allMedications = await _medicationRepository.GetAllAsync(cancellationToken);
+        var allMedications = await _medicationRepository.GetAllAsync();
         return allMedications
             .Where(m => m.MedicationName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
                        m.ActiveIngredient.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
             .ToList();
     }
 
-    public async Task<Medication?> GetByAnvisaCodeAsync(string anvisaCode, CancellationToken cancellationToken = default)
+    public async Task<Medication?> GetByAnvisaCodeAsync(string anvisaCode)
     {
-        var allMedications = await _medicationRepository.GetAllAsync(cancellationToken);
+        var allMedications = await _medicationRepository.GetAllAsync();
         return allMedications.FirstOrDefault(m => m.AnvisaCode == anvisaCode);
     }
 }

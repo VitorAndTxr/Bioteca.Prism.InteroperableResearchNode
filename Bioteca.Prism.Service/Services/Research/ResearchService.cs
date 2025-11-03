@@ -1,3 +1,4 @@
+using Bioteca.Prism.Core.Interfaces;
 using Bioteca.Prism.Core.Service;
 using Bioteca.Prism.Data.Interfaces.Research;
 using Bioteca.Prism.Service.Interfaces.Research;
@@ -11,7 +12,7 @@ public class ResearchService : BaseService<Domain.Entities.Research.Research, Gu
 {
     private readonly IResearchRepository _researchRepository;
 
-    public ResearchService(IResearchRepository repository) : base(repository)
+    public ResearchService(IResearchRepository repository, IApiContext apiContext) : base(repository, apiContext)
     {
         _researchRepository = repository;
     }

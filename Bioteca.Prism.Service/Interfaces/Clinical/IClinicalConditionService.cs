@@ -11,10 +11,10 @@ public interface IClinicalConditionService : IServiceBase<ClinicalCondition, str
     /// <summary>
     /// Get active clinical conditions
     /// </summary>
-    Task<List<ClinicalCondition>> GetActiveConditionsAsync(CancellationToken cancellationToken = default);
+    Task<List<ClinicalCondition>> GetActiveConditionsAsync();
 
     /// <summary>
     /// Search conditions by display name
     /// </summary>
-    Task<List<ClinicalCondition>> SearchByNameAsync(string searchTerm, CancellationToken cancellationToken = default);
+    Task<List<ClinicalCondition>> SearchByNameAsync(string searchTerm);
 }

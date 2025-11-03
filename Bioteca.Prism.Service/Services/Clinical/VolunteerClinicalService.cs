@@ -27,76 +27,76 @@ public class VolunteerClinicalService : IVolunteerClinicalService
     }
 
     // Volunteer Clinical Conditions
-    public async Task<List<VolunteerClinicalCondition>> GetVolunteerConditionsAsync(Guid volunteerId, CancellationToken cancellationToken = default)
+    public async Task<List<VolunteerClinicalCondition>> GetVolunteerConditionsAsync(Guid volunteerId)
     {
-        var allConditions = await _conditionRepository.GetAllAsync(cancellationToken);
+        var allConditions = await _conditionRepository.GetAllAsync();
         return allConditions.Where(c => c.VolunteerId == volunteerId).ToList();
     }
 
-    public async Task<VolunteerClinicalCondition> AddConditionAsync(VolunteerClinicalCondition condition, CancellationToken cancellationToken = default)
+    public async Task<VolunteerClinicalCondition> AddConditionAsync(VolunteerClinicalCondition condition)
     {
-        return await _conditionRepository.AddAsync(condition, cancellationToken);
+        return await _conditionRepository.AddAsync(condition);
     }
 
-    public async Task<VolunteerClinicalCondition> UpdateConditionAsync(VolunteerClinicalCondition condition, CancellationToken cancellationToken = default)
+    public async Task<VolunteerClinicalCondition> UpdateConditionAsync(VolunteerClinicalCondition condition)
     {
-        return await _conditionRepository.UpdateAsync(condition, cancellationToken);
+        return await _conditionRepository.UpdateAsync(condition);
     }
 
     // Volunteer Clinical Events
-    public async Task<List<VolunteerClinicalEvent>> GetVolunteerEventsAsync(Guid volunteerId, CancellationToken cancellationToken = default)
+    public async Task<List<VolunteerClinicalEvent>> GetVolunteerEventsAsync(Guid volunteerId)
     {
-        var allEvents = await _eventRepository.GetAllAsync(cancellationToken);
+        var allEvents = await _eventRepository.GetAllAsync();
         return allEvents
             .Where(e => e.VolunteerId == volunteerId)
             .OrderByDescending(e => e.EventDatetime)
             .ToList();
     }
 
-    public async Task<VolunteerClinicalEvent> AddEventAsync(VolunteerClinicalEvent clinicalEvent, CancellationToken cancellationToken = default)
+    public async Task<VolunteerClinicalEvent> AddEventAsync(VolunteerClinicalEvent clinicalEvent)
     {
-        return await _eventRepository.AddAsync(clinicalEvent, cancellationToken);
+        return await _eventRepository.AddAsync(clinicalEvent);
     }
 
     // Volunteer Medications
-    public async Task<List<VolunteerMedication>> GetVolunteerMedicationsAsync(Guid volunteerId, CancellationToken cancellationToken = default)
+    public async Task<List<VolunteerMedication>> GetVolunteerMedicationsAsync(Guid volunteerId)
     {
-        var allMedications = await _medicationRepository.GetAllAsync(cancellationToken);
+        var allMedications = await _medicationRepository.GetAllAsync();
         return allMedications.Where(m => m.VolunteerId == volunteerId).ToList();
     }
 
-    public async Task<List<VolunteerMedication>> GetActiveMedicationsAsync(Guid volunteerId, CancellationToken cancellationToken = default)
+    public async Task<List<VolunteerMedication>> GetActiveMedicationsAsync(Guid volunteerId)
     {
-        var allMedications = await _medicationRepository.GetAllAsync(cancellationToken);
+        var allMedications = await _medicationRepository.GetAllAsync();
         return allMedications
             .Where(m => m.VolunteerId == volunteerId && m.Status.Equals("Active", StringComparison.OrdinalIgnoreCase))
             .ToList();
     }
 
-    public async Task<VolunteerMedication> AddMedicationAsync(VolunteerMedication medication, CancellationToken cancellationToken = default)
+    public async Task<VolunteerMedication> AddMedicationAsync(VolunteerMedication medication)
     {
-        return await _medicationRepository.AddAsync(medication, cancellationToken);
+        return await _medicationRepository.AddAsync(medication);
     }
 
     // Volunteer Allergies/Intolerances
-    public async Task<List<VolunteerAllergyIntolerance>> GetVolunteerAllergiesAsync(Guid volunteerId, CancellationToken cancellationToken = default)
+    public async Task<List<VolunteerAllergyIntolerance>> GetVolunteerAllergiesAsync(Guid volunteerId)
     {
-        var allAllergies = await _allergyRepository.GetAllAsync(cancellationToken);
+        var allAllergies = await _allergyRepository.GetAllAsync();
         return allAllergies.Where(a => a.VolunteerId == volunteerId).ToList();
     }
 
-    public async Task<VolunteerAllergyIntolerance> AddAllergyAsync(VolunteerAllergyIntolerance allergy, CancellationToken cancellationToken = default)
+    public async Task<VolunteerAllergyIntolerance> AddAllergyAsync(VolunteerAllergyIntolerance allergy)
     {
-        return await _allergyRepository.AddAsync(allergy, cancellationToken);
+        return await _allergyRepository.AddAsync(allergy);
     }
 
     // Clinical Summary
-    public async Task<object> GetClinicalSummaryAsync(Guid volunteerId, CancellationToken cancellationToken = default)
+    public async Task<object> GetClinicalSummaryAsync(Guid volunteerId)
     {
-        var conditions = await GetVolunteerConditionsAsync(volunteerId, cancellationToken);
-        var events = await GetVolunteerEventsAsync(volunteerId, cancellationToken);
-        var medications = await GetVolunteerMedicationsAsync(volunteerId, cancellationToken);
-        var allergies = await GetVolunteerAllergiesAsync(volunteerId, cancellationToken);
+        var conditions = await GetVolunteerConditionsAsync(volunteerId);
+        var events = await GetVolunteerEventsAsync(volunteerId);
+        var medications = await GetVolunteerMedicationsAsync(volunteerId);
+        var allergies = await GetVolunteerAllergiesAsync(volunteerId);
 
         return new
         {

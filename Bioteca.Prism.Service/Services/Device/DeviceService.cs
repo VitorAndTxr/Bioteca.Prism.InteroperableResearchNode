@@ -1,3 +1,4 @@
+using Bioteca.Prism.Core.Interfaces;
 using Bioteca.Prism.Core.Service;
 using Bioteca.Prism.Data.Interfaces.Device;
 using Bioteca.Prism.Service.Interfaces.Device;
@@ -11,7 +12,7 @@ public class DeviceService : BaseService<Domain.Entities.Device.Device, Guid>, I
 {
     private readonly IDeviceRepository _deviceRepository;
 
-    public DeviceService(IDeviceRepository repository) : base(repository)
+    public DeviceService(IDeviceRepository repository, IApiContext apiContext) : base(repository, apiContext)
     {
         _deviceRepository = repository;
     }

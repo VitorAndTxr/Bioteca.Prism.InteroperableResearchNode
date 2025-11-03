@@ -1,3 +1,4 @@
+using Bioteca.Prism.Core.Interfaces;
 using Bioteca.Prism.Core.Service;
 using Bioteca.Prism.Data.Interfaces.Record;
 using Bioteca.Prism.Domain.Entities.Record;
@@ -12,7 +13,7 @@ public class RecordSessionService : BaseService<RecordSession, Guid>, IRecordSes
 {
     private readonly IRecordSessionRepository _recordSessionRepository;
 
-    public RecordSessionService(IRecordSessionRepository repository) : base(repository)
+    public RecordSessionService(IRecordSessionRepository repository, IApiContext apiContext) : base(repository, apiContext)
     {
         _recordSessionRepository = repository;
     }

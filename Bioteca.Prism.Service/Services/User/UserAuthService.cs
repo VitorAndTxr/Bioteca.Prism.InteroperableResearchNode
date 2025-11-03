@@ -3,7 +3,7 @@ using Bioteca.Prism.Core.Exceptions;
 using Bioteca.Prism.Core.Interfaces;
 using Bioteca.Prism.Data.Interfaces.Researcher;
 using Bioteca.Prism.Data.Interfaces.User;
-using Bioteca.Prism.Domain.Payloads;
+using Bioteca.Prism.Domain.Payloads.User;
 using Bioteca.Prism.Domain.Responses;
 using Bioteca.Prism.Service.Interfaces.User;
 using Microsoft.Extensions.Configuration;

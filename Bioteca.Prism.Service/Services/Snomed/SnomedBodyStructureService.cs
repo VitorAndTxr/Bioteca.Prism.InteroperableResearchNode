@@ -1,3 +1,4 @@
+using Bioteca.Prism.Core.Interfaces;
 using Bioteca.Prism.Core.Service;
 using Bioteca.Prism.Data.Interfaces.Snomed;
 using Bioteca.Prism.Domain.Entities.Snomed;
@@ -12,7 +13,7 @@ public class SnomedBodyStructureService : BaseService<SnomedBodyStructure, strin
 {
     private readonly ISnomedBodyStructureRepository _snomedBodyStructureRepository;
 
-    public SnomedBodyStructureService(ISnomedBodyStructureRepository repository) : base(repository)
+    public SnomedBodyStructureService(ISnomedBodyStructureRepository repository, IApiContext apiContext) : base(repository, apiContext)
     {
         _snomedBodyStructureRepository = repository;
     }

@@ -1,3 +1,4 @@
+using Bioteca.Prism.Core.Interfaces;
 using Bioteca.Prism.Core.Service;
 using Bioteca.Prism.Data.Interfaces.Record;
 using Bioteca.Prism.Domain.Entities.Record;
@@ -12,7 +13,7 @@ public class RecordChannelService : BaseService<RecordChannel, Guid>, IRecordCha
 {
     private readonly IRecordChannelRepository _recordChannelRepository;
 
-    public RecordChannelService(IRecordChannelRepository repository) : base(repository)
+    public RecordChannelService(IRecordChannelRepository repository, IApiContext apiContext) : base(repository, apiContext)
     {
         _recordChannelRepository = repository;
     }

@@ -1,4 +1,5 @@
 using Bioteca.Prism.Core.Interfaces;
+using Bioteca.Prism.Domain.DTOs.Paging;
 
 namespace Bioteca.Prism.Core.Service;
 
@@ -11,38 +12,50 @@ public class BaseService<TEntity, TKey> : IServiceBase<TEntity, TKey> where TEnt
 {
     protected readonly IBaseRepository<TEntity, TKey> _repository;
 
-    public BaseService(IBaseRepository<TEntity, TKey> repository)
+    protected readonly IApiContext _apiContext;
+
+    public BaseService(IBaseRepository<TEntity, TKey> repository, IApiContext apiContext)
     {
         _repository = repository;
+        _apiContext = apiContext;
     }
 
-    public virtual async Task<TEntity?> GetByIdAsync(TKey id, CancellationToken cancellationToken = default)
+    public virtual async Task<TEntity?> GetByIdAsync(TKey id)
     {
-        return await _repository.GetByIdAsync(id, cancellationToken);
+        return await _repository.GetByIdAsync(id);
     }
 
-    public virtual async Task<List<TEntity>> GetAllAsync(CancellationToken cancellationToken = default)
+    public virtual async Task<List<TEntity>> GetAllAsync()
     {
-        return await _repository.GetAllAsync(cancellationToken);
+        return await _repository.GetAllAsync();
     }
 
-    public virtual async Task<TEntity> CreateAsync(TEntity entity, CancellationToken cancellationToken = default)
+    public virtual async Task<TEntity> CreateAsync(TEntity entity)
     {
-        return await _repository.AddAsync(entity, cancellationToken);
+        return await _repository.AddAsync(entity);
     }
 
-    public virtual async Task<TEntity> UpdateAsync(TEntity entity, CancellationToken cancellationToken = default)
+    public virtual async Task<TEntity> UpdateAsync(TEntity entity)
     {
-        return await _repository.UpdateAsync(entity, cancellationToken);
+        return await _repository.UpdateAsync(entity);
     }
 
-    public virtual async Task<bool> DeleteAsync(TKey id, CancellationToken cancellationToken = default)
+    public virtual async Task<bool> DeleteAsync(TKey id)
     {
-        return await _repository.DeleteAsync(id, cancellationToken);
+        return await _repository.DeleteAsync(id);
     }
 
-    public virtual async Task<bool> ExistsAsync(TKey id, CancellationToken cancellationToken = default)
+    public virtual async Task<bool> ExistsAsync(TKey id)
     {
-        return await _repository.ExistsAsync(id, cancellationToken);
+        return await _repository.ExistsAsync(id);
+    }
+
+    public virtual async Task<List<TEntity>> GetPagedAsync()
+    {
+
+        // Get paginated data from repository
+        var result = await _repository.GetPagedAsync();
+
+        return result;
     }
 }
