@@ -165,4 +165,75 @@ namespace Bioteca.Prism.Core.Middleware.Channel
             }
         }
     }
+
+    [AttributeUsage(AttributeTargets.Method, AllowMultiple = false)]
+    public class PrismEncryptedChannelConnectionAttribute : ActionFilterAttribute
+    {
+        public override async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
+        {
+            if (!context.HttpContext.Request.Headers.TryGetValue("X-Channel-Id", out var channelIdHeader))
+            {
+                context.Result = new BadRequestObjectResult(new Error
+                {
+                    ErrorDetail = new ErrorDetails
+                    {
+
+                        Code = "ERR_MISSING_CHANNEL_ID",
+                        Message = "X-Channel-Id header is required",
+                        Retryable = false
+                    }
+                });
+                return;
+            }
+
+            var channelId = channelIdHeader.ToString();
+            var channelStore = context.HttpContext.RequestServices.GetRequiredService<IChannelStore>();
+            var channelContext = await channelStore.GetChannelAsync(channelId);
+
+            if (channelContext == null)
+            {
+                context.Result = new BadRequestObjectResult(new Error
+                {
+                    ErrorDetail = new ErrorDetails
+                    {
+                        Code = "ERR_INVALID_CHANNEL",
+                        Message = "Channel does not exist or has expired",
+                        Retryable = true
+                    }
+                });
+                return;
+            }
+
+            var encryptionService = context.HttpContext.RequestServices.GetRequiredService<IChannelEncryptionService>();
+            var nodeRegistryService = context.HttpContext.RequestServices.GetRequiredService<IResearchNodeService>();
+
+            // Read the body
+            string body;
+            using (var reader = new StreamReader(
+                context.HttpContext.Request.Body,
+                encoding: Encoding.UTF8,
+                detectEncodingFromByteOrderMarks: false,
+                leaveOpen: false))
+            {
+                body = await reader.ReadToEndAsync();
+            }
+
+            context.HttpContext.Items["ChannelId"] = channelId;
+            context.HttpContext.Items["ChannelContext"] = channelContext;
+            context.HttpContext.Response.Headers.Append("X-Channel-Id", channelId);
+
+            // Execute the action
+            var executedContext = await next();
+
+            // Encrypt the response if the action executed successfully
+            if (executedContext.Result is ObjectResult objectResult && objectResult.Value != null)
+            {
+                var encryptedResponse = encryptionService.EncryptPayload(objectResult.Value, channelContext.SymmetricKey);
+                executedContext.Result = new ObjectResult(encryptedResponse)
+                {
+                    StatusCode = objectResult.StatusCode ?? StatusCodes.Status200OK
+                };
+            }
+        }
+    }
 }

@@ -1,4 +1,6 @@
 using Bioteca.Prism.Core.Interfaces;
+using Bioteca.Prism.Domain.DTOs.User;
+using Bioteca.Prism.Domain.Payloads.User;
 
 namespace Bioteca.Prism.Service.Interfaces.Researcher;
 
@@ -16,4 +18,15 @@ public interface IResearcherService : IServiceBase<Domain.Entities.Researcher.Re
     /// Get researchers by institution
     /// </summary>
     Task<List<Domain.Entities.Researcher.Researcher>> GetByInstitutionAsync(string institution, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Add a new user with encrypted password
+    /// </summary>
+    Task<Domain.Entities.Researcher.Researcher?> AddAsync(AddUserPayload payload);
+
+    /// <summary>
+    /// Get all users paginated
+    /// </summary>
+    Task<List<UserDTO>> GetAllResearchersPaginateAsync();
+
 }

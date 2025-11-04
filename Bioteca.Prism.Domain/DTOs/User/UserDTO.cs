@@ -43,3 +43,8 @@ public class ResearcherInfoDto
     public string Role { get; set; } = string.Empty;
     public string Orcid { get; set; } = string.Empty;
 }
+
+public class ResearcherDTO
+{
+
+}

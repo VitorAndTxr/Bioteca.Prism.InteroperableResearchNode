@@ -2,14 +2,13 @@
 using Bioteca.Prism.Core.Interfaces;
 using Bioteca.Prism.Core.Middleware.Channel;
 using Bioteca.Prism.Core.Security.Authorization;
-using Bioteca.Prism.Domain.DTOs.Paging;
-using Bioteca.Prism.Domain.DTOs.User;
 using Bioteca.Prism.Domain.Payloads.User;
 using Bioteca.Prism.Domain.Requests.Session;
 using Bioteca.Prism.InteroperableResearchNode.Middleware;
+using Bioteca.Prism.Service.Interfaces.Researcher;
 using Bioteca.Prism.Service.Interfaces.User;
+using Bioteca.Prism.Service.Services.User;
 using Microsoft.AspNetCore.Mvc;
-using System.Threading;
 
 namespace Bioteca.Prism.InteroperableResearchNode.Controllers
 {
@@ -18,12 +17,9 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
     public class UserController : BaseController
     {
 
-        private readonly IChannelEncryptionService _encryptionService;
         private readonly IUserService _userService;
 
         private readonly ILogger<UserController> _logger;
-        private readonly IConfiguration _configuration;
-        private readonly IApiContext _apiContext;
 
         public UserController(
 
@@ -34,9 +30,7 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
             ) : base(logger, configuration, apiContext)
         {
             _logger = logger;
-            _configuration = configuration;
             _userService = userService;
-            _apiContext = apiContext;
         }
 
         /// <summary>
@@ -47,8 +41,12 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
         /// <param name="apiContext">API context injected by framework</param>
         /// <param name="cancellationToken">Cancellation token</param>
         /// <returns>Paginated list of users</returns>
+        [Route("[action]")]
         [HttpGet]
-        [ProducesResponseType(typeof(PagedResult<UserDTO>), StatusCodes.Status200OK)]
+        [PrismEncryptedChannelConnection]
+        [PrismAuthenticatedSession]
+        [Authorize("sub")]
+        [ProducesResponseType(typeof(EncryptedPayload), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> GetUsers(CancellationToken cancellationToken = default)
         {
@@ -70,16 +68,88 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
 
         [Route("[action]")]
         [HttpPost]
-        [PrismEncryptedChannelConnection<WhoAmIRequest>]
+        [PrismEncryptedChannelConnection<AddUserPayload>]
         [PrismAuthenticatedSession]
         [Authorize("sub")]
         [ProducesResponseType(typeof(EncryptedPayload), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public IActionResult New()
         {
             try
             {
                 var payload = HttpContext.Items["DecryptedRequest"] as AddUserPayload;
                 return ServiceInvoke(_userService.AddAsync, payload).Result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to register new user");
+                return StatusCode(StatusCodes.Status500InternalServerError, CreateError(
+                    "ERR_USER_REGISTRATION_FAILED",
+                    "Failed to register new user:" + ex.Message,
+                    new Dictionary<string, object> { ["reason"] = "internal_error" },
+                    retryable: true
+                ));
+            }
+        }
+    }
+
+    [Route("api/[controller]")]
+    [ApiController]
+    public class ResearcherController : BaseController
+    {
+
+        private readonly IResearcherService _researcherService;
+
+        private readonly ILogger<ResearcherController> _logger;
+
+        public ResearcherController(
+                IResearcherService researcherService,
+                ILogger<ResearcherController> logger,
+                IConfiguration configuration,
+                IApiContext apiContext
+            ):base(logger, configuration, apiContext)
+        {
+            
+        }
+
+        [Route("[action]")]
+        [HttpGet]
+        [PrismEncryptedChannelConnection]
+        [PrismAuthenticatedSession]
+        [Authorize("sub")]
+        [ProducesResponseType(typeof(EncryptedPayload), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> GetResearchers(CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                return ServiceInvoke(_researcherService.GetAllResearchersPaginateAsync).Result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to retrieve paginated users");
+                return StatusCode(StatusCodes.Status500InternalServerError, CreateError(
+                    "ERR_USER_RETRIEVAL_FAILED",
+                    "Failed to retrieve users",
+                    new Dictionary<string, object> { ["reason"] = "internal_error" },
+                    retryable: true
+                ));
+            }
+        }
+
+        [Route("[action]")]
+        [HttpPost]
+        [PrismEncryptedChannelConnection<AddUserPayload>]
+        [PrismAuthenticatedSession]
+        [Authorize("sub")]
+        [ProducesResponseType(typeof(EncryptedPayload), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public IActionResult New()
+        {
+            try
+            {
+                var payload = HttpContext.Items["DecryptedRequest"] as AddUserPayload;
+                return ServiceInvoke(_researcherService.AddAsync, payload).Result;
             }
             catch (Exception ex)
             {

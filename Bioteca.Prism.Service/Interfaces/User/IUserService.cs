@@ -14,7 +14,9 @@ namespace Bioteca.Prism.Service.Interfaces.User
         /// </summary>
         public Task<Domain.Entities.User.User?> AddAsync(AddUserPayload payload);
 
-
+        /// <summary>
+        /// Get all users paginated
+        /// </summary>
         Task<List<UserDTO>> GetAllUserPaginateAsync();
     }
 }
