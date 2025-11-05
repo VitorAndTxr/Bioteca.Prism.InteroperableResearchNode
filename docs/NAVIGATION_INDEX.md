@@ -1,7 +1,7 @@
 # PRISM Documentation Navigation Index
 
-**Last Updated**: October 21, 2025
-**Documentation Version**: 2.0 (Post-Reorganization)
+**Last Updated**: November 4, 2025
+**Documentation Version**: 2.1 (Development Guides Added)
 
 This index provides multiple navigation paths through the PRISM documentation based on your role, task, or interest.
 
@@ -40,6 +40,8 @@ This index provides multiple navigation paths through the PRISM documentation ba
 - `architecture/PROJECT_STRUCTURE.md` - Folder structure (TODO)
 - `architecture/GENERIC_BASE_PATTERN.md` - Repository/service pattern (TODO)
 - `SECURITY_OVERVIEW.md` - Security architecture
+- `development/API_ENDPOINT_IMPLEMENTATION_GUIDE.md` - Step-by-step endpoint guide ✅
+- `development/PAGINATION_SYSTEM.md` - Pagination implementation ✅
 - `development/PERSISTENCE_LAYER.md` - PostgreSQL + Redis (TODO)
 
 **Workflows** (step-by-step):
@@ -192,6 +194,9 @@ This index provides multiple navigation paths through the PRISM documentation ba
 4. `workflows/PHASE4_SESSION_FLOW.md` - Session lifecycle management
 
 **Development Guides**:
+- `development/API_ENDPOINT_IMPLEMENTATION_GUIDE.md` - Complete guide for implementing new endpoints ✅
+- `development/PAGINATION_SYSTEM.md` - Pagination architecture and implementation ✅
+- `development/RECENT_IMPLEMENTATIONS.md` - Recent changes and migration guide ✅
 - `development/COMMON_COMMANDS.md` - All CLI commands (TODO)
 - `development/PERSISTENCE_LAYER.md` - PostgreSQL + Redis setup (TODO)
 - `development/SERVICE_REGISTRATION.md` - DI container (TODO)
@@ -342,10 +347,11 @@ This index provides multiple navigation paths through the PRISM documentation ba
 - Component documentation (4 files)
 - Workflow documentation (4 files)
 - Architecture philosophy and security overview
+- Development guides (API_ENDPOINT_IMPLEMENTATION_GUIDE, PAGINATION_SYSTEM, RECENT_IMPLEMENTATIONS)
 
 ### In Progress 🚧
 - Architecture detail files (PROJECT_STRUCTURE, GENERIC_BASE_PATTERN, NODE_IDENTIFIER_ARCHITECTURE)
-- Development guides (COMMON_COMMANDS, PERSISTENCE_LAYER, SERVICE_REGISTRATION)
+- Remaining development guides (COMMON_COMMANDS, PERSISTENCE_LAYER, SERVICE_REGISTRATION)
 
 ### Planned 📋
 - KNOWN_ISSUES.md (consolidated troubleshooting)

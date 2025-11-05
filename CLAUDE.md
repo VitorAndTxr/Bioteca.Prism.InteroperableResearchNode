@@ -387,12 +387,16 @@ When encountering Portuguese documentation, translate to English while preservin
 
 ### Documentation
 - `docs/README.md` - Documentation index
+- `docs/NAVIGATION_INDEX.md` - Complete navigation guide
 - `docs/ARCHITECTURE_PHILOSOPHY.md` - PRISM architecture and design principles
 - `docs/SECURITY_OVERVIEW.md` - Complete security architecture
 - `docs/components/` - Detailed component descriptions
 - `docs/workflows/` - Phase-by-phase implementation flows
 - `docs/architecture/` - Technical specifications
 - `docs/development/` - Development guides
+  - **`API_ENDPOINT_IMPLEMENTATION_GUIDE.md`** - Step-by-step endpoint implementation ✅
+  - **`PAGINATION_SYSTEM.md`** - Pagination architecture and usage ✅
+  - **`RECENT_IMPLEMENTATIONS.md`** - Recent changes and migration guide ✅
 - `docs/testing/` - Testing documentation
 - `docs/PROJECT_STATUS.md` - Implementation status (v0.8.0)
 
@@ -421,6 +425,23 @@ When encountering Portuguese documentation, translate to English while preservin
 
 ## Development Guidelines
 
+### Implementing New Endpoints
+
+**📘 Complete Guide**: See `docs/development/API_ENDPOINT_IMPLEMENTATION_GUIDE.md`
+
+**Quick Steps**:
+1. **Domain Layer**: Define Entity, DTOs, and Payloads
+2. **Data Layer**: Create Repository (interface + implementation)
+3. **Service Layer**: Create Service (interface + implementation)
+4. **API Layer**: Create Controller endpoints
+5. **DI Registration**: Register services in `Program.cs`
+6. **Testing**: Write unit and integration tests
+
+**Key Resources**:
+- **Pagination Implementation**: `docs/development/PAGINATION_SYSTEM.md`
+- **Recent Examples**: `docs/development/RECENT_IMPLEMENTATIONS.md` (User/Researcher management)
+- **Middleware Patterns**: `docs/development/MIDDLEWARE_PATTERNS.md`
+
 ### Biomedical Data Standards
 - Follow HL7 FHIR standards for health data
 - Use SNOMED CT terminologies for clinical concepts
@@ -436,8 +457,9 @@ When encountering Portuguese documentation, translate to English while preservin
 ### Code Conventions
 - Services: `I{Name}Service` interface, `{Name}Service` implementation
 - DTOs: `{Action}Request`, `{Action}Response`
-- Repositories: Extend `BaseRepository<TEntity, TKey>`
-- Services: Extend `BaseService<TEntity, TKey>`
+- Repositories: Extend `BaseRepository<TEntity, TKey>`, override `GetPagedAsync()` for pagination
+- Services: Extend `BaseService<TEntity, TKey>`, map entities to DTOs
+- Controllers: Extend `BaseController`, use `ServiceInvoke()` helpers
 
 ---
 
