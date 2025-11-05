@@ -25,7 +25,9 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
                 IApiContext apiContext
             ):base(logger, configuration, apiContext)
         {
-            
+            _researcherService = researcherService;
+
+            _logger = logger;
         }
 
         [Route("[action]")]

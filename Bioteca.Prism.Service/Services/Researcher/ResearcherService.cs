@@ -29,7 +29,7 @@ public class ResearcherService : BaseService<Domain.Entities.Researcher.Research
         return await _researcherRepository.GetByInstitutionAsync(institution, cancellationToken);
     }
 
-    public Task<Domain.Entities.Researcher.Researcher?> AddAsync(AddResearcherPayload payload)
+    public async Task<Domain.Entities.Researcher.Researcher?> AddAsync(AddResearcherPayload payload)
     {
         ValidateAddResearcherPayload(payload);
 
@@ -38,14 +38,14 @@ public class ResearcherService : BaseService<Domain.Entities.Researcher.Research
             ResearcherId = Guid.NewGuid(),
             Name = payload.Name,
             Email = payload.Email,
-            Orcid = payload.Orcid,
+            Orcid = payload.Orcid.Replace("-",""),
             Role = payload.Role,
             ResearchNodeId = payload.ResearchNodeId,
             Institution = payload.Institution,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
-        throw new NotImplementedException();
+        return await _researcherRepository.AddAsync(researcher);
     }
 
     private void ValidateAddResearcherPayload(AddResearcherPayload payload)
@@ -70,12 +70,12 @@ public class ResearcherService : BaseService<Domain.Entities.Researcher.Research
             throw new Exception("Invalid payload: You need to add a role");
         }
 
-        if (_researcherRepository.GetByOrcidAsync(payload.Orcid).Result == null)
+        if (_researcherRepository.GetByOrcidAsync(payload.Orcid).Result != null)
         {
             throw new Exception("Researcher already exists");
         }
 
-        if (_researcherRepository.GetByEmailAsync(payload.Orcid).Result == null)
+        if (_researcherRepository.GetByEmailAsync(payload.Orcid).Result != null)
         {
             throw new Exception("Email already in use");
         }

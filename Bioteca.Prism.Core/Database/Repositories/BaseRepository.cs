@@ -33,9 +33,16 @@ public class BaseRepository<TEntity, TKey> : IBaseRepository<TEntity, TKey> wher
 
     public virtual async Task<TEntity> AddAsync(TEntity entity)
     {
-        await _dbSet.AddAsync(entity);
-        await _context.SaveChangesAsync();
-        return entity;
+        try
+        {
+            await _dbSet.AddAsync(entity);
+            await _context.SaveChangesAsync();
+            return entity;
+        }catch(Exception ex)
+        {
+            throw ex;
+        }
+
     }
 
     public virtual async Task<TEntity> UpdateAsync(TEntity entity)
