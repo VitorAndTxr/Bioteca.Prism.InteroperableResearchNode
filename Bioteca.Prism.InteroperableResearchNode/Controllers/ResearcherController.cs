@@ -2,10 +2,10 @@
 using Bioteca.Prism.Core.Interfaces;
 using Bioteca.Prism.Core.Middleware.Channel;
 using Bioteca.Prism.Core.Security.Authorization;
-using Bioteca.Prism.Domain.Entities.Research;
 using Bioteca.Prism.Domain.Payloads.User;
 using Bioteca.Prism.InteroperableResearchNode.Middleware;
 using Bioteca.Prism.Service.Interfaces.Researcher;
+using Bioteca.Prism.Service.Services.Researcher;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Bioteca.Prism.InteroperableResearchNode.Controllers
@@ -14,7 +14,6 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
     [ApiController]
     public class ResearcherController : BaseController
     {
-
         private readonly IResearcherService _researcherService;
 
         private readonly ILogger<ResearcherController> _logger;
@@ -24,7 +23,7 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
                 ILogger<ResearcherController> logger,
                 IConfiguration configuration,
                 IApiContext apiContext
-            ):base(logger, configuration, apiContext)
+            ) : base(logger, configuration, apiContext)
         {
             _researcherService = researcherService;
 

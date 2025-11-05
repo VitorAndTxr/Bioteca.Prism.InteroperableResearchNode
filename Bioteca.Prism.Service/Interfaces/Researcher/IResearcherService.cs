@@ -1,5 +1,5 @@
 using Bioteca.Prism.Core.Interfaces;
-using Bioteca.Prism.Domain.DTOs.User;
+using Bioteca.Prism.Domain.DTOs.Researcher;
 using Bioteca.Prism.Domain.Payloads.User;
 
 namespace Bioteca.Prism.Service.Interfaces.Researcher;
