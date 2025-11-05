@@ -4,40 +4,30 @@ using Bioteca.Prism.Core.Middleware.Channel;
 using Bioteca.Prism.Core.Security.Authorization;
 using Bioteca.Prism.Domain.Payloads.User;
 using Bioteca.Prism.InteroperableResearchNode.Middleware;
-using Bioteca.Prism.Service.Interfaces.User;
+using Bioteca.Prism.Service.Interfaces.Researcher;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Bioteca.Prism.InteroperableResearchNode.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class UserController : BaseController
+    public class ResearcherController : BaseController
     {
 
-        private readonly IUserService _userService;
+        private readonly IResearcherService _researcherService;
 
-        private readonly ILogger<UserController> _logger;
+        private readonly ILogger<ResearcherController> _logger;
 
-        public UserController(
-
-            IUserService userService,
-            ILogger<UserController> logger,
-            IConfiguration configuration,
-            IApiContext apiContext
-            ) : base(logger, configuration, apiContext)
+        public ResearcherController(
+                IResearcherService researcherService,
+                ILogger<ResearcherController> logger,
+                IConfiguration configuration,
+                IApiContext apiContext
+            ):base(logger, configuration, apiContext)
         {
-            _logger = logger;
-            _userService = userService;
+            
         }
 
-        /// <summary>
-        /// Get paginated list of users
-        /// </summary>
-        /// <param name="page">Page number (1-indexed, default: 1)</param>
-        /// <param name="pageSize">Number of items per page (default: 10, max: 100)</param>
-        /// <param name="apiContext">API context injected by framework</param>
-        /// <param name="cancellationToken">Cancellation token</param>
-        /// <returns>Paginated list of users</returns>
         [Route("[action]")]
         [HttpGet]
         [PrismEncryptedChannelConnection]
@@ -45,18 +35,18 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
         [Authorize("sub")]
         [ProducesResponseType(typeof(EncryptedPayload), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<IActionResult> GetUsers(CancellationToken cancellationToken = default)
+        public async Task<IActionResult> GetResearchers(CancellationToken cancellationToken = default)
         {
             try
             {
-                return ServiceInvoke(_userService.GetAllUserPaginateAsync).Result;
+                return ServiceInvoke(_researcherService.GetAllResearchersPaginateAsync).Result;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to retrieve paginated users");
+                _logger.LogError(ex, "Failed to retrieve paginated researchers");
                 return StatusCode(StatusCodes.Status500InternalServerError, CreateError(
-                    "ERR_GET_USERR_FAILED",
-                    "Failed to retrieve users",
+                    "ERR_RESEARCHER_RETRIEVAL_FAILED",
+                    "Failed to retrieve researchers",
                     new Dictionary<string, object> { ["reason"] = "internal_error" },
                     retryable: true
                 ));
@@ -65,7 +55,7 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
 
         [Route("[action]")]
         [HttpPost]
-        [PrismEncryptedChannelConnection<AddUserPayload>]
+        [PrismEncryptedChannelConnection<AddResearcherPayload>]
         [PrismAuthenticatedSession]
         [Authorize("sub")]
         [ProducesResponseType(typeof(EncryptedPayload), StatusCodes.Status200OK)]
@@ -74,15 +64,15 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
         {
             try
             {
-                var payload = HttpContext.Items["DecryptedRequest"] as AddUserPayload;
-                return ServiceInvoke(_userService.AddAsync, payload).Result;
+                var payload = HttpContext.Items["DecryptedRequest"] as AddResearcherPayload;
+                return ServiceInvoke(_researcherService.AddAsync, payload).Result;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to register new user");
+                _logger.LogError(ex, "Failed to register new researchers");
                 return StatusCode(StatusCodes.Status500InternalServerError, CreateError(
-                    "ERR_USER_ADD_FAILED",
-                    "Failed to add new user:" + ex.Message,
+                    "ERR_RESEARCHER_REGISTRATION_FAILED",
+                    "Failed to register new researchers:" + ex.Message,
                     new Dictionary<string, object> { ["reason"] = "internal_error" },
                     retryable: true
                 ));

@@ -34,4 +34,11 @@ public class ResearcherRepository : BaseRepository<Domain.Entities.Researcher.Re
             .Where(r => r.Institution == institution)
             .ToListAsync(cancellationToken);
     }
+
+    public async Task<Domain.Entities.Researcher.Researcher> GetByOrcidAsync(string orcid, CancellationToken cancellationToken = default)
+    {
+        return await _dbSet
+            .Where(r => r.Orcid == orcid)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
 }

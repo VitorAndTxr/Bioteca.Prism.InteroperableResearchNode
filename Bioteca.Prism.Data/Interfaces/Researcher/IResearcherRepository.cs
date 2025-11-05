@@ -21,4 +21,9 @@ public interface IResearcherRepository : IBaseRepository<Domain.Entities.Researc
     /// Get researchers by institution
     /// </summary>
     Task<List<Domain.Entities.Researcher.Researcher>> GetByInstitutionAsync(string institution, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Get researchers by ORCID
+    /// </summary>
+    Task<Domain.Entities.Researcher.Researcher> GetByOrcidAsync(string orcid, CancellationToken cancellationToken = default);
 }

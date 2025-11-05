@@ -22,11 +22,11 @@ public interface IResearcherService : IServiceBase<Domain.Entities.Researcher.Re
     /// <summary>
     /// Add a new user with encrypted password
     /// </summary>
-    Task<Domain.Entities.Researcher.Researcher?> AddAsync(AddUserPayload payload);
+    Task<Domain.Entities.Researcher.Researcher?> AddAsync(AddResearcherPayload payload);
 
     /// <summary>
     /// Get all users paginated
     /// </summary>
-    Task<List<UserDTO>> GetAllResearchersPaginateAsync();
+    Task<List<ResearcherDTO>> GetAllResearchersPaginateAsync();
 
 }

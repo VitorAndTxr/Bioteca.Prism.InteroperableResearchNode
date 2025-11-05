@@ -29,33 +29,71 @@ public class ResearcherService : BaseService<Domain.Entities.Researcher.Research
         return await _researcherRepository.GetByInstitutionAsync(institution, cancellationToken);
     }
 
-    public Task<Domain.Entities.Researcher.Researcher?> AddAsync(AddUserPayload payload)
+    public Task<Domain.Entities.Researcher.Researcher?> AddAsync(AddResearcherPayload payload)
     {
+        ValidateAddResearcherPayload(payload);
+
+        Domain.Entities.Researcher.Researcher researcher = new Domain.Entities.Researcher.Researcher
+        {
+            ResearcherId = Guid.NewGuid(),
+            Name = payload.Name,
+            Email = payload.Email,
+            Orcid = payload.Orcid,
+            Role = payload.Role,
+            ResearchNodeId = payload.ResearchNodeId,
+            Institution = payload.Institution,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
         throw new NotImplementedException();
     }
 
-    public async Task<List<UserDTO>> GetAllResearchersPaginateAsync()
+    private void ValidateAddResearcherPayload(AddResearcherPayload payload)
     {
-        //var result = await _researcherRepository.GetPagedAsync();
+        if (string.IsNullOrEmpty(payload.Name))
+        {
+            throw new Exception("Invalid payload: You need to add a name");
+        }
 
-        //var mappedResult = result.Select(user => new UserDTO
-        //{
-        //    Id = user.Id,
-        //    Login = user.Login,
-        //    Role = user.Role,
-        //    CreatedAt = user.CreatedAt,
-        //    UpdatedAt = user.UpdatedAt,
-        //    Researcher = user.Researcher != null ? new ResearcherInfoDto()
-        //    {
-        //        Name = user.Researcher.Name,
-        //        Email = user.Researcher.Email,
-        //        Role = user.Researcher.Role,
-        //        Orcid = user.Researcher.Orcid
-        //    } : null
-        //}).ToList();
+        if (string.IsNullOrEmpty(payload.Email))
+        {
+            throw new Exception("Invalid payload: You need to add a email");
+        }
 
-        //return mappedResult;
-        throw new NotImplementedException();
+        if (string.IsNullOrEmpty(payload.Orcid))
+        {
+            throw new Exception("Invalid payload: You need to add a orcid");
+        }
 
+        if (string.IsNullOrEmpty(payload.Role))
+        {
+            throw new Exception("Invalid payload: You need to add a role");
+        }
+
+        if (_researcherRepository.GetByOrcidAsync(payload.Orcid).Result == null)
+        {
+            throw new Exception("Researcher already exists");
+        }
+
+        if (_researcherRepository.GetByEmailAsync(payload.Orcid).Result == null)
+        {
+            throw new Exception("Email already in use");
+        }
+    }
+
+    public async Task<List<ResearcherDTO>> GetAllResearchersPaginateAsync()
+    {
+        var result = await _researcherRepository.GetPagedAsync();
+
+        var mappedResult = result.Select(researcher => new ResearcherDTO
+        {
+            ResearcherId = researcher.ResearcherId,
+            Name = researcher.Name,
+            Email = researcher.Email,
+            Role = researcher.Role,
+            Orcid = researcher.Orcid
+        }).ToList();
+
+        return mappedResult;
     }
 }
