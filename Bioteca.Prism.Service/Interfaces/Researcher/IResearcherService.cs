@@ -12,12 +12,12 @@ public interface IResearcherService : IServiceBase<Domain.Entities.Researcher.Re
     /// <summary>
     /// Get researchers by node ID
     /// </summary>
-    Task<List<Domain.Entities.Researcher.Researcher>> GetByNodeIdAsync(Guid nodeId, CancellationToken cancellationToken = default);
+    Task<List<ResearcherDTO>> GetByNodeIdAsync(Guid nodeId);
 
     /// <summary>
     /// Get researchers by institution
     /// </summary>
-    Task<List<Domain.Entities.Researcher.Researcher>> GetByInstitutionAsync(string institution, CancellationToken cancellationToken = default);
+    Task<List<Domain.Entities.Researcher.Researcher>> GetByInstitutionAsync(string institution);
 
     /// <summary>
     /// Add a new user with encrypted password

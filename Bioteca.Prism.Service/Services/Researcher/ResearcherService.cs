@@ -19,14 +19,23 @@ public class ResearcherService : BaseService<Domain.Entities.Researcher.Research
         _researcherRepository = repository;
     }
 
-    public async Task<List<Domain.Entities.Researcher.Researcher>> GetByNodeIdAsync(Guid nodeId, CancellationToken cancellationToken = default)
+    public async Task<List<ResearcherDTO>> GetByNodeIdAsync(Guid nodeId)
     {
-        return await _researcherRepository.GetByNodeIdAsync(nodeId, cancellationToken);
+        var researcher = await _researcherRepository.GetByNodeIdAsync(nodeId);
+
+        return researcher.Select(r => new ResearcherDTO
+        {
+            ResearcherId = r.ResearcherId,
+            Name = r.Name,
+            Email = r.Email,
+            Role = r.Role,
+            Orcid = r.Orcid
+        }).ToList();
     }
 
-    public async Task<List<Domain.Entities.Researcher.Researcher>> GetByInstitutionAsync(string institution, CancellationToken cancellationToken = default)
+    public async Task<List<Domain.Entities.Researcher.Researcher>> GetByInstitutionAsync(string institution)
     {
-        return await _researcherRepository.GetByInstitutionAsync(institution, cancellationToken);
+        return await _researcherRepository.GetByInstitutionAsync(institution);
     }
 
     public async Task<Domain.Entities.Researcher.Researcher?> AddAsync(AddResearcherPayload payload)

@@ -2,6 +2,7 @@
 using Bioteca.Prism.Core.Interfaces;
 using Bioteca.Prism.Core.Middleware.Channel;
 using Bioteca.Prism.Core.Security.Authorization;
+using Bioteca.Prism.Domain.Entities.Research;
 using Bioteca.Prism.Domain.Payloads.User;
 using Bioteca.Prism.InteroperableResearchNode.Middleware;
 using Bioteca.Prism.Service.Interfaces.Researcher;
@@ -75,6 +76,31 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
                 return StatusCode(StatusCodes.Status500InternalServerError, CreateError(
                     "ERR_RESEARCHER_REGISTRATION_FAILED",
                     "Failed to register new researchers:" + ex.Message,
+                    new Dictionary<string, object> { ["reason"] = "internal_error" },
+                    retryable: true
+                ));
+            }
+        }
+
+        [Route("[action]/{nodeId}")]
+        [HttpGet]
+        [PrismEncryptedChannelConnection]
+        [PrismAuthenticatedSession]
+        [Authorize("sub")]
+        [ProducesResponseType(typeof(EncryptedPayload), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public IActionResult GetResearcherByNodeId(Guid nodeId)
+        {
+            try
+            {
+                return ServiceInvoke(_researcherService.GetByNodeIdAsync, nodeId).Result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to retrieve researchers");
+                return StatusCode(StatusCodes.Status500InternalServerError, CreateError(
+                    "ERR_RESEARCHER_RETRIEVAL_FAILED",
+                    "Failed to retrieve researchers:" + ex.Message,
                     new Dictionary<string, object> { ["reason"] = "internal_error" },
                     retryable: true
                 ));
