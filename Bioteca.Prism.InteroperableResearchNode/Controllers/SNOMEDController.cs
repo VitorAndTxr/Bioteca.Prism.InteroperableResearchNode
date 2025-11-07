@@ -37,6 +37,8 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
             _logger = logger;
         }
 
+
+        #region BodyRegion Endpoints
         [Route("BodyRegion/[action]")]
         [HttpGet]
         [PrismEncryptedChannelConnection]
@@ -88,14 +90,14 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
             }
         }
 
-        [Route("BodyRegion/[action]")]
+        [Route("BodyRegion/New")]
         [HttpPost]
         [PrismEncryptedChannelConnection<AddSnomedBodyRegionDTO>]
         [PrismAuthenticatedSession]
         [Authorize("sub")]
         [ProducesResponseType(typeof(EncryptedPayload), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public IActionResult New()
+        public IActionResult NewBodyRegion()
         {
             try
             {
@@ -113,5 +115,88 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
                 ));
             }
         }
+
+        #endregion
+
+        #region BodyStructure Endpoints
+
+        [Route("BodyStructure/[action]")]
+        [HttpGet]
+        [PrismEncryptedChannelConnection]
+        [PrismAuthenticatedSession]
+        [Authorize("sub")]
+        [ProducesResponseType(typeof(EncryptedPayload), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> GetActiveBodyStructures(CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                return ServiceInvoke(_snomedBodyStructure.GetActiveAsync).Result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to retrieve active body regions");
+                return StatusCode(StatusCodes.Status500InternalServerError, CreateError(
+                    "ERR_SNOMED_BODY_REGION_RETRIEVAL_FAILED",
+                    "Failed to retrieve active body regions",
+                    new Dictionary<string, object> { ["reason"] = "internal_error" },
+                    retryable: true
+                ));
+            }
+
+        }
+
+        [Route("BodyStructure/[action]")]
+        [HttpGet]
+        [PrismEncryptedChannelConnection]
+        [PrismAuthenticatedSession]
+        [Authorize("sub")]
+        [ProducesResponseType(typeof(EncryptedPayload), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> GetAllBodyStructuresPaginateAsync()
+        {
+            try
+            {
+                return ServiceInvoke(_snomedBodyStructure.GetAllBodyStructuresPaginateAsync).Result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to retrieve paginated body regions");
+                return StatusCode(StatusCodes.Status500InternalServerError, CreateError(
+                    "ERR_SNOMED_BODY_REGION_PAGINATED_RETRIEVAL_FAILED",
+                    "Failed to retrieve paginated body regions",
+                    new Dictionary<string, object> { ["reason"] = "internal_error" },
+                    retryable: true
+                ));
+            }
+        }
+
+        [Route("BodyStructure/New")]
+        [HttpPost]
+        [PrismEncryptedChannelConnection<AddSnomedBodyStructureDTO>]
+        [PrismAuthenticatedSession]
+        [Authorize("sub")]
+        [ProducesResponseType(typeof(EncryptedPayload), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public IActionResult NewBodyStructure()
+        {
+            try
+            {
+                var payload = HttpContext.Items["DecryptedRequest"] as AddSnomedBodyStructureDTO;
+                return ServiceInvoke(_snomedBodyStructure.AddAsync, payload).Result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to register new body region");
+                return StatusCode(StatusCodes.Status500InternalServerError, CreateError(
+                    "ERR_SNOMED_BODY_REGION_REGISTRATION_FAILED",
+                    "Failed to register new body region:" + ex.Message,
+                    new Dictionary<string, object> { ["reason"] = "internal_error" },
+                    retryable: true
+                ));
+            }
+        }
+
+        #endregion
     }
 }

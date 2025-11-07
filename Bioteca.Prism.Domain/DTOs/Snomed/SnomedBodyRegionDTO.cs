@@ -16,3 +16,23 @@ public class AddSnomedBodyRegionDTO
     public string? ParentRegionCode { get; set; }
 }
 
+public class SnomedBodyStructureDTO
+{
+    public string SnomedCode { get; set; } = string.Empty;
+    public string DisplayName { get; set; } = string.Empty;
+    public string Description { get; set; }
+    public string Type { get; set; }
+    public SnomedBodyRegionDTO BodyRegion { get; set; }
+    public SnomedBodyStructureDTO? ParentStructure { get; set; }
+}
+
+public class AddSnomedBodyStructureDTO
+{
+    public string SnomedCode { get; set; } = string.Empty;
+    public string BodyRegionCode { get; set; }
+    public string DisplayName { get; set; } = string.Empty;
+    public string Description { get; set; }
+    public string Type { get; set; }
+    public string? ParentStructureCode { get; set; }
+}
+
