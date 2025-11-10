@@ -43,6 +43,7 @@ public class SnomedBodyRegion
     public DateTime UpdatedAt { get; set; }
 
     // Navigation properties
+    [JsonIgnore]
     public SnomedBodyRegion? ParentRegion { get; set; }
 
     /// <summary>

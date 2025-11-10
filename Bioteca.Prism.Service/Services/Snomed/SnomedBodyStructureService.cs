@@ -90,7 +90,10 @@ public class SnomedBodyStructureService : BaseService<SnomedBodyStructure, strin
             Description = payload.Description,
             StructureType = payload.Type,
             BodyRegionCode = payload.BodyRegionCode,
-            ParentStructureCode = payload.ParentStructureCode,
+            // Convert empty strings to null for optional foreign key
+            ParentStructureCode = string.IsNullOrWhiteSpace(payload.ParentStructureCode)
+                ? null
+                : payload.ParentStructureCode,
             IsActive = true
         };
 
@@ -127,6 +130,13 @@ public class SnomedBodyStructureService : BaseService<SnomedBodyStructure, strin
         if(payload.BodyRegionCode != null && _snomedBodyRegionRepository.GetByIdAsync(payload.BodyRegionCode).Result == null)
         {
             throw new ArgumentException("The specified BodyRegionCode does not exist.");
+        }
+
+        // Validate ParentStructureCode exists if provided (null/empty is allowed for root structures)
+        if(!string.IsNullOrWhiteSpace(payload.ParentStructureCode) &&
+           _snomedBodyStructureRepository.GetByIdAsync(payload.ParentStructureCode).Result == null)
+        {
+            throw new ArgumentException($"The specified ParentStructureCode '{payload.ParentStructureCode}' does not exist.");
         }
     }
 }

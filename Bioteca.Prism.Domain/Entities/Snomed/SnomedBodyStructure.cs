@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Bioteca.Prism.Domain.Entities.Snomed;
 
 /// <summary>
@@ -28,6 +30,7 @@ public class SnomedBodyStructure
     /// <summary>
     /// Parent structure code (for hierarchical structure)
     /// </summary>
+    
     public string? ParentStructureCode { get; set; }
 
     /// <summary>
@@ -51,8 +54,11 @@ public class SnomedBodyStructure
     public DateTime UpdatedAt { get; set; }
 
     // Navigation properties
+
+    [JsonIgnore]
     public SnomedBodyRegion BodyRegion { get; set; } = null!;
+    [JsonIgnore]
     public SnomedBodyStructure? ParentStructure { get; set; }
+    [JsonIgnore]
     public ICollection<SnomedBodyStructure> SubStructures { get; set; } = new List<SnomedBodyStructure>();
-    public ICollection<Record.TargetArea> TargetAreas { get; set; } = new List<Record.TargetArea>();
 }
