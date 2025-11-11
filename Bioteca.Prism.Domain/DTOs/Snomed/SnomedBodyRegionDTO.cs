@@ -36,3 +36,19 @@ public class AddSnomedBodyStructureDTO
     public string? ParentStructureCode { get; set; }
 }
 
+public class SnomedTopographicalModifierDTO
+{
+    public string SnomedCode { get; set; } = string.Empty;
+    public string DisplayName { get; set; } = string.Empty;
+    public string Category { get; set; } = string.Empty;
+    public string Description { get; set; }
+}
+
+public class SnomedClinicalConditionDTO
+{
+    public string SnomedCode { get; set; } = string.Empty;
+    public string DisplayName { get; set; } = string.Empty;
+    public string Description { get; set; }
+}
+
+

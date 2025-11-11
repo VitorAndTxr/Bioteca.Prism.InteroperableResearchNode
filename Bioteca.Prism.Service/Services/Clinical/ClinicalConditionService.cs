@@ -1,5 +1,7 @@
 using Bioteca.Prism.Core.Interfaces;
 using Bioteca.Prism.Core.Service;
+using Bioteca.Prism.Data.Interfaces.Clinical;
+using Bioteca.Prism.Domain.DTOs.Snomed;
 using Bioteca.Prism.Domain.Entities.Clinical;
 using Bioteca.Prism.Service.Interfaces.Clinical;
 using Microsoft.EntityFrameworkCore;
@@ -11,17 +13,23 @@ namespace Bioteca.Prism.Service.Services.Clinical;
 /// </summary>
 public class ClinicalConditionService : BaseService<ClinicalCondition, string>, IClinicalConditionService
 {
-    private readonly IBaseRepository<ClinicalCondition, string> _conditionRepository;
+    private readonly IClinicalConditionRepository _conditionRepository;
 
-    public ClinicalConditionService(IBaseRepository<ClinicalCondition, string> repository, IApiContext apiContext) : base(repository, apiContext)
+    public ClinicalConditionService(IClinicalConditionRepository repository, IApiContext apiContext) : base(repository, apiContext)
     {
         _conditionRepository = repository;
     }
 
-    public async Task<List<ClinicalCondition>> GetActiveConditionsAsync()
+    public async Task<List<SnomedClinicalConditionDTO>> GetActiveConditionsAsync()
     {
         var allConditions = await _conditionRepository.GetAllAsync();
-        return allConditions.Where(c => c.IsActive).ToList();
+        return allConditions.Where(c => c.IsActive)
+            .Select(condition => new SnomedClinicalConditionDTO
+            {
+                SnomedCode = condition.SnomedCode,
+                DisplayName = condition.DisplayName,
+                Description = condition.Description
+            }).ToList();
     }
 
     public async Task<List<ClinicalCondition>> SearchByNameAsync(string searchTerm)
@@ -31,5 +39,53 @@ public class ClinicalConditionService : BaseService<ClinicalCondition, string>, 
             .Where(c => c.DisplayName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
                        c.Description.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
             .ToList();
+    }
+
+    public async Task<List<SnomedClinicalConditionDTO>> GetAllClinicalConditionsPaginateAsync()
+    {
+        var result = await _conditionRepository.GetPagedAsync();
+
+        return result.Where(x => x.IsActive)
+            .Select(condition => new SnomedClinicalConditionDTO
+            {
+                SnomedCode = condition.SnomedCode,
+                DisplayName = condition.DisplayName,
+                Description = condition.Description
+            }).ToList();
+    }
+
+    public async Task<ClinicalCondition> AddAsync(SnomedClinicalConditionDTO payload)
+    {
+        ValidateAddClinicalConditionPayload(payload);
+
+        ClinicalCondition newCondition = new ClinicalCondition
+        {
+            SnomedCode = payload.SnomedCode,
+            DisplayName = payload.DisplayName,
+            Description = payload.Description,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+
+        return await _conditionRepository.AddAsync(newCondition);
+    }
+
+    private void ValidateAddClinicalConditionPayload(SnomedClinicalConditionDTO payload)
+    {
+        if (string.IsNullOrWhiteSpace(payload.SnomedCode))
+        {
+            throw new ArgumentException("SnomedCode is required.");
+        }
+
+        if (string.IsNullOrWhiteSpace(payload.DisplayName))
+        {
+            throw new ArgumentException("DisplayName is required.");
+        }
+
+        if (_conditionRepository.GetByIdAsync(payload.SnomedCode).Result != null)
+        {
+            throw new ArgumentException("A clinical condition with the same SnomedCode already exists.");
+        }
     }
 }

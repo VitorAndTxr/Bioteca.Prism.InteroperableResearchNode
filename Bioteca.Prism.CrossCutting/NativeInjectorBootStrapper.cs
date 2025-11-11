@@ -8,6 +8,7 @@ using Bioteca.Prism.Core.Middleware.Session;
 using Bioteca.Prism.Core.Security;
 using Bioteca.Prism.Core.Security.Cryptography;
 using Bioteca.Prism.Data.Interfaces.Application;
+using Bioteca.Prism.Data.Interfaces.Clinical;
 using Bioteca.Prism.Data.Interfaces.Device;
 using Bioteca.Prism.Data.Interfaces.Node;
 using Bioteca.Prism.Data.Interfaces.Record;
@@ -18,6 +19,7 @@ using Bioteca.Prism.Data.Interfaces.Snomed;
 using Bioteca.Prism.Data.Interfaces.User;
 using Bioteca.Prism.Data.Interfaces.Volunteer;
 using Bioteca.Prism.Data.Repositories.Application;
+using Bioteca.Prism.Data.Repositories.Clinical;
 using Bioteca.Prism.Data.Repositories.Device;
 using Bioteca.Prism.Data.Repositories.Node;
 using Bioteca.Prism.Data.Repositories.Record;
@@ -149,6 +151,7 @@ namespace Bioteca.Prism.CrossCutting
             services.AddScoped<ISnomedBodyStructureRepository, SnomedBodyStructureRepository>();
 
             // Clinical repositories
+            services.AddScoped<IClinicalConditionRepository, ClinicalConditionRepository>();
             services.AddScoped<IResearchResearcherRepository, ResearchResearcherRepository>();
         }
 
