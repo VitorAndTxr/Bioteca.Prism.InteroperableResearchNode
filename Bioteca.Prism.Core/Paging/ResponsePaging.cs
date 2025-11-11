@@ -8,7 +8,7 @@ public class ResponsePaging
     /// <summary>
     /// Indice do registro retornado
     /// </summary>
-    public int CurrentRecord { get; set; }
+    public int CurrentPage { get; set; }
 
     /// <summary>
     /// Tamanho de página do retorno
@@ -21,11 +21,16 @@ public class ResponsePaging
     public int TotalRecords { get; set; }
 
     /// <summary>
+    /// Total de registros disponíveis para serem retornadas
+    /// </summary>
+    public int TotalPages { get; set; }
+
+    /// <summary>
     /// Construtor
     /// </summary>
     public ResponsePaging()
     {
-        this.CurrentRecord = 0;
+        this.CurrentPage = 0;
         this.PageSize = 0;
         this.TotalRecords = 0;
     }
@@ -36,9 +41,9 @@ public class ResponsePaging
     /// <param name="currentRecord">Indice do registro retornado</param>
     /// <param name="pageSize">Tamanho de página do retorno</param>
     /// <param name="totalRecords">Total de registros disponíveis para serem retornadas</param>
-    public ResponsePaging(int currentRecord, int pageSize, int totalRecords)
+    public ResponsePaging(int currentRecord, int pageSize, int totalPages, int totalRecords)
     {
-        this.SetValues(currentRecord, pageSize, totalRecords);
+        this.SetValues(currentRecord, pageSize, totalPages, totalRecords);
     }
 
     /// <summary>
@@ -47,10 +52,11 @@ public class ResponsePaging
     /// <param name="currentRecord">Indice do registro retornado</param>
     /// <param name="pageSize">Tamanho de página do retorno</param>
     /// <param name="totalRecords">Total de registros disponíveis para serem retornadas</param>
-    public void SetValues(int currentRecord, int pageSize, int totalRecords)
+    public void SetValues(int currentRecord, int pageSize, int totalPages, int totalRecords)
     {
-        this.CurrentRecord = currentRecord;
+        this.CurrentPage = currentRecord;
         this.PageSize = pageSize;
+        this.TotalPages = totalPages;
         this.TotalRecords = totalRecords;
     }
 }

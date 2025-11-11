@@ -76,7 +76,7 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
         [Authorize("sub")]
         [ProducesResponseType(typeof(EncryptedPayload), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<IActionResult> GetAllBodyRegionsPaginateAsync()
+        public async Task<IActionResult> GetAllBodyRegionsPaginatedAsync()
         {
             try
             {
@@ -157,7 +157,7 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
         [Authorize("sub")]
         [ProducesResponseType(typeof(EncryptedPayload), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<IActionResult> GetAllBodyStructuresPaginateAsync()
+        public async Task<IActionResult> GetAllBodyStructuresPaginatedAsync()
         {
             try
             {
@@ -237,7 +237,7 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
         [Authorize("sub")]
         [ProducesResponseType(typeof(EncryptedPayload), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<IActionResult> GetAllClinicalConditionsPaginateAsync()
+        public async Task<IActionResult> GetAllClinicalConditionsPaginatedAsync()
         {
             try
             {
@@ -317,7 +317,7 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
         [Authorize("sub")]
         [ProducesResponseType(typeof(EncryptedPayload), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<IActionResult> GetAllTopographicalModifiersPaginateAsync()
+        public async Task<IActionResult> GetAllTopographicalModifiersPaginatedAsync()
         {
             try
             {

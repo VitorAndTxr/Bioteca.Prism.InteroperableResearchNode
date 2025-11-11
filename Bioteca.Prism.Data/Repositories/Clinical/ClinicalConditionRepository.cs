@@ -48,7 +48,7 @@ public class ClinicalConditionRepository : BaseRepository<ClinicalCondition, str
 
         var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
 
-        _apiContext.PagingContext.ResponsePaging.SetValues(page, pageSize, totalPages);
+        _apiContext.PagingContext.ResponsePaging.SetValues(page, pageSize, totalPages, totalCount);
 
         return items;
     }

@@ -93,7 +93,7 @@ public class BaseRepository<TEntity, TKey> : IBaseRepository<TEntity, TKey> wher
 
         var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
 
-        _apiContext.PagingContext.ResponsePaging.SetValues(page, pageSize,totalPages);
+        _apiContext.PagingContext.ResponsePaging.SetValues(page, pageSize, totalPages, totalCount);
 
         return items;
     }

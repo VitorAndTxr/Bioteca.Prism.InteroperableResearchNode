@@ -105,7 +105,7 @@ public class SnomedBodyRegionRepository : BaseRepository<SnomedBodyRegion, strin
 
         var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
 
-        _apiContext.PagingContext.ResponsePaging.SetValues(page, pageSize, totalPages);
+        _apiContext.PagingContext.ResponsePaging.SetValues(page, pageSize, totalPages, totalCount);
 
         return items;
     }
@@ -176,7 +176,7 @@ public class SnomedBodyStructureRepository : BaseRepository<SnomedBodyStructure,
 
         var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
 
-        _apiContext.PagingContext.ResponsePaging.SetValues(page, pageSize, totalPages);
+        _apiContext.PagingContext.ResponsePaging.SetValues(page, pageSize, totalPages, totalCount);
 
         return items;
     }

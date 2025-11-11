@@ -138,6 +138,7 @@ public class BaseController: ControllerBase
             apiPaginatedResponse.PageSize = _apiContext.PagingContext.RequestPaging.PageSize;
             apiPaginatedResponse.CurrentPage = _apiContext.PagingContext.RequestPaging.Page;
             apiPaginatedResponse.TotalRecords = contextResponsePaging.TotalRecords;
+            apiPaginatedResponse.TotalPages = contextResponsePaging.TotalRecords;
 
             resp = apiPaginatedResponse;
         }
