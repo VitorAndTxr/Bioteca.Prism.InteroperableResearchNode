@@ -2,9 +2,13 @@
 using Bioteca.Prism.Core.Interfaces;
 using Bioteca.Prism.Core.Middleware.Channel;
 using Bioteca.Prism.Core.Middleware.Node;
+using Bioteca.Prism.Core.Security.Authorization;
+using Bioteca.Prism.Domain.DTOs.ResearchNode;
+using Bioteca.Prism.Domain.DTOs.Snomed;
 using Bioteca.Prism.Domain.Errors.Node;
 using Bioteca.Prism.Domain.Requests.Node;
 using Bioteca.Prism.Domain.Responses.Node;
+using Bioteca.Prism.InteroperableResearchNode.Middleware;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Bioteca.Prism.InteroperableResearchNode.Controllers
@@ -126,6 +130,9 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
                 ));
             }
         }
+
+
+
 
         /// <summary>
         /// Register a new node
@@ -346,6 +353,85 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
                 return StatusCode(StatusCodes.Status500InternalServerError, CreateError(
                     "ERR_AUTHENTICATION_FAILED",
                     "Failed to authenticate node",
+                    retryable: true
+                ));
+            }
+        }
+
+
+        [Route("[action]")]
+        [HttpGet]
+        [PrismEncryptedChannelConnection]
+        [PrismAuthenticatedSession]
+        [Authorize("sub")]
+        [ProducesResponseType(typeof(EncryptedPayload), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> GetActiveNodeConnectionsPaginated()
+        {
+            try
+            {
+                return await ServiceInvoke(_nodeRegistry.GetAllConnectionsPaginated);
+
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to retrieve All Connections");
+                return StatusCode(StatusCodes.Status500InternalServerError, CreateError(
+                    "ERR_ALL_CONNECTIONS_RETRIEVAL_FAILED",
+                    "Failed to retrieve All Connections",
+                    new Dictionary<string, object> { ["reason"] = "internal_error" },
+                    retryable: true
+                ));
+            }
+        }
+
+        [Route("[action]")]
+        [HttpGet]
+        [PrismEncryptedChannelConnection]
+        [PrismAuthenticatedSession]
+        [Authorize("sub")]
+        [ProducesResponseType(typeof(EncryptedPayload), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> GetAllUnaprovedPaginated()
+        {
+            try
+            {
+                return await ServiceInvoke(_nodeRegistry.GetAllUnaprovedPaginated);
+
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to retrieve Unaproved Connections");
+                return StatusCode(StatusCodes.Status500InternalServerError, CreateError(
+                    "ERR_UNAPROVED_CONNECTIONS_RETRIEVAL_FAILED",
+                    "Failed to retrieve Unaproved Connections",
+                    new Dictionary<string, object> { ["reason"] = "internal_error" },
+                    retryable: true
+                ));
+            }
+        }
+
+        [Route("[action]")]
+        [HttpPost]
+        [PrismEncryptedChannelConnection<AddResearchNodeConnectionDTO>]
+        [PrismAuthenticatedSession]
+        [Authorize("sub")]
+        [ProducesResponseType(typeof(EncryptedPayload), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public IActionResult NewConnection()
+        {
+            try
+            {
+                var payload = HttpContext.Items["DecryptedRequest"] as AddResearchNodeConnectionDTO;
+                return ServiceInvoke(_nodeRegistry.AddAsync, payload).Result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to register new connection");
+                return StatusCode(StatusCodes.Status500InternalServerError, CreateError(
+                    "ERR_CONNECTION_REGISTRATION_FAILED",
+                    "Failed to register new new connection:" + ex.Message,
+                    new Dictionary<string, object> { ["reason"] = "internal_error" },
                     retryable: true
                 ));
             }

@@ -1,5 +1,7 @@
 using Bioteca.Prism.Core.Middleware.Node;
 using Bioteca.Prism.Data.Interfaces.Node;
+using Bioteca.Prism.Domain.DTOs.ResearchNode;
+using Bioteca.Prism.Domain.DTOs.Snomed;
 using Bioteca.Prism.Domain.Entities.Node;
 using Bioteca.Prism.Domain.Requests.Node;
 using Bioteca.Prism.Domain.Responses.Node;
@@ -22,6 +24,68 @@ public class ResearchNodeService : IResearchNodeService
     {
         _repository = repository;
         _logger = logger;
+    }
+
+    public async Task<List<ResearchNodeConnectionDTO>> GetAllConnectionsPaginated()
+    {
+        List<ResearchNode> results = await _repository.GetAllConnectionsPaginatedAsync();
+
+        var mappedResults = results.Select(node => new ResearchNodeConnectionDTO
+        {
+            Id = node.Id,
+            NodeName = node.NodeName,
+            NodeUrl = node.NodeUrl,
+            Status = node.Status,
+            NodeAccessLevel = node.NodeAccessLevel,
+            RegisteredAt = node.RegisteredAt,
+            UpdatedAt = node.UpdatedAt
+        }).ToList();
+
+        return mappedResults;
+    }
+
+    public async Task<List<ResearchNodeConnectionDTO>> GetAllUnaprovedPaginated()
+    {
+        List<ResearchNode> results = await _repository.GetAllUnaprovedPaginatedAsync();
+
+        var mappedResults = results.Select(node => new ResearchNodeConnectionDTO
+        {
+            Id = node.Id,
+            NodeName = node.NodeName,
+            NodeUrl = node.NodeUrl,
+            Status = node.Status,
+            NodeAccessLevel = node.NodeAccessLevel,
+            RegisteredAt = node.RegisteredAt,
+            UpdatedAt = node.UpdatedAt
+        }).ToList();
+
+        return mappedResults;
+    }
+
+    public async Task<ResearchNode> AddAsync(AddResearchNodeConnectionDTO node)
+    {
+        ValidadeAddNodeConection(node);
+
+        var newNode = new ResearchNode
+        {
+            Id = Guid.NewGuid(),
+            NodeName = node.NodeName,
+            Certificate = node.Certificate,
+            CertificateFingerprint = node.CertificateFingerprint,
+            NodeUrl = node.NodeUrl,
+            ContactInfo = node.ContactInfo,
+            InstitutionDetails = node.InstitutionDetails,
+            Status = node.Status,
+            NodeAccessLevel = node.NodeAccessLevel,
+            RegisteredAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+
+        return await _repository.AddAsync(newNode);
+    }
+
+    public void ValidadeAddNodeConection(AddResearchNodeConnectionDTO node)
+    {
     }
 
     public async Task<ResearchNode?> GetNodeAsync(Guid id)

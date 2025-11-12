@@ -52,4 +52,14 @@ public interface INodeRepository
     /// Check if a certificate fingerprint is already registered
     /// </summary>
     Task<bool> CertificateExistsAsync(string fingerprint, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Get all connections with pagination support
+    /// </summary>
+    Task<List<ResearchNode>> GetAllConnectionsPaginatedAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Get all unapproved nodes with pagination support
+    /// </summary>
+    Task<List<ResearchNode>> GetAllUnaprovedPaginatedAsync(CancellationToken cancellationToken = default);
 }

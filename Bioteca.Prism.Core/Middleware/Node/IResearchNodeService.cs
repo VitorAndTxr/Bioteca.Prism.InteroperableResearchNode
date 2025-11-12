@@ -1,3 +1,4 @@
+using Bioteca.Prism.Domain.DTOs.ResearchNode;
 using Bioteca.Prism.Domain.Entities.Node;
 using Bioteca.Prism.Domain.Requests.Node;
 using Bioteca.Prism.Domain.Responses.Node;
@@ -59,4 +60,8 @@ public interface IResearchNodeService
     /// <param name="id">Node Guid identifier</param>
     /// <returns>True if updated successfully</returns>
     Task<bool> UpdateLastAuthenticationAsync(Guid id);
+
+    Task<List<ResearchNodeConnectionDTO>> GetAllConnectionsPaginated();
+    Task<List<ResearchNodeConnectionDTO>> GetAllUnaprovedPaginated();
+    Task<ResearchNode> AddAsync(AddResearchNodeConnectionDTO node);
 }

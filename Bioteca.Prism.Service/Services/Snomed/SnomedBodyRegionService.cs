@@ -41,7 +41,7 @@ public class SnomedBodyRegionService : BaseService<SnomedBodyRegion, string>, IS
         return await _snomedBodyRegionRepository.GetTopLevelRegionsAsync();
     }
 
-    public async Task<List<SnomedBodyRegionDTO>> GetAllBodyRegionsPaginateAsync()
+    public async Task<List<SnomedBodyRegionDTO>>    GetAllBodyRegionsPaginateAsync()
     {
         var result = await _snomedBodyRegionRepository.GetPagedAsync();
 

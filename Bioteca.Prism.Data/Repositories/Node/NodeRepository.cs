@@ -1,3 +1,4 @@
+using Bioteca.Prism.Core.Interfaces;
 using Bioteca.Prism.Data.Interfaces.Node;
 using Bioteca.Prism.Data.Persistence.Contexts;
 using Bioteca.Prism.Domain.Entities.Node;
@@ -14,11 +15,13 @@ public class NodeRepository : INodeRepository
 {
     private readonly PrismDbContext _context;
     private readonly ILogger<NodeRepository> _logger;
+    private readonly IApiContext _apiContext;
 
-    public NodeRepository(PrismDbContext context, ILogger<NodeRepository> logger)
+    public NodeRepository(PrismDbContext context, ILogger<NodeRepository> logger, IApiContext apiContext)
     {
         _context = context;
         _logger = logger;
+        _apiContext = apiContext;
     }
 
     public async Task<ResearchNode?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
@@ -168,6 +171,95 @@ public class NodeRepository : INodeRepository
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error checking existence of certificate {Fingerprint}", fingerprint);
+            throw;
+        }
+    }
+
+    public async Task<List<ResearchNode>> GetAllConnectionsPaginatedAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            // Read pagination parameters from ApiContext
+            var page = _apiContext.PagingContext.RequestPaging.Page;
+            var pageSize = _apiContext.PagingContext.RequestPaging.PageSize;
+
+            // Validate and normalize pagination parameters
+            if (page < 1) page = 1;
+            if (pageSize < 1) pageSize = 10;
+            if (pageSize > 100) pageSize = 100; // Max page size limit
+
+            // Build query for all nodes (no status filtering)
+            var query = _context.ResearchNodes
+                .AsNoTracking()
+                .OrderByDescending(n => n.RegisteredAt)
+                .AsQueryable();
+
+            // Get total count before pagination
+            var totalCount = await query.CountAsync(cancellationToken);
+
+            // Apply pagination
+            var items = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync(cancellationToken);
+
+            // Calculate total pages
+            var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+
+            // Set response pagination metadata in ApiContext
+            _apiContext.PagingContext.ResponsePaging.SetValues(page, pageSize, totalPages, totalCount);
+
+            _logger.LogInformation("Retrieved page {Page} of all connections ({Count} nodes)", page, items.Count);
+            return items;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving paginated connections");
+            throw;
+        }
+    }
+
+    public async Task<List<ResearchNode>> GetAllUnaprovedPaginatedAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            // Read pagination parameters from ApiContext
+            var page = _apiContext.PagingContext.RequestPaging.Page;
+            var pageSize = _apiContext.PagingContext.RequestPaging.PageSize;
+
+            // Validate and normalize pagination parameters
+            if (page < 1) page = 1;
+            if (pageSize < 1) pageSize = 10;
+            if (pageSize > 100) pageSize = 100; // Max page size limit
+
+            // Build query for unapproved nodes (Pending status only)
+            var query = _context.ResearchNodes
+                .AsNoTracking()
+                .Where(n => n.Status == AuthorizationStatus.Pending)
+                .OrderByDescending(n => n.RegisteredAt)
+                .AsQueryable();
+
+            // Get total count before pagination
+            var totalCount = await query.CountAsync(cancellationToken);
+
+            // Apply pagination
+            var items = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync(cancellationToken);
+
+            // Calculate total pages
+            var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+
+            // Set response pagination metadata in ApiContext
+            _apiContext.PagingContext.ResponsePaging.SetValues(page, pageSize, totalPages, totalCount);
+
+            _logger.LogInformation("Retrieved page {Page} of unapproved nodes ({Count} nodes)", page, items.Count);
+            return items;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving paginated unapproved nodes");
             throw;
         }
     }
