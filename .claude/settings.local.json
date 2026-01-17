@@ -6,7 +6,20 @@
       "Bash(docker-compose:*)",
       "Bash(docker ps:*)",
       "Bash(npx -y @modelcontextprotocol/server-playwright inspect)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(python:*)",
+      "Skill(skill-creator)",
+      "Bash(dir:*)",
+      "Skill(register-new-research-node)",
+      "Bash(..claudeskillsregister-new-research-nodescriptsregister-node.ps1 -NodeName \"Hospital Universitário São Paulo\" -NodeUrl \"https://husp-node.research.br:5000\" -InstitutionName \"Universidade de São Paulo\" -ContactInfo \"admin@husp.usp.br\")",
+      "Bash(..claudeskillsregister-new-research-nodescriptsregister-node.ps1 -NodeName \"Instituto de Neurociências UFRJ\" -NodeUrl \"https://neuro-node.ufrj.br:5000\" -InstitutionName \"Universidade Federal do Rio de Janeiro\" -ContactInfo \"pesquisa@neuro.ufrj.br\")",
+      "Bash(..claudeskillsregister-new-research-nodescriptsregister-node.ps1 -NodeName \"Centro de Reabilitação UNICAMP\" -NodeUrl \"https://rehab-node.unicamp.br:5000\" -InstitutionName \"Universidade Estadual de Campinas\" -ContactInfo \"reab@unicamp.br\")",
+      "Bash(..claudeskillsregister-new-research-nodescriptsregister-node.ps1 -NodeName \"Laboratório de Bioengenharia UFMG\" -NodeUrl \"https://bioeng-node.ufmg.br:5000\" -InstitutionName \"Universidade Federal de Minas Gerais\" -ContactInfo \"biolab@ufmg.br\")",
+      "Bash(powershell -ExecutionPolicy Bypass -File \"D:\\\\Repos\\\\Faculdade\\\\PRISM\\\\InteroperableResearchNode\\\\temp-register-nodes.ps1\")",
+      "Bash(powershell -ExecutionPolicy Bypass -File \".\\\\.claude\\\\skills\\\\register-new-research-node\\\\scripts\\\\register-node.ps1\" -NodeName \"Hospital Universitário São Paulo\" -NodeUrl \"https://node.husp.edu.br:5000\" -InstitutionName \"HUSP\" -ContactInfo \"admin@husp.edu.br\" -AccessLevel 1)",
+      "Bash(powershell -ExecutionPolicy Bypass -File \".\\\\.claude\\\\skills\\\\register-new-research-node\\\\scripts\\\\register-node.ps1\" -NodeName \"Instituto de Neurociências UFRJ\" -NodeUrl \"https://neuro.ufrj.br:5000\" -InstitutionName \"UFRJ\" -ContactInfo \"pesquisa@neuro.ufrj.br\" -AccessLevel 1)",
+      "Bash(powershell:*)",
+      "Bash(docker exec:*)"
     ],
     "deny": [],
     "ask": []

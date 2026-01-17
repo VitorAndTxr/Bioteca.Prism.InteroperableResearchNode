@@ -64,4 +64,20 @@ public interface IResearchNodeService
     Task<List<ResearchNodeConnectionDTO>> GetAllConnectionsPaginated();
     Task<List<ResearchNodeConnectionDTO>> GetAllUnaprovedPaginated();
     Task<ResearchNode> AddAsync(AddResearchNodeConnectionDTO node);
+
+    /// <summary>
+    /// Approve a pending connection request, changing status to Authorized
+    /// </summary>
+    /// <param name="connectionId">Connection Guid identifier</param>
+    /// <returns>True if approved successfully, false if not found</returns>
+    /// <exception cref="InvalidOperationException">If connection is not in pending status</exception>
+    Task<bool> ApproveConnectionAsync(Guid connectionId);
+
+    /// <summary>
+    /// Reject a pending connection request, changing status to Revoked
+    /// </summary>
+    /// <param name="connectionId">Connection Guid identifier</param>
+    /// <returns>True if rejected successfully, false if not found</returns>
+    /// <exception cref="InvalidOperationException">If connection is not in pending status</exception>
+    Task<bool> RejectConnectionAsync(Guid connectionId);
 }

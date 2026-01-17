@@ -436,5 +436,87 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
                 ));
             }
         }
+
+        /// <summary>
+        /// Approve a pending connection request
+        /// </summary>
+        /// <param name="connectionId">The connection ID to approve</param>
+        /// <returns>200 OK if approved, 404 if not found, 400 if not pending</returns>
+        [HttpPost("{connectionId}/approve")]
+        [PrismEncryptedChannelConnection]
+        [PrismAuthenticatedSession]
+        [Authorize("sub")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> ApproveConnection(Guid connectionId)
+        {
+            try
+            {
+                var success = await _nodeRegistry.ApproveConnectionAsync(connectionId);
+
+                if (!success)
+                {
+                    return NotFound(new { error = "Connection not found" });
+                }
+
+                return Ok();
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to approve connection {ConnectionId}", connectionId);
+                return StatusCode(StatusCodes.Status500InternalServerError, CreateError(
+                    "ERR_APPROVE_CONNECTION_FAILED",
+                    "Failed to approve connection",
+                    new Dictionary<string, object> { ["reason"] = "internal_error" },
+                    retryable: true
+                ));
+            }
+        }
+
+        /// <summary>
+        /// Reject a pending connection request
+        /// </summary>
+        /// <param name="connectionId">The connection ID to reject</param>
+        /// <returns>200 OK if rejected, 404 if not found, 400 if not pending</returns>
+        [HttpPost("{connectionId}/reject")]
+        [PrismEncryptedChannelConnection]
+        [PrismAuthenticatedSession]
+        [Authorize("sub")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> RejectConnection(Guid connectionId)
+        {
+            try
+            {
+                var success = await _nodeRegistry.RejectConnectionAsync(connectionId);
+
+                if (!success)
+                {
+                    return NotFound(new { error = "Connection not found" });
+                }
+
+                return Ok();
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to reject connection {ConnectionId}", connectionId);
+                return StatusCode(StatusCodes.Status500InternalServerError, CreateError(
+                    "ERR_REJECT_CONNECTION_FAILED",
+                    "Failed to reject connection",
+                    new Dictionary<string, object> { ["reason"] = "internal_error" },
+                    retryable: true
+                ));
+            }
+        }
     }
 }

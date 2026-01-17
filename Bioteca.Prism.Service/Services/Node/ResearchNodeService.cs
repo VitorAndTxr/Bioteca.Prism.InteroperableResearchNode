@@ -341,5 +341,51 @@ public class ResearchNodeService : IResearchNodeService
         return Convert.ToBase64String(hash);
     }
 
+    public async Task<bool> ApproveConnectionAsync(Guid connectionId)
+    {
+        var connection = await _repository.GetByIdAsync(connectionId);
 
+        if (connection == null)
+        {
+            return false;
+        }
+
+        if (connection.Status != AuthorizationStatus.Pending)
+        {
+            throw new InvalidOperationException("Connection is not in pending status");
+        }
+
+        connection.Status = AuthorizationStatus.Authorized;
+        connection.UpdatedAt = DateTime.UtcNow;
+
+        await _repository.UpdateAsync(connection);
+
+        _logger.LogInformation("Connection {ConnectionId} approved successfully", connectionId);
+
+        return true;
+    }
+
+    public async Task<bool> RejectConnectionAsync(Guid connectionId)
+    {
+        var connection = await _repository.GetByIdAsync(connectionId);
+
+        if (connection == null)
+        {
+            return false;
+        }
+
+        if (connection.Status != AuthorizationStatus.Pending)
+        {
+            throw new InvalidOperationException("Connection is not in pending status");
+        }
+
+        connection.Status = AuthorizationStatus.Revoked;
+        connection.UpdatedAt = DateTime.UtcNow;
+
+        await _repository.UpdateAsync(connection);
+
+        _logger.LogInformation("Connection {ConnectionId} rejected successfully", connectionId);
+
+        return true;
+    }
 }
