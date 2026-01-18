@@ -60,6 +60,7 @@ public class SnomedBodyRegionRepository : BaseRepository<SnomedBodyRegion, strin
     public async Task<List<SnomedBodyRegion>> GetActiveAsync(CancellationToken cancellationToken = default)
     {
         return await _dbSet
+            .Include(sbr => sbr.ParentRegion)
             .Where(sbr => sbr.IsActive)
             .ToListAsync(cancellationToken);
     }
@@ -67,6 +68,7 @@ public class SnomedBodyRegionRepository : BaseRepository<SnomedBodyRegion, strin
     public async Task<List<SnomedBodyRegion>> GetSubRegionsAsync(string parentRegionCode, CancellationToken cancellationToken = default)
     {
         return await _dbSet
+            .Include(sbr => sbr.ParentRegion)
             .Where(sbr => sbr.ParentRegionCode == parentRegionCode && sbr.IsActive)
             .ToListAsync(cancellationToken);
     }
@@ -74,6 +76,7 @@ public class SnomedBodyRegionRepository : BaseRepository<SnomedBodyRegion, strin
     public async Task<List<SnomedBodyRegion>> GetTopLevelRegionsAsync(CancellationToken cancellationToken = default)
     {
         return await _dbSet
+            .Include(sbr => sbr.ParentRegion)
             .Where(sbr => sbr.ParentRegionCode == null && sbr.IsActive)
             .ToListAsync(cancellationToken);
     }
@@ -130,6 +133,9 @@ public class SnomedBodyStructureRepository : BaseRepository<SnomedBodyStructure,
     public async Task<List<SnomedBodyStructure>> GetActiveAsync(CancellationToken cancellationToken = default)
     {
         return await _dbSet
+            .Include(sbs => sbs.BodyRegion)
+            .Include(sbs => sbs.ParentStructure)
+                .ThenInclude(ps => ps!.BodyRegion)
             .Where(sbs => sbs.IsActive)
             .ToListAsync(cancellationToken);
     }
@@ -137,6 +143,9 @@ public class SnomedBodyStructureRepository : BaseRepository<SnomedBodyStructure,
     public async Task<List<SnomedBodyStructure>> GetByBodyRegionAsync(string bodyRegionCode, CancellationToken cancellationToken = default)
     {
         return await _dbSet
+            .Include(sbs => sbs.BodyRegion)
+            .Include(sbs => sbs.ParentStructure)
+                .ThenInclude(ps => ps!.BodyRegion)
             .Where(sbs => sbs.BodyRegionCode == bodyRegionCode && sbs.IsActive)
             .ToListAsync(cancellationToken);
     }
@@ -144,6 +153,9 @@ public class SnomedBodyStructureRepository : BaseRepository<SnomedBodyStructure,
     public async Task<List<SnomedBodyStructure>> GetSubStructuresAsync(string parentStructureCode, CancellationToken cancellationToken = default)
     {
         return await _dbSet
+            .Include(sbs => sbs.BodyRegion)
+            .Include(sbs => sbs.ParentStructure)
+                .ThenInclude(ps => ps!.BodyRegion)
             .Where(sbs => sbs.ParentStructureCode == parentStructureCode && sbs.IsActive)
             .ToListAsync(cancellationToken);
     }
@@ -151,6 +163,9 @@ public class SnomedBodyStructureRepository : BaseRepository<SnomedBodyStructure,
     public async Task<List<SnomedBodyStructure>> GetByStructureTypeAsync(string structureType, CancellationToken cancellationToken = default)
     {
         return await _dbSet
+            .Include(sbs => sbs.BodyRegion)
+            .Include(sbs => sbs.ParentStructure)
+                .ThenInclude(ps => ps!.BodyRegion)
             .Where(sbs => sbs.StructureType == structureType && sbs.IsActive)
             .ToListAsync(cancellationToken);
     }
@@ -160,6 +175,7 @@ public class SnomedBodyStructureRepository : BaseRepository<SnomedBodyStructure,
         return await _dbSet
             .Include(sbs => sbs.BodyRegion)
             .Include(sbs => sbs.ParentStructure)
+                .ThenInclude(ps => ps!.BodyRegion)
             .FirstOrDefaultAsync(sbs => sbs.SnomedCode == snomedCode, cancellationToken);
     }
 
@@ -174,10 +190,11 @@ public class SnomedBodyStructureRepository : BaseRepository<SnomedBodyStructure,
         if (pageSize < 1) pageSize = 10;
         if (pageSize > 100) pageSize = 100; // Max page size limit
 
-        // Build base query with related entities
+        // Build base query with related entities (2 levels deep for nested objects)
         var query = _dbSet
-            .Include(u => u.ParentStructure)
             .Include(u => u.BodyRegion)
+            .Include(u => u.ParentStructure)
+                .ThenInclude(ps => ps!.BodyRegion)
             .AsQueryable();
 
         // Get total count

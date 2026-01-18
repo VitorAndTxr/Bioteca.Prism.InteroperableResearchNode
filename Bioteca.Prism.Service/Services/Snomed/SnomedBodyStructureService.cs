@@ -44,39 +44,14 @@ public class SnomedBodyStructureService : BaseService<SnomedBodyStructure, strin
     {
         var result = await _snomedBodyStructureRepository.GetActiveAsync();
 
-        return result.Where(x => x.IsActive).Select(bodyRegion => new SnomedBodyStructureDTO
-        {
-            SnomedCode = bodyRegion.SnomedCode,
-            DisplayName = bodyRegion.DisplayName,
-            Description = bodyRegion.Description
-        }).ToList();
+        return result.Where(x => x.IsActive).Select(MapToDto).ToList();
     }
 
     public async Task<List<SnomedBodyStructureDTO>> GetAllBodyStructuresPaginateAsync()
     {
         var result = await _snomedBodyStructureRepository.GetPagedAsync();
 
-        var mappedResult = result.Where(x => x.IsActive).Select(bodyStructure => new SnomedBodyStructureDTO
-        {
-            SnomedCode = bodyStructure.SnomedCode,
-            DisplayName = bodyStructure.DisplayName,
-            Description = bodyStructure.Description,
-            Type = bodyStructure.StructureType,
-            ParentStructure = bodyStructure.ParentStructure != null ? new SnomedBodyStructureDTO
-            {
-                SnomedCode = bodyStructure.ParentStructure.SnomedCode,
-                DisplayName = bodyStructure.ParentStructure.DisplayName,
-                Description = bodyStructure.ParentStructure.Description
-            } : null,
-            BodyRegion =  new SnomedBodyRegionDTO
-            {
-                SnomedCode = bodyStructure.BodyRegion.SnomedCode,
-                DisplayName = bodyStructure.BodyRegion.DisplayName,
-                Description = bodyStructure.BodyRegion.Description
-            } 
-        }).ToList();
-
-        return mappedResult;
+        return result.Where(x => x.IsActive).Select(MapToDto).ToList();
     }
 
     public async Task<SnomedBodyStructure> AddAsync(AddSnomedBodyStructureDTO payload)
@@ -149,26 +124,7 @@ public class SnomedBodyStructureService : BaseService<SnomedBodyStructure, strin
             return null;
         }
 
-        return new SnomedBodyStructureDTO
-        {
-            SnomedCode = bodyStructure.SnomedCode,
-            DisplayName = bodyStructure.DisplayName,
-            Description = bodyStructure.Description,
-            Type = bodyStructure.StructureType,
-            BodyRegion = new SnomedBodyRegionDTO
-            {
-                SnomedCode = bodyStructure.BodyRegion.SnomedCode,
-                DisplayName = bodyStructure.BodyRegion.DisplayName,
-                Description = bodyStructure.BodyRegion.Description
-            },
-            ParentStructure = bodyStructure.ParentStructure != null ? new SnomedBodyStructureDTO
-            {
-                SnomedCode = bodyStructure.ParentStructure.SnomedCode,
-                DisplayName = bodyStructure.ParentStructure.DisplayName,
-                Description = bodyStructure.ParentStructure.Description,
-                Type = bodyStructure.ParentStructure.StructureType
-            } : null
-        };
+        return MapToDto(bodyStructure);
     }
 
     public async Task<SnomedBodyStructureDTO?> UpdateBySnomedCodeAsync(string snomedCode, UpdateSnomedBodyStructureDTO payload)
@@ -196,26 +152,7 @@ public class SnomedBodyStructureService : BaseService<SnomedBodyStructure, strin
         // Fetch updated entity with navigation properties
         var updatedBodyStructure = await _snomedBodyStructureRepository.GetBySnomedCodeWithNavigationAsync(snomedCode);
 
-        return new SnomedBodyStructureDTO
-        {
-            SnomedCode = updatedBodyStructure!.SnomedCode,
-            DisplayName = updatedBodyStructure.DisplayName,
-            Description = updatedBodyStructure.Description,
-            Type = updatedBodyStructure.StructureType,
-            BodyRegion = new SnomedBodyRegionDTO
-            {
-                SnomedCode = updatedBodyStructure.BodyRegion.SnomedCode,
-                DisplayName = updatedBodyStructure.BodyRegion.DisplayName,
-                Description = updatedBodyStructure.BodyRegion.Description
-            },
-            ParentStructure = updatedBodyStructure.ParentStructure != null ? new SnomedBodyStructureDTO
-            {
-                SnomedCode = updatedBodyStructure.ParentStructure.SnomedCode,
-                DisplayName = updatedBodyStructure.ParentStructure.DisplayName,
-                Description = updatedBodyStructure.ParentStructure.Description,
-                Type = updatedBodyStructure.ParentStructure.StructureType
-            } : null
-        };
+        return MapToDto(updatedBodyStructure!);
     }
 
     private void ValidateUpdateSnomedBodyStructurePayload(UpdateSnomedBodyStructureDTO payload)
@@ -235,5 +172,54 @@ public class SnomedBodyStructureService : BaseService<SnomedBodyStructure, strin
         {
             throw new ArgumentException($"Body region with code '{payload.BodyRegionCode}' does not exist.");
         }
+    }
+
+    /// <summary>
+    /// Maps a SnomedBodyStructure entity to its DTO representation with nested objects.
+    /// Includes up to 2 levels of depth for nested navigation properties.
+    /// </summary>
+    private static SnomedBodyStructureDTO MapToDto(SnomedBodyStructure entity)
+    {
+        return new SnomedBodyStructureDTO
+        {
+            SnomedCode = entity.SnomedCode,
+            DisplayName = entity.DisplayName,
+            Description = entity.Description,
+            Type = entity.StructureType,
+            BodyRegion = entity.BodyRegion != null ? MapBodyRegionToDto(entity.BodyRegion) : null!,
+            ParentStructure = entity.ParentStructure != null ? new SnomedBodyStructureDTO
+            {
+                SnomedCode = entity.ParentStructure.SnomedCode,
+                DisplayName = entity.ParentStructure.DisplayName,
+                Description = entity.ParentStructure.Description,
+                Type = entity.ParentStructure.StructureType,
+                BodyRegion = entity.ParentStructure.BodyRegion != null
+                    ? MapBodyRegionToDto(entity.ParentStructure.BodyRegion)
+                    : null!,
+                // Stop recursion at 2nd level to avoid infinite nesting
+                ParentStructure = null
+            } : null
+        };
+    }
+
+    /// <summary>
+    /// Maps a SnomedBodyRegion entity to its DTO representation.
+    /// </summary>
+    private static SnomedBodyRegionDTO MapBodyRegionToDto(SnomedBodyRegion entity)
+    {
+        return new SnomedBodyRegionDTO
+        {
+            SnomedCode = entity.SnomedCode,
+            DisplayName = entity.DisplayName,
+            Description = entity.Description,
+            ParentRegion = entity.ParentRegion != null ? new SnomedBodyRegionDTO
+            {
+                SnomedCode = entity.ParentRegion.SnomedCode,
+                DisplayName = entity.ParentRegion.DisplayName,
+                Description = entity.ParentRegion.Description,
+                // Stop recursion at 2nd level
+                ParentRegion = null
+            } : null
+        };
     }
 }

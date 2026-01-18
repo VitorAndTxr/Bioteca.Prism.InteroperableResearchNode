@@ -37,6 +37,10 @@ public class ResearchNodeService : IResearchNodeService
             NodeUrl = node.NodeUrl,
             Status = node.Status,
             NodeAccessLevel = node.NodeAccessLevel,
+            ContactInfo = node.ContactInfo,
+            Certificate = node.Certificate,
+            CertificateFingerprint = node.CertificateFingerprint,
+            InstitutionDetails = node.InstitutionDetails,
             RegisteredAt = node.RegisteredAt,
             UpdatedAt = node.UpdatedAt
         }).ToList();
@@ -55,6 +59,10 @@ public class ResearchNodeService : IResearchNodeService
             NodeUrl = node.NodeUrl,
             Status = node.Status,
             NodeAccessLevel = node.NodeAccessLevel,
+            ContactInfo = node.ContactInfo,
+            Certificate = node.Certificate,
+            CertificateFingerprint = node.CertificateFingerprint,
+            InstitutionDetails = node.InstitutionDetails,
             RegisteredAt = node.RegisteredAt,
             UpdatedAt = node.UpdatedAt
         }).ToList();
@@ -405,6 +413,10 @@ public class ResearchNodeService : IResearchNodeService
             NodeUrl = node.NodeUrl,
             Status = node.Status,
             NodeAccessLevel = node.NodeAccessLevel,
+            ContactInfo = node.ContactInfo,
+            Certificate = node.Certificate,
+            CertificateFingerprint = node.CertificateFingerprint,
+            InstitutionDetails = node.InstitutionDetails,
             RegisteredAt = node.RegisteredAt,
             UpdatedAt = node.UpdatedAt
         };
@@ -421,7 +433,12 @@ public class ResearchNodeService : IResearchNodeService
 
         node.NodeName = updateDto.NodeName;
         node.NodeUrl = updateDto.NodeUrl;
+        node.Status = updateDto.Status;
         node.NodeAccessLevel = updateDto.NodeAccessLevel;
+        node.ContactInfo = updateDto.ContactInfo;
+        node.Certificate = updateDto.Certificate;
+        node.CertificateFingerprint = updateDto.CertificateFingerprint;
+        node.InstitutionDetails = updateDto.InstitutionDetails;
         node.UpdatedAt = DateTime.UtcNow;
 
         await _repository.UpdateAsync(node);
@@ -435,6 +452,10 @@ public class ResearchNodeService : IResearchNodeService
             NodeUrl = node.NodeUrl,
             Status = node.Status,
             NodeAccessLevel = node.NodeAccessLevel,
+            ContactInfo = node.ContactInfo,
+            Certificate = node.Certificate,
+            CertificateFingerprint = node.CertificateFingerprint,
+            InstitutionDetails = node.InstitutionDetails,
             RegisteredAt = node.RegisteredAt,
             UpdatedAt = node.UpdatedAt
         };
