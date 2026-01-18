@@ -5,6 +5,7 @@ using Bioteca.Prism.Core.Middleware.Node;
 using Bioteca.Prism.Core.Security.Authorization;
 using Bioteca.Prism.Domain.DTOs.ResearchNode;
 using Bioteca.Prism.Domain.DTOs.Snomed;
+using Bioteca.Prism.Domain.Enumerators.Node;
 using Bioteca.Prism.Domain.Errors.Node;
 using Bioteca.Prism.Domain.Requests.Node;
 using Bioteca.Prism.Domain.Responses.Node;
@@ -513,6 +514,82 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
                 return StatusCode(StatusCodes.Status500InternalServerError, CreateError(
                     "ERR_REJECT_CONNECTION_FAILED",
                     "Failed to reject connection",
+                    new Dictionary<string, object> { ["reason"] = "internal_error" },
+                    retryable: true
+                ));
+            }
+        }
+
+        /// <summary>
+        /// Get a node connection by ID
+        /// </summary>
+        /// <param name="id">The connection ID</param>
+        /// <returns>The node connection if found, 404 if not found</returns>
+        [HttpGet("{id:guid}")]
+        [PrismEncryptedChannelConnection]
+        [PrismAuthenticatedSession]
+        [Authorize("sub")]
+        [ProducesResponseType(typeof(EncryptedPayload), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> GetConnectionById(Guid id)
+        {
+            try
+            {
+                var connection = await _nodeRegistry.GetConnectionByIdAsync(id);
+
+                if (connection == null)
+                {
+                    return NotFound(new { error = "Connection not found" });
+                }
+
+                return await ServiceInvoke(() => Task.FromResult(connection));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to retrieve connection by ID {ConnectionId}", id);
+                return StatusCode(StatusCodes.Status500InternalServerError, CreateError(
+                    "ERR_CONNECTION_RETRIEVAL_FAILED",
+                    "Failed to retrieve connection",
+                    new Dictionary<string, object> { ["reason"] = "internal_error" },
+                    retryable: true
+                ));
+            }
+        }
+
+        /// <summary>
+        /// Update an existing node connection
+        /// </summary>
+        /// <param name="id">The connection ID</param>
+        /// <returns>The updated node connection if found, 404 if not found</returns>
+        [HttpPut("Update/{id:guid}")]
+        [PrismEncryptedChannelConnection<UpdateResearchNodeConnectionDTO>]
+        [PrismAuthenticatedSession]
+        [Authorize("sub")]
+        [ProducesResponseType(typeof(EncryptedPayload), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> UpdateConnection(Guid id)
+        {
+            try
+            {
+                var payload = HttpContext.Items["DecryptedRequest"] as UpdateResearchNodeConnectionDTO;
+
+                var updatedConnection = await _nodeRegistry.UpdateConnectionAsync(id, payload!);
+
+                if (updatedConnection == null)
+                {
+                    return NotFound(new { error = "Connection not found" });
+                }
+
+                return await ServiceInvoke(() => Task.FromResult(updatedConnection));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to update connection {ConnectionId}", id);
+                return StatusCode(StatusCodes.Status500InternalServerError, CreateError(
+                    "ERR_CONNECTION_UPDATE_FAILED",
+                    "Failed to update connection",
                     new Dictionary<string, object> { ["reason"] = "internal_error" },
                     retryable: true
                 ));

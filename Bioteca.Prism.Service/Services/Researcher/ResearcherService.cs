@@ -105,4 +105,23 @@ public class ResearcherService : BaseService<Domain.Entities.Researcher.Research
 
         return mappedResult;
     }
+
+    public async Task<ResearcherDTO?> GetByResearcherIdAsync(Guid researcherId)
+    {
+        var researcher = await _researcherRepository.GetByIdAsync(researcherId);
+
+        if (researcher == null)
+        {
+            return null;
+        }
+
+        return new ResearcherDTO
+        {
+            ResearcherId = researcher.ResearcherId,
+            Name = researcher.Name,
+            Email = researcher.Email,
+            Role = researcher.Role,
+            Orcid = researcher.Orcid
+        };
+    }
 }

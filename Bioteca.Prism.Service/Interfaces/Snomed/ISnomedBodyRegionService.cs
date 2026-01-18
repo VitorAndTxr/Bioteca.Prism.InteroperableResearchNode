@@ -31,4 +31,14 @@ public interface ISnomedBodyRegionService : IServiceBase<SnomedBodyRegion, strin
 
 
     Task<SnomedBodyRegion> AddAsync(AddSnomedBodyRegionDTO payload);
+
+    /// <summary>
+    /// Get a body region by SNOMED code with parent region navigation
+    /// </summary>
+    Task<SnomedBodyRegionDTO?> GetBySnomedCodeAsync(string snomedCode);
+
+    /// <summary>
+    /// Update a body region by SNOMED code
+    /// </summary>
+    Task<SnomedBodyRegionDTO?> UpdateBySnomedCodeAsync(string snomedCode, UpdateSnomedBodyRegionDTO payload);
 }

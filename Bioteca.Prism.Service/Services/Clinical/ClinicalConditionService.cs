@@ -88,4 +88,44 @@ public class ClinicalConditionService : BaseService<ClinicalCondition, string>, 
             throw new ArgumentException("A clinical condition with the same SnomedCode already exists.");
         }
     }
+
+    public async Task<SnomedClinicalConditionDTO?> GetBySnomedCodeAsync(string snomedCode, CancellationToken cancellationToken = default)
+    {
+        var condition = await _conditionRepository.GetByIdAsync(snomedCode);
+
+        if (condition == null)
+        {
+            return null;
+        }
+
+        return new SnomedClinicalConditionDTO
+        {
+            SnomedCode = condition.SnomedCode,
+            DisplayName = condition.DisplayName,
+            Description = condition.Description
+        };
+    }
+
+    public async Task<SnomedClinicalConditionDTO?> UpdateBySnomedCodeAsync(string snomedCode, UpdateSnomedClinicalConditionDTO payload, CancellationToken cancellationToken = default)
+    {
+        var existingCondition = await _conditionRepository.GetByIdAsync(snomedCode);
+
+        if (existingCondition == null)
+        {
+            return null;
+        }
+
+        existingCondition.DisplayName = payload.DisplayName;
+        existingCondition.Description = payload.Description;
+        existingCondition.UpdatedAt = DateTime.UtcNow;
+
+        await _conditionRepository.UpdateAsync(existingCondition);
+
+        return new SnomedClinicalConditionDTO
+        {
+            SnomedCode = existingCondition.SnomedCode,
+            DisplayName = existingCondition.DisplayName,
+            Description = existingCondition.Description
+        };
+    }
 }

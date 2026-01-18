@@ -388,4 +388,55 @@ public class ResearchNodeService : IResearchNodeService
 
         return true;
     }
+
+    public async Task<ResearchNodeConnectionDTO?> GetConnectionByIdAsync(Guid id)
+    {
+        var node = await _repository.GetByIdAsync(id);
+
+        if (node == null)
+        {
+            return null;
+        }
+
+        return new ResearchNodeConnectionDTO
+        {
+            Id = node.Id,
+            NodeName = node.NodeName,
+            NodeUrl = node.NodeUrl,
+            Status = node.Status,
+            NodeAccessLevel = node.NodeAccessLevel,
+            RegisteredAt = node.RegisteredAt,
+            UpdatedAt = node.UpdatedAt
+        };
+    }
+
+    public async Task<ResearchNodeConnectionDTO?> UpdateConnectionAsync(Guid id, UpdateResearchNodeConnectionDTO updateDto)
+    {
+        var node = await _repository.GetByIdAsync(id);
+
+        if (node == null)
+        {
+            return null;
+        }
+
+        node.NodeName = updateDto.NodeName;
+        node.NodeUrl = updateDto.NodeUrl;
+        node.NodeAccessLevel = updateDto.NodeAccessLevel;
+        node.UpdatedAt = DateTime.UtcNow;
+
+        await _repository.UpdateAsync(node);
+
+        _logger.LogInformation("Connection {ConnectionId} updated successfully", id);
+
+        return new ResearchNodeConnectionDTO
+        {
+            Id = node.Id,
+            NodeName = node.NodeName,
+            NodeUrl = node.NodeUrl,
+            Status = node.Status,
+            NodeAccessLevel = node.NodeAccessLevel,
+            RegisteredAt = node.RegisteredAt,
+            UpdatedAt = node.UpdatedAt
+        };
+    }
 }

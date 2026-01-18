@@ -27,6 +27,14 @@ namespace Bioteca.Prism.Data.Repositories.User
             }
         }
 
+        public async Task<Domain.Entities.User.User?> GetByIdWithResearcherAsync(Guid id)
+        {
+            return await _dbSet
+                .Include(u => u.Researcher)
+                    .ThenInclude(r => r.ResearchResearchers)
+                .FirstOrDefaultAsync(u => u.Id == id);
+        }
+
         public override async Task<List<Domain.Entities.User.User>> GetPagedAsync()
         {
             // Set request pagination in ApiContext

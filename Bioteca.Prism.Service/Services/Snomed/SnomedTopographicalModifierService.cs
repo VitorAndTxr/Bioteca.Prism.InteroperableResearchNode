@@ -90,4 +90,46 @@ public class SnomedTopographicalModifierService : BaseService<SnomedTopographica
             throw new ArgumentException("A topographical modifier with the same Code already exists.");
         }
     }
+
+    public async Task<SnomedTopographicalModifierDTO?> GetBySnomedCodeAsync(string snomedCode, CancellationToken cancellationToken = default)
+    {
+        var modifier = await _snomedTopographicalModifierRepository.GetByIdAsync(snomedCode);
+
+        if (modifier == null)
+        {
+            return null;
+        }
+
+        return new SnomedTopographicalModifierDTO
+        {
+            SnomedCode = modifier.Code,
+            DisplayName = modifier.DisplayName,
+            Category = modifier.Category,
+            Description = modifier.Description
+        };
+    }
+
+    public async Task<SnomedTopographicalModifierDTO?> UpdateBySnomedCodeAsync(string snomedCode, UpdateSnomedTopographicalModifierDTO payload, CancellationToken cancellationToken = default)
+    {
+        var existingModifier = await _snomedTopographicalModifierRepository.GetByIdAsync(snomedCode);
+
+        if (existingModifier == null)
+        {
+            return null;
+        }
+
+        existingModifier.DisplayName = payload.DisplayName;
+        existingModifier.Description = payload.Description;
+        existingModifier.Category = payload.Category;
+
+        await _snomedTopographicalModifierRepository.UpdateAsync(existingModifier);
+
+        return new SnomedTopographicalModifierDTO
+        {
+            SnomedCode = existingModifier.Code,
+            DisplayName = existingModifier.DisplayName,
+            Category = existingModifier.Category,
+            Description = existingModifier.Description
+        };
+    }
 }

@@ -139,4 +139,101 @@ public class SnomedBodyStructureService : BaseService<SnomedBodyStructure, strin
             throw new ArgumentException($"The specified ParentStructureCode '{payload.ParentStructureCode}' does not exist.");
         }
     }
+
+    public async Task<SnomedBodyStructureDTO?> GetBySnomedCodeAsync(string snomedCode)
+    {
+        var bodyStructure = await _snomedBodyStructureRepository.GetBySnomedCodeWithNavigationAsync(snomedCode);
+
+        if (bodyStructure == null)
+        {
+            return null;
+        }
+
+        return new SnomedBodyStructureDTO
+        {
+            SnomedCode = bodyStructure.SnomedCode,
+            DisplayName = bodyStructure.DisplayName,
+            Description = bodyStructure.Description,
+            Type = bodyStructure.StructureType,
+            BodyRegion = new SnomedBodyRegionDTO
+            {
+                SnomedCode = bodyStructure.BodyRegion.SnomedCode,
+                DisplayName = bodyStructure.BodyRegion.DisplayName,
+                Description = bodyStructure.BodyRegion.Description
+            },
+            ParentStructure = bodyStructure.ParentStructure != null ? new SnomedBodyStructureDTO
+            {
+                SnomedCode = bodyStructure.ParentStructure.SnomedCode,
+                DisplayName = bodyStructure.ParentStructure.DisplayName,
+                Description = bodyStructure.ParentStructure.Description,
+                Type = bodyStructure.ParentStructure.StructureType
+            } : null
+        };
+    }
+
+    public async Task<SnomedBodyStructureDTO?> UpdateBySnomedCodeAsync(string snomedCode, UpdateSnomedBodyStructureDTO payload)
+    {
+        var bodyStructure = await _snomedBodyStructureRepository.GetByIdAsync(snomedCode);
+
+        if (bodyStructure == null)
+        {
+            return null;
+        }
+
+        ValidateUpdateSnomedBodyStructurePayload(payload);
+
+        bodyStructure.DisplayName = payload.DisplayName;
+        bodyStructure.Description = payload.Description;
+        bodyStructure.StructureType = payload.Type;
+        if (!string.IsNullOrWhiteSpace(payload.BodyRegionCode))
+        {
+            bodyStructure.BodyRegionCode = payload.BodyRegionCode;
+        }
+        bodyStructure.UpdatedAt = DateTime.UtcNow;
+
+        await _snomedBodyStructureRepository.UpdateAsync(bodyStructure);
+
+        // Fetch updated entity with navigation properties
+        var updatedBodyStructure = await _snomedBodyStructureRepository.GetBySnomedCodeWithNavigationAsync(snomedCode);
+
+        return new SnomedBodyStructureDTO
+        {
+            SnomedCode = updatedBodyStructure!.SnomedCode,
+            DisplayName = updatedBodyStructure.DisplayName,
+            Description = updatedBodyStructure.Description,
+            Type = updatedBodyStructure.StructureType,
+            BodyRegion = new SnomedBodyRegionDTO
+            {
+                SnomedCode = updatedBodyStructure.BodyRegion.SnomedCode,
+                DisplayName = updatedBodyStructure.BodyRegion.DisplayName,
+                Description = updatedBodyStructure.BodyRegion.Description
+            },
+            ParentStructure = updatedBodyStructure.ParentStructure != null ? new SnomedBodyStructureDTO
+            {
+                SnomedCode = updatedBodyStructure.ParentStructure.SnomedCode,
+                DisplayName = updatedBodyStructure.ParentStructure.DisplayName,
+                Description = updatedBodyStructure.ParentStructure.Description,
+                Type = updatedBodyStructure.ParentStructure.StructureType
+            } : null
+        };
+    }
+
+    private void ValidateUpdateSnomedBodyStructurePayload(UpdateSnomedBodyStructureDTO payload)
+    {
+        if (string.IsNullOrWhiteSpace(payload.DisplayName))
+        {
+            throw new ArgumentException("DisplayName is required.");
+        }
+
+        if (string.IsNullOrWhiteSpace(payload.Type))
+        {
+            throw new ArgumentException("Type is required.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(payload.BodyRegionCode) &&
+            _snomedBodyRegionRepository.GetByIdAsync(payload.BodyRegionCode).Result == null)
+        {
+            throw new ArgumentException($"Body region with code '{payload.BodyRegionCode}' does not exist.");
+        }
+    }
 }

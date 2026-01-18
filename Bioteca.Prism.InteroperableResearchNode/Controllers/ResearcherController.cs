@@ -105,5 +105,37 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
                 ));
             }
         }
+
+        [HttpGet("{id:guid}")]
+        [PrismEncryptedChannelConnection]
+        [PrismAuthenticatedSession]
+        [Authorize("sub")]
+        [ProducesResponseType(typeof(EncryptedPayload), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> GetResearcherById(Guid id)
+        {
+            try
+            {
+                var researcher = await _researcherService.GetByResearcherIdAsync(id);
+
+                if (researcher == null)
+                {
+                    return NotFound(new { error = "Researcher not found" });
+                }
+
+                return await ServiceInvoke(() => Task.FromResult(researcher));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to retrieve researcher by ID {ResearcherId}", id);
+                return StatusCode(StatusCodes.Status500InternalServerError, CreateError(
+                    "ERR_RESEARCHER_RETRIEVAL_FAILED",
+                    "Failed to retrieve researcher",
+                    new Dictionary<string, object> { ["reason"] = "internal_error" },
+                    retryable: true
+                ));
+            }
+        }
     }
 }

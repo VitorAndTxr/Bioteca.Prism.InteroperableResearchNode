@@ -28,4 +28,14 @@ public interface ISnomedTopographicalModifierService : IServiceBase<SnomedTopogr
     /// Add a new topographical modifier
     /// </summary>
     Task<SnomedTopographicalModifier> AddAsync(SnomedTopographicalModifierDTO payload);
+
+    /// <summary>
+    /// Get a topographical modifier by SNOMED code
+    /// </summary>
+    Task<SnomedTopographicalModifierDTO?> GetBySnomedCodeAsync(string snomedCode, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Update a topographical modifier by SNOMED code
+    /// </summary>
+    Task<SnomedTopographicalModifierDTO?> UpdateBySnomedCodeAsync(string snomedCode, UpdateSnomedTopographicalModifierDTO payload, CancellationToken cancellationToken = default);
 }

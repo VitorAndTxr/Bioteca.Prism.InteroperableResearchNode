@@ -78,6 +78,13 @@ public class SnomedBodyRegionRepository : BaseRepository<SnomedBodyRegion, strin
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<SnomedBodyRegion?> GetBySnomedCodeWithNavigationAsync(string snomedCode, CancellationToken cancellationToken = default)
+    {
+        return await _dbSet
+            .Include(sbr => sbr.ParentRegion)
+            .FirstOrDefaultAsync(sbr => sbr.SnomedCode == snomedCode, cancellationToken);
+    }
+
     public override async Task<List<SnomedBodyRegion>> GetPagedAsync()
     {
         // Set request pagination in ApiContext
@@ -146,6 +153,14 @@ public class SnomedBodyStructureRepository : BaseRepository<SnomedBodyStructure,
         return await _dbSet
             .Where(sbs => sbs.StructureType == structureType && sbs.IsActive)
             .ToListAsync(cancellationToken);
+    }
+
+    public async Task<SnomedBodyStructure?> GetBySnomedCodeWithNavigationAsync(string snomedCode, CancellationToken cancellationToken = default)
+    {
+        return await _dbSet
+            .Include(sbs => sbs.BodyRegion)
+            .Include(sbs => sbs.ParentStructure)
+            .FirstOrDefaultAsync(sbs => sbs.SnomedCode == snomedCode, cancellationToken);
     }
 
     public override async Task<List<SnomedBodyStructure>> GetPagedAsync()

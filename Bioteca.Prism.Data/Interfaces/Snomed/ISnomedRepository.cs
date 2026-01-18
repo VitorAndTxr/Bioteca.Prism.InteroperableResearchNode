@@ -49,6 +49,11 @@ public interface ISnomedBodyRegionRepository : IBaseRepository<SnomedBodyRegion,
     /// Get top-level regions (no parent)
     /// </summary>
     Task<List<SnomedBodyRegion>> GetTopLevelRegionsAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Get body region by SNOMED code with parent region navigation property
+    /// </summary>
+    Task<SnomedBodyRegion?> GetBySnomedCodeWithNavigationAsync(string snomedCode, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -75,4 +80,9 @@ public interface ISnomedBodyStructureRepository : IBaseRepository<SnomedBodyStru
     /// Get structures by type
     /// </summary>
     Task<List<SnomedBodyStructure>> GetByStructureTypeAsync(string structureType, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Get body structure by SNOMED code with body region navigation property
+    /// </summary>
+    Task<SnomedBodyStructure?> GetBySnomedCodeWithNavigationAsync(string snomedCode, CancellationToken cancellationToken = default);
 }

@@ -29,4 +29,9 @@ public interface IResearcherService : IServiceBase<Domain.Entities.Researcher.Re
     /// </summary>
     Task<List<ResearcherDTO>> GetAllResearchersPaginateAsync();
 
+    /// <summary>
+    /// Get researcher by ResearcherId (GUID)
+    /// </summary>
+    Task<ResearcherDTO?> GetByResearcherIdAsync(Guid researcherId);
+
 }

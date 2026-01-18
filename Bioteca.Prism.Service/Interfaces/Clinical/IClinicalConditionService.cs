@@ -28,4 +28,14 @@ public interface IClinicalConditionService : IServiceBase<ClinicalCondition, str
     /// Add a new clinical condition
     /// </summary>
     Task<ClinicalCondition> AddAsync(SnomedClinicalConditionDTO payload);
+
+    /// <summary>
+    /// Get a clinical condition by SNOMED code
+    /// </summary>
+    Task<SnomedClinicalConditionDTO?> GetBySnomedCodeAsync(string snomedCode, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Update a clinical condition by SNOMED code
+    /// </summary>
+    Task<SnomedClinicalConditionDTO?> UpdateBySnomedCodeAsync(string snomedCode, UpdateSnomedClinicalConditionDTO payload, CancellationToken cancellationToken = default);
 }

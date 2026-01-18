@@ -19,7 +19,9 @@
       "Bash(powershell -ExecutionPolicy Bypass -File \".\\\\.claude\\\\skills\\\\register-new-research-node\\\\scripts\\\\register-node.ps1\" -NodeName \"Hospital Universitário São Paulo\" -NodeUrl \"https://node.husp.edu.br:5000\" -InstitutionName \"HUSP\" -ContactInfo \"admin@husp.edu.br\" -AccessLevel 1)",
       "Bash(powershell -ExecutionPolicy Bypass -File \".\\\\.claude\\\\skills\\\\register-new-research-node\\\\scripts\\\\register-node.ps1\" -NodeName \"Instituto de Neurociências UFRJ\" -NodeUrl \"https://neuro.ufrj.br:5000\" -InstitutionName \"UFRJ\" -ContactInfo \"pesquisa@neuro.ufrj.br\" -AccessLevel 1)",
       "Bash(powershell:*)",
-      "Bash(docker exec:*)"
+      "Bash(docker exec:*)",
+      "Bash(ls:*)",
+      "Bash(dotnet --list-sdks:*)"
     ],
     "deny": [],
     "ask": []

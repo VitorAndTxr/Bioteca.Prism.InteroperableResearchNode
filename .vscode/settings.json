@@ -1,0 +1,6 @@
+{
+  "dotnet.defaultSolution": "Bioteca.Prism.InteroperableResearchNode/Bioteca.Prism.InteroperableResearchNode.sln",
+  "omnisharp.projectLoadTimeout": 120,
+  "omnisharp.enableEditorConfigSupport": true,
+  "omnisharp.enableRoslynAnalyzers": true
+}

@@ -93,6 +93,91 @@ public class UserService: BaseService<Domain.Entities.User.User, Guid>, IUserSer
 
         return mappedResult;
     }
+
+    public async Task<UserDTO?> GetUserByIdAsync(Guid id)
+    {
+        var user = await _userRepository.GetByIdWithResearcherAsync(id);
+
+        if (user == null)
+        {
+            return null;
+        }
+
+        return new UserDTO
+        {
+            Id = user.Id,
+            Login = user.Login,
+            Role = user.Role,
+            CreatedAt = user.CreatedAt,
+            UpdatedAt = user.UpdatedAt,
+            Researcher = user.Researcher != null ? new ResearcherInfoDto()
+            {
+                Name = user.Researcher.Name,
+                Email = user.Researcher.Email,
+                Role = user.Researcher.Role,
+                Orcid = user.Researcher.Orcid
+            } : null
+        };
+    }
+
+    public async Task<UserDTO?> UpdateUserAsync(Guid id, UpdateUserPayload payload)
+    {
+        var user = await _userRepository.GetByIdWithResearcherAsync(id);
+
+        if (user == null)
+        {
+            return null;
+        }
+
+        // Update only provided fields
+        if (!string.IsNullOrEmpty(payload.Login))
+        {
+            // Check if new login is already taken by another user
+            var existingUser = _userRepository.GetByUsername(payload.Login);
+            if (existingUser != null && existingUser.Id != id)
+            {
+                throw new Exception("Login already in use by another user");
+            }
+            user.Login = payload.Login;
+        }
+
+        if (!string.IsNullOrEmpty(payload.Role))
+        {
+            user.Role = payload.Role;
+        }
+
+        // Handle researcher association (can be set or removed)
+        if (payload.ResearcherId.HasValue)
+        {
+            var researcher = await _researcherRepository.GetByIdAsync(payload.ResearcherId.Value);
+            if (researcher == null)
+            {
+                throw new Exception("Researcher does not exist");
+            }
+            user.Researcher = researcher;
+        }
+
+        user.UpdatedAt = DateTime.UtcNow;
+
+        await _userRepository.UpdateAsync(user);
+
+        // Return updated user as DTO
+        return new UserDTO
+        {
+            Id = user.Id,
+            Login = user.Login,
+            Role = user.Role,
+            CreatedAt = user.CreatedAt,
+            UpdatedAt = user.UpdatedAt,
+            Researcher = user.Researcher != null ? new ResearcherInfoDto()
+            {
+                Name = user.Researcher.Name,
+                Email = user.Researcher.Email,
+                Role = user.Researcher.Role,
+                Orcid = user.Researcher.Orcid
+            } : null
+        };
+    }
 }
 
 

@@ -18,6 +18,16 @@ namespace Bioteca.Prism.Service.Interfaces.User
         /// Get all users paginated
         /// </summary>
         Task<List<UserDTO>> GetAllUserPaginateAsync();
+
+        /// <summary>
+        /// Get user by ID with Researcher navigation property
+        /// </summary>
+        Task<UserDTO?> GetUserByIdAsync(Guid id);
+
+        /// <summary>
+        /// Update an existing user (without password)
+        /// </summary>
+        Task<UserDTO?> UpdateUserAsync(Guid id, UpdateUserPayload payload);
     }
 }
 

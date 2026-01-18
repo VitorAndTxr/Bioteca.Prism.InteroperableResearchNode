@@ -80,4 +80,19 @@ public interface IResearchNodeService
     /// <returns>True if rejected successfully, false if not found</returns>
     /// <exception cref="InvalidOperationException">If connection is not in pending status</exception>
     Task<bool> RejectConnectionAsync(Guid connectionId);
+
+    /// <summary>
+    /// Get a node connection by its Guid ID
+    /// </summary>
+    /// <param name="id">Connection Guid identifier</param>
+    /// <returns>Node connection DTO if found, null otherwise</returns>
+    Task<ResearchNodeConnectionDTO?> GetConnectionByIdAsync(Guid id);
+
+    /// <summary>
+    /// Update a node connection
+    /// </summary>
+    /// <param name="id">Connection Guid identifier</param>
+    /// <param name="updateDto">Update data</param>
+    /// <returns>Updated node connection DTO if found, null otherwise</returns>
+    Task<ResearchNodeConnectionDTO?> UpdateConnectionAsync(Guid id, UpdateResearchNodeConnectionDTO updateDto);
 }
