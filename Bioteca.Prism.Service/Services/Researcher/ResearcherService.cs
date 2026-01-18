@@ -124,4 +124,63 @@ public class ResearcherService : BaseService<Domain.Entities.Researcher.Research
             Orcid = researcher.Orcid
         };
     }
+
+    public async Task<ResearcherDTO?> UpdateResearcherAsync(Guid id, UpdateResearcherPayload payload)
+    {
+        var researcher = await _researcherRepository.GetByIdAsync(id);
+
+        if (researcher == null)
+        {
+            return null;
+        }
+
+        if (!string.IsNullOrEmpty(payload.Name))
+        {
+            researcher.Name = payload.Name;
+        }
+
+        if (!string.IsNullOrEmpty(payload.Email))
+        {
+            var existingByEmail = await _researcherRepository.GetByEmailAsync(payload.Email);
+            if (existingByEmail != null && existingByEmail.ResearcherId != id)
+            {
+                throw new Exception("Email already in use by another researcher");
+            }
+            researcher.Email = payload.Email;
+        }
+
+        if (!string.IsNullOrEmpty(payload.Institution))
+        {
+            researcher.Institution = payload.Institution;
+        }
+
+        if (!string.IsNullOrEmpty(payload.Role))
+        {
+            researcher.Role = payload.Role;
+        }
+
+        if (!string.IsNullOrEmpty(payload.Orcid))
+        {
+            var normalizedOrcid = payload.Orcid.Replace("-", "");
+            var existingByOrcid = await _researcherRepository.GetByOrcidAsync(normalizedOrcid);
+            if (existingByOrcid != null && existingByOrcid.ResearcherId != id)
+            {
+                throw new Exception("ORCID already in use by another researcher");
+            }
+            researcher.Orcid = normalizedOrcid;
+        }
+
+        researcher.UpdatedAt = DateTime.UtcNow;
+
+        await _researcherRepository.UpdateAsync(researcher);
+
+        return new ResearcherDTO
+        {
+            ResearcherId = researcher.ResearcherId,
+            Name = researcher.Name,
+            Email = researcher.Email,
+            Role = researcher.Role,
+            Orcid = researcher.Orcid
+        };
+    }
 }

@@ -34,4 +34,8 @@ public interface IResearcherService : IServiceBase<Domain.Entities.Researcher.Re
     /// </summary>
     Task<ResearcherDTO?> GetByResearcherIdAsync(Guid researcherId);
 
+    /// <summary>
+    /// Update an existing researcher
+    /// </summary>
+    Task<ResearcherDTO?> UpdateResearcherAsync(Guid id, UpdateResearcherPayload payload);
 }

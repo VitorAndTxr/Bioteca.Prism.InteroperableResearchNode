@@ -137,5 +137,49 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
                 ));
             }
         }
+
+        /// <summary>
+        /// Update existing researcher
+        /// </summary>
+        /// <param name="id">Researcher ID (GUID)</param>
+        /// <returns>Updated Researcher entity</returns>
+        [HttpPut("Update/{id:guid}")]
+        [PrismEncryptedChannelConnection<UpdateResearcherPayload>]
+        [PrismAuthenticatedSession]
+        [Authorize("sub")]
+        [ProducesResponseType(typeof(EncryptedPayload), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> Update(Guid id)
+        {
+            try
+            {
+                var payload = HttpContext.Items["DecryptedRequest"] as UpdateResearcherPayload;
+
+                var updatedResearcher = await _researcherService.UpdateResearcherAsync(id, payload);
+
+                if (updatedResearcher == null)
+                {
+                    return NotFound(CreateError(
+                        "ERR_RESEARCHER_NOT_FOUND",
+                        $"Researcher with ID {id} not found",
+                        new Dictionary<string, object> { ["researcherId"] = id },
+                        retryable: false
+                    ));
+                }
+
+                return await ServiceInvoke(() => Task.FromResult(updatedResearcher));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to update researcher {ResearcherId}", id);
+                return StatusCode(StatusCodes.Status500InternalServerError, CreateError(
+                    "ERR_RESEARCHER_UPDATE_FAILED",
+                    "Failed to update researcher: " + ex.Message,
+                    new Dictionary<string, object> { ["reason"] = "internal_error" },
+                    retryable: true
+                ));
+            }
+        }
     }
 }
