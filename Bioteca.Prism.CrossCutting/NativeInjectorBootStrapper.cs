@@ -101,6 +101,7 @@ namespace Bioteca.Prism.CrossCutting
             services.AddScoped<ISnomedTopographicalModifierService, SnomedTopographicalModifierService>();
             services.AddScoped<ISnomedBodyRegionService, SnomedBodyRegionService>();
             services.AddScoped<ISnomedBodyStructureService, SnomedBodyStructureService>();
+            services.AddScoped<ISnomedMedicationService, SnomedMedicationService>();
 
             // Clinical services
             services.AddScoped<IClinicalConditionService, ClinicalConditionService>();
@@ -152,6 +153,9 @@ namespace Bioteca.Prism.CrossCutting
 
             // Clinical repositories
             services.AddScoped<IClinicalConditionRepository, ClinicalConditionRepository>();
+            services.AddScoped<IClinicalEventRepository, ClinicalEventRepository>();
+            services.AddScoped<IAllergyIntoleranceRepository, AllergyIntoleranceRepository>();
+            services.AddScoped<IMedicationRepository, MedicationRepository>();
             services.AddScoped<IResearchResearcherRepository, ResearchResearcherRepository>();
         }
 

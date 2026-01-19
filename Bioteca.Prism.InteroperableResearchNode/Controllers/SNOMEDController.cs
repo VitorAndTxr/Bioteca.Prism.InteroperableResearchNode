@@ -19,6 +19,9 @@ public class SNOMEDController : BaseController
     private readonly ISnomedLateralityService _snomedLateralityService;
     private readonly ISnomedTopographicalModifierService _snomedTopographicalModifierService;
     private readonly IClinicalConditionService _clinicalConditionService;
+    private readonly IClinicalEventService _clinicalEventService;
+    private readonly ISnomedMedicationService _snomedMedicationService;
+    private readonly IAllergyIntoleranceService _allergyIntoleranceService;
 
     private readonly ILogger<ResearcherController> _logger;
 
@@ -28,6 +31,9 @@ public class SNOMEDController : BaseController
             ISnomedLateralityService snomedLateralityService,
             ISnomedTopographicalModifierService snomedTopographicalModifierService,
             IClinicalConditionService clinicalConditionService,
+            IClinicalEventService clinicalEventService,
+            ISnomedMedicationService snomedMedicationService,
+            IAllergyIntoleranceService allergyIntoleranceService,
             ILogger<ResearcherController> logger,
             IConfiguration configuration,
             IApiContext apiContext
@@ -38,6 +44,9 @@ public class SNOMEDController : BaseController
         _snomedLateralityService = snomedLateralityService;
         _snomedTopographicalModifierService = snomedTopographicalModifierService;
         _clinicalConditionService = clinicalConditionService;
+        _clinicalEventService = clinicalEventService;
+        _snomedMedicationService = snomedMedicationService;
+        _allergyIntoleranceService = allergyIntoleranceService;
         _logger = logger;
     }
 
@@ -691,6 +700,498 @@ public class SNOMEDController : BaseController
             return StatusCode(StatusCodes.Status500InternalServerError, CreateError(
                 "ERR_TOPOGRAPHICAL_MODIFIER_UPDATE_FAILED",
                 "Failed to update topographical modifier: " + ex.Message,
+                new Dictionary<string, object> { ["reason"] = "internal_error" },
+                retryable: true
+            ));
+        }
+    }
+
+    #endregion
+
+    #region ClinicalEvent Endpoints
+
+    [Route("ClinicalEvent/[action]")]
+    [HttpGet]
+    [PrismEncryptedChannelConnection]
+    [PrismAuthenticatedSession]
+    [Authorize("sub")]
+    [ProducesResponseType(typeof(EncryptedPayload), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> GetActiveClinicalEvents(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return ServiceInvoke(_clinicalEventService.GetActiveEventsAsync).Result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to retrieve active clinical events");
+            return StatusCode(StatusCodes.Status500InternalServerError, CreateError(
+                "ERR_CLINICAL_EVENT_RETRIEVAL_FAILED",
+                "Failed to retrieve active clinical events",
+                new Dictionary<string, object> { ["reason"] = "internal_error" },
+                retryable: true
+            ));
+        }
+    }
+
+    [Route("ClinicalEvent/[action]")]
+    [HttpGet]
+    [PrismEncryptedChannelConnection]
+    [PrismAuthenticatedSession]
+    [Authorize("sub")]
+    [ProducesResponseType(typeof(EncryptedPayload), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> GetAllClinicalEventsPaginatedAsync()
+    {
+        try
+        {
+            return ServiceInvoke(_clinicalEventService.GetAllClinicalEventsPaginateAsync).Result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to retrieve paginated clinical events");
+            return StatusCode(StatusCodes.Status500InternalServerError, CreateError(
+                "ERR_CLINICAL_EVENT_PAGINATED_RETRIEVAL_FAILED",
+                "Failed to retrieve paginated clinical events",
+                new Dictionary<string, object> { ["reason"] = "internal_error" },
+                retryable: true
+            ));
+        }
+    }
+
+    [Route("ClinicalEvent/New")]
+    [HttpPost]
+    [PrismEncryptedChannelConnection<SnomedClinicalEventDTO>]
+    [PrismAuthenticatedSession]
+    [Authorize("sub")]
+    [ProducesResponseType(typeof(EncryptedPayload), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public IActionResult NewClinicalEvent()
+    {
+        try
+        {
+            var payload = HttpContext.Items["DecryptedRequest"] as SnomedClinicalEventDTO;
+            return ServiceInvoke(_clinicalEventService.AddAsync, payload).Result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to register new clinical event");
+            return StatusCode(StatusCodes.Status500InternalServerError, CreateError(
+                "ERR_CLINICAL_EVENT_REGISTRATION_FAILED",
+                "Failed to register new clinical event: " + ex.Message,
+                new Dictionary<string, object> { ["reason"] = "internal_error" },
+                retryable: true
+            ));
+        }
+    }
+
+    [Route("ClinicalEvent/{snomedCode}")]
+    [HttpGet]
+    [PrismEncryptedChannelConnection]
+    [ProducesResponseType(typeof(EncryptedPayload), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> GetClinicalEventBySnomedCode(string snomedCode, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var result = await _clinicalEventService.GetBySnomedCodeAsync(snomedCode, cancellationToken);
+
+            if (result == null)
+            {
+                return NotFound(CreateError(
+                    "ERR_CLINICAL_EVENT_NOT_FOUND",
+                    $"Clinical event with SNOMED code '{snomedCode}' not found",
+                    new Dictionary<string, object> { ["snomedCode"] = snomedCode },
+                    retryable: false
+                ));
+            }
+
+            return await ServiceInvoke(() => Task.FromResult(result));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to retrieve clinical event by SNOMED code: {SnomedCode}", snomedCode);
+            return StatusCode(StatusCodes.Status500InternalServerError, CreateError(
+                "ERR_CLINICAL_EVENT_RETRIEVAL_FAILED",
+                "Failed to retrieve clinical event",
+                new Dictionary<string, object> { ["reason"] = "internal_error" },
+                retryable: true
+            ));
+        }
+    }
+
+    [Route("ClinicalEvent/Update/{snomedCode}")]
+    [HttpPut]
+    [PrismEncryptedChannelConnection<UpdateSnomedClinicalEventDTO>]
+    [ProducesResponseType(typeof(EncryptedPayload), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> UpdateClinicalEvent(string snomedCode, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var payload = HttpContext.Items["DecryptedRequest"] as UpdateSnomedClinicalEventDTO;
+
+            if (payload == null)
+            {
+                return BadRequest(CreateError(
+                    "ERR_INVALID_PAYLOAD",
+                    "Invalid or missing request payload",
+                    new Dictionary<string, object> { ["reason"] = "payload_missing" },
+                    retryable: false
+                ));
+            }
+
+            var result = await _clinicalEventService.UpdateBySnomedCodeAsync(snomedCode, payload, cancellationToken);
+
+            if (result == null)
+            {
+                return NotFound(CreateError(
+                    "ERR_CLINICAL_EVENT_NOT_FOUND",
+                    $"Clinical event with SNOMED code '{snomedCode}' not found",
+                    new Dictionary<string, object> { ["snomedCode"] = snomedCode },
+                    retryable: false
+                ));
+            }
+
+            return await ServiceInvoke(() => Task.FromResult(result));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to update clinical event: {SnomedCode}", snomedCode);
+            return StatusCode(StatusCodes.Status500InternalServerError, CreateError(
+                "ERR_CLINICAL_EVENT_UPDATE_FAILED",
+                "Failed to update clinical event: " + ex.Message,
+                new Dictionary<string, object> { ["reason"] = "internal_error" },
+                retryable: true
+            ));
+        }
+    }
+
+    #endregion
+
+    #region Medication Endpoints
+
+    [Route("Medication/[action]")]
+    [HttpGet]
+    [PrismEncryptedChannelConnection]
+    [PrismAuthenticatedSession]
+    [Authorize("sub")]
+    [ProducesResponseType(typeof(EncryptedPayload), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> GetActiveMedications(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return ServiceInvoke(_snomedMedicationService.GetActiveAsync).Result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to retrieve active medications");
+            return StatusCode(StatusCodes.Status500InternalServerError, CreateError(
+                "ERR_MEDICATION_RETRIEVAL_FAILED",
+                "Failed to retrieve active medications",
+                new Dictionary<string, object> { ["reason"] = "internal_error" },
+                retryable: true
+            ));
+        }
+    }
+
+    [Route("Medication/[action]")]
+    [HttpGet]
+    [PrismEncryptedChannelConnection]
+    [PrismAuthenticatedSession]
+    [Authorize("sub")]
+    [ProducesResponseType(typeof(EncryptedPayload), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> GetAllMedicationsPaginatedAsync()
+    {
+        try
+        {
+            return ServiceInvoke(_snomedMedicationService.GetAllMedicationsPaginateAsync).Result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to retrieve paginated medications");
+            return StatusCode(StatusCodes.Status500InternalServerError, CreateError(
+                "ERR_MEDICATION_PAGINATED_RETRIEVAL_FAILED",
+                "Failed to retrieve paginated medications",
+                new Dictionary<string, object> { ["reason"] = "internal_error" },
+                retryable: true
+            ));
+        }
+    }
+
+    [Route("Medication/New")]
+    [HttpPost]
+    [PrismEncryptedChannelConnection<SnomedMedicationDTO>]
+    [PrismAuthenticatedSession]
+    [Authorize("sub")]
+    [ProducesResponseType(typeof(EncryptedPayload), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public IActionResult NewMedication()
+    {
+        try
+        {
+            var payload = HttpContext.Items["DecryptedRequest"] as SnomedMedicationDTO;
+            return ServiceInvoke(_snomedMedicationService.AddAsync, payload).Result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to register new medication");
+            return StatusCode(StatusCodes.Status500InternalServerError, CreateError(
+                "ERR_MEDICATION_REGISTRATION_FAILED",
+                "Failed to register new medication: " + ex.Message,
+                new Dictionary<string, object> { ["reason"] = "internal_error" },
+                retryable: true
+            ));
+        }
+    }
+
+    [Route("Medication/{snomedCode}")]
+    [HttpGet]
+    [PrismEncryptedChannelConnection]
+    [ProducesResponseType(typeof(EncryptedPayload), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> GetMedicationBySnomedCode(string snomedCode, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var result = await _snomedMedicationService.GetBySnomedCodeAsync(snomedCode);
+
+            if (result == null)
+            {
+                return NotFound(CreateError(
+                    "ERR_MEDICATION_NOT_FOUND",
+                    $"Medication with SNOMED code '{snomedCode}' not found",
+                    new Dictionary<string, object> { ["snomedCode"] = snomedCode },
+                    retryable: false
+                ));
+            }
+
+            return await ServiceInvoke(() => Task.FromResult(result));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to retrieve medication by SNOMED code: {SnomedCode}", snomedCode);
+            return StatusCode(StatusCodes.Status500InternalServerError, CreateError(
+                "ERR_MEDICATION_RETRIEVAL_FAILED",
+                "Failed to retrieve medication",
+                new Dictionary<string, object> { ["reason"] = "internal_error" },
+                retryable: true
+            ));
+        }
+    }
+
+    [Route("Medication/Update/{snomedCode}")]
+    [HttpPut]
+    [PrismEncryptedChannelConnection<UpdateSnomedMedicationDTO>]
+    [ProducesResponseType(typeof(EncryptedPayload), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> UpdateMedication(string snomedCode, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var payload = HttpContext.Items["DecryptedRequest"] as UpdateSnomedMedicationDTO;
+
+            if (payload == null)
+            {
+                return BadRequest(CreateError(
+                    "ERR_INVALID_PAYLOAD",
+                    "Invalid or missing request payload",
+                    new Dictionary<string, object> { ["reason"] = "payload_missing" },
+                    retryable: false
+                ));
+            }
+
+            var result = await _snomedMedicationService.UpdateBySnomedCodeAsync(snomedCode, payload);
+
+            if (result == null)
+            {
+                return NotFound(CreateError(
+                    "ERR_MEDICATION_NOT_FOUND",
+                    $"Medication with SNOMED code '{snomedCode}' not found",
+                    new Dictionary<string, object> { ["snomedCode"] = snomedCode },
+                    retryable: false
+                ));
+            }
+
+            return await ServiceInvoke(() => Task.FromResult(result));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to update medication: {SnomedCode}", snomedCode);
+            return StatusCode(StatusCodes.Status500InternalServerError, CreateError(
+                "ERR_MEDICATION_UPDATE_FAILED",
+                "Failed to update medication: " + ex.Message,
+                new Dictionary<string, object> { ["reason"] = "internal_error" },
+                retryable: true
+            ));
+        }
+    }
+
+    #endregion
+
+    #region AllergyIntolerance Endpoints
+
+    [Route("AllergyIntolerance/[action]")]
+    [HttpGet]
+    [PrismEncryptedChannelConnection]
+    [PrismAuthenticatedSession]
+    [Authorize("sub")]
+    [ProducesResponseType(typeof(EncryptedPayload), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> GetActiveAllergyIntolerances(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return ServiceInvoke(_allergyIntoleranceService.GetActiveAllergyIntolerancesAsync).Result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to retrieve active allergies/intolerances");
+            return StatusCode(StatusCodes.Status500InternalServerError, CreateError(
+                "ERR_ALLERGY_INTOLERANCE_RETRIEVAL_FAILED",
+                "Failed to retrieve active allergies/intolerances",
+                new Dictionary<string, object> { ["reason"] = "internal_error" },
+                retryable: true
+            ));
+        }
+    }
+
+    [Route("AllergyIntolerance/[action]")]
+    [HttpGet]
+    [PrismEncryptedChannelConnection]
+    [PrismAuthenticatedSession]
+    [Authorize("sub")]
+    [ProducesResponseType(typeof(EncryptedPayload), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> GetAllAllergyIntolerancesPaginatedAsync()
+    {
+        try
+        {
+            return ServiceInvoke(_allergyIntoleranceService.GetAllAllergyIntolerancesPaginateAsync).Result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to retrieve paginated allergies/intolerances");
+            return StatusCode(StatusCodes.Status500InternalServerError, CreateError(
+                "ERR_ALLERGY_INTOLERANCE_PAGINATED_RETRIEVAL_FAILED",
+                "Failed to retrieve paginated allergies/intolerances",
+                new Dictionary<string, object> { ["reason"] = "internal_error" },
+                retryable: true
+            ));
+        }
+    }
+
+    [Route("AllergyIntolerance/New")]
+    [HttpPost]
+    [PrismEncryptedChannelConnection<SnomedAllergyIntoleranceDTO>]
+    [PrismAuthenticatedSession]
+    [Authorize("sub")]
+    [ProducesResponseType(typeof(EncryptedPayload), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public IActionResult NewAllergyIntolerance()
+    {
+        try
+        {
+            var payload = HttpContext.Items["DecryptedRequest"] as SnomedAllergyIntoleranceDTO;
+            return ServiceInvoke(_allergyIntoleranceService.AddAsync, payload).Result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to register new allergy/intolerance");
+            return StatusCode(StatusCodes.Status500InternalServerError, CreateError(
+                "ERR_ALLERGY_INTOLERANCE_REGISTRATION_FAILED",
+                "Failed to register new allergy/intolerance: " + ex.Message,
+                new Dictionary<string, object> { ["reason"] = "internal_error" },
+                retryable: true
+            ));
+        }
+    }
+
+    [Route("AllergyIntolerance/{snomedCode}")]
+    [HttpGet]
+    [PrismEncryptedChannelConnection]
+    [ProducesResponseType(typeof(EncryptedPayload), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> GetAllergyIntoleranceBySnomedCode(string snomedCode, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var result = await _allergyIntoleranceService.GetBySnomedCodeAsync(snomedCode, cancellationToken);
+
+            if (result == null)
+            {
+                return NotFound(CreateError(
+                    "ERR_ALLERGY_INTOLERANCE_NOT_FOUND",
+                    $"Allergy/intolerance with SNOMED code '{snomedCode}' not found",
+                    new Dictionary<string, object> { ["snomedCode"] = snomedCode },
+                    retryable: false
+                ));
+            }
+
+            return await ServiceInvoke(() => Task.FromResult(result));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to retrieve allergy/intolerance by SNOMED code: {SnomedCode}", snomedCode);
+            return StatusCode(StatusCodes.Status500InternalServerError, CreateError(
+                "ERR_ALLERGY_INTOLERANCE_RETRIEVAL_FAILED",
+                "Failed to retrieve allergy/intolerance",
+                new Dictionary<string, object> { ["reason"] = "internal_error" },
+                retryable: true
+            ));
+        }
+    }
+
+    [Route("AllergyIntolerance/Update/{snomedCode}")]
+    [HttpPut]
+    [PrismEncryptedChannelConnection<UpdateSnomedAllergyIntoleranceDTO>]
+    [ProducesResponseType(typeof(EncryptedPayload), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> UpdateAllergyIntolerance(string snomedCode, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var payload = HttpContext.Items["DecryptedRequest"] as UpdateSnomedAllergyIntoleranceDTO;
+
+            if (payload == null)
+            {
+                return BadRequest(CreateError(
+                    "ERR_INVALID_PAYLOAD",
+                    "Invalid or missing request payload",
+                    new Dictionary<string, object> { ["reason"] = "payload_missing" },
+                    retryable: false
+                ));
+            }
+
+            var result = await _allergyIntoleranceService.UpdateBySnomedCodeAsync(snomedCode, payload, cancellationToken);
+
+            if (result == null)
+            {
+                return NotFound(CreateError(
+                    "ERR_ALLERGY_INTOLERANCE_NOT_FOUND",
+                    $"Allergy/intolerance with SNOMED code '{snomedCode}' not found",
+                    new Dictionary<string, object> { ["snomedCode"] = snomedCode },
+                    retryable: false
+                ));
+            }
+
+            return await ServiceInvoke(() => Task.FromResult(result));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to update allergy/intolerance: {SnomedCode}", snomedCode);
+            return StatusCode(StatusCodes.Status500InternalServerError, CreateError(
+                "ERR_ALLERGY_INTOLERANCE_UPDATE_FAILED",
+                "Failed to update allergy/intolerance: " + ex.Message,
                 new Dictionary<string, object> { ["reason"] = "internal_error" },
                 retryable: true
             ));
