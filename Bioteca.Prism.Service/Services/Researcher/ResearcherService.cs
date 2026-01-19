@@ -26,8 +26,10 @@ public class ResearcherService : BaseService<Domain.Entities.Researcher.Research
         return researcher.Select(r => new ResearcherDTO
         {
             ResearcherId = r.ResearcherId,
+            ResearchNodeId = r.ResearchNodeId,
             Name = r.Name,
             Email = r.Email,
+            Institution = r.Institution,
             Role = r.Role,
             Orcid = r.Orcid
         }).ToList();
@@ -97,8 +99,10 @@ public class ResearcherService : BaseService<Domain.Entities.Researcher.Research
         var mappedResult = result.Select(researcher => new ResearcherDTO
         {
             ResearcherId = researcher.ResearcherId,
+            ResearchNodeId = researcher.ResearchNodeId,
             Name = researcher.Name,
             Email = researcher.Email,
+            Institution = researcher.Institution,
             Role = researcher.Role,
             Orcid = researcher.Orcid
         }).ToList();
@@ -118,8 +122,10 @@ public class ResearcherService : BaseService<Domain.Entities.Researcher.Research
         return new ResearcherDTO
         {
             ResearcherId = researcher.ResearcherId,
+            ResearchNodeId = researcher.ResearchNodeId,
             Name = researcher.Name,
             Email = researcher.Email,
+            Institution = researcher.Institution,
             Role = researcher.Role,
             Orcid = researcher.Orcid
         };
@@ -177,8 +183,10 @@ public class ResearcherService : BaseService<Domain.Entities.Researcher.Research
         return new ResearcherDTO
         {
             ResearcherId = researcher.ResearcherId,
+            ResearchNodeId = researcher.ResearchNodeId,
             Name = researcher.Name,
             Email = researcher.Email,
+            Institution = researcher.Institution,
             Role = researcher.Role,
             Orcid = researcher.Orcid
         };
