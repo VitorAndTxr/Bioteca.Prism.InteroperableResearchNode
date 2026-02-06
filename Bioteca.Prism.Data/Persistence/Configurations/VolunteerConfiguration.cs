@@ -31,6 +31,16 @@ public class VolunteerConfiguration : IEntityTypeConfiguration<Volunteer>
             .HasMaxLength(100)
             .IsRequired();
 
+        builder.Property(x => x.Name)
+            .HasColumnName("name")
+            .HasMaxLength(200)
+            .IsRequired();
+
+        builder.Property(x => x.Email)
+            .HasColumnName("email")
+            .HasMaxLength(200)
+            .IsRequired();
+
         builder.Property(x => x.BirthDate)
             .HasColumnName("birth_date")
             .IsRequired();
@@ -86,5 +96,9 @@ public class VolunteerConfiguration : IEntityTypeConfiguration<Volunteer>
 
         builder.HasIndex(x => x.ConsentStatus)
             .HasDatabaseName("ix_volunteer_consent_status");
+
+        builder.HasIndex(x => x.Email)
+            .IsUnique()
+            .HasDatabaseName("ix_volunteer_email");
     }
 }
