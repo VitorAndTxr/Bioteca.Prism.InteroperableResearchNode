@@ -67,4 +67,41 @@ public class SensorService : BaseService<Domain.Entities.Sensor.Sensor, Guid>, I
             UpdatedAt = created.UpdatedAt
         };
     }
+
+    public async Task<SensorDTO?> UpdateSensorAsync(Guid sensorId, UpdateSensorPayload payload)
+    {
+        var sensor = await _sensorRepository.GetByIdAsync(sensorId);
+        if (sensor == null) return null;
+
+        if (payload.SensorName != null) sensor.SensorName = payload.SensorName;
+        if (payload.MaxSamplingRate.HasValue) sensor.MaxSamplingRate = payload.MaxSamplingRate.Value;
+        if (payload.Unit != null) sensor.Unit = payload.Unit;
+        if (payload.MinRange.HasValue) sensor.MinRange = payload.MinRange.Value;
+        if (payload.MaxRange.HasValue) sensor.MaxRange = payload.MaxRange.Value;
+        if (payload.Accuracy.HasValue) sensor.Accuracy = payload.Accuracy.Value;
+        if (payload.AdditionalInfo != null) sensor.AdditionalInfo = payload.AdditionalInfo;
+        sensor.UpdatedAt = DateTime.UtcNow;
+
+        await _sensorRepository.UpdateAsync(sensor);
+
+        return new SensorDTO
+        {
+            SensorId = sensor.SensorId,
+            DeviceId = sensor.DeviceId,
+            SensorName = sensor.SensorName,
+            MaxSamplingRate = sensor.MaxSamplingRate,
+            Unit = sensor.Unit,
+            MinRange = sensor.MinRange,
+            MaxRange = sensor.MaxRange,
+            Accuracy = sensor.Accuracy,
+            AdditionalInfo = sensor.AdditionalInfo,
+            CreatedAt = sensor.CreatedAt,
+            UpdatedAt = sensor.UpdatedAt
+        };
+    }
+
+    public async Task<bool> DeleteSensorAsync(Guid sensorId)
+    {
+        return await DeleteAsync(sensorId);
+    }
 }

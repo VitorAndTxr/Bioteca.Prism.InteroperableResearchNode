@@ -91,5 +91,76 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers
                 ));
             }
         }
+
+        [HttpPut("{id:guid}")]
+        [PrismEncryptedChannelConnection<UpdateSensorPayload>]
+        [PrismAuthenticatedSession]
+        [Authorize("sub")]
+        [ProducesResponseType(typeof(EncryptedPayload), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> UpdateSensor(Guid id)
+        {
+            try
+            {
+                var payload = HttpContext.Items["DecryptedRequest"] as UpdateSensorPayload;
+                var result = await _sensorService.UpdateSensorAsync(id, payload);
+                if (result == null)
+                {
+                    return NotFound(CreateError(
+                        "ERR_SENSOR_NOT_FOUND",
+                        $"Sensor with ID {id} not found",
+                        new Dictionary<string, object> { ["sensorId"] = id },
+                        retryable: false
+                    ));
+                }
+                return await ServiceInvoke(() => Task.FromResult(result));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to update sensor {SensorId}", id);
+                return StatusCode(StatusCodes.Status500InternalServerError, CreateError(
+                    "ERR_SENSOR_UPDATE_FAILED",
+                    "Failed to update sensor: " + ex.Message,
+                    new Dictionary<string, object> { ["reason"] = "internal_error" },
+                    retryable: true
+                ));
+            }
+        }
+
+        [HttpDelete("{id:guid}")]
+        [PrismEncryptedChannelConnection]
+        [PrismAuthenticatedSession]
+        [Authorize("sub")]
+        [ProducesResponseType(typeof(EncryptedPayload), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> DeleteSensor(Guid id)
+        {
+            try
+            {
+                var result = await _sensorService.DeleteSensorAsync(id);
+                if (!result)
+                {
+                    return NotFound(CreateError(
+                        "ERR_SENSOR_NOT_FOUND",
+                        $"Sensor with ID {id} not found",
+                        new Dictionary<string, object> { ["sensorId"] = id },
+                        retryable: false
+                    ));
+                }
+                return await ServiceInvoke(() => Task.FromResult(new { deleted = true }));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to delete sensor {SensorId}", id);
+                return StatusCode(StatusCodes.Status500InternalServerError, CreateError(
+                    "ERR_SENSOR_DELETE_FAILED",
+                    "Failed to delete sensor: " + ex.Message,
+                    new Dictionary<string, object> { ["reason"] = "internal_error" },
+                    retryable: true
+                ));
+            }
+        }
     }
 }

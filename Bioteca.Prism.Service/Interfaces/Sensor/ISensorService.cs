@@ -18,4 +18,8 @@ public interface ISensorService : IServiceBase<Domain.Entities.Sensor.Sensor, Gu
     /// Create a new sensor from payload
     /// </summary>
     Task<SensorDTO> AddSensorAsync(AddSensorPayload payload);
+
+    Task<SensorDTO?> UpdateSensorAsync(Guid sensorId, UpdateSensorPayload payload);
+
+    Task<bool> DeleteSensorAsync(Guid sensorId);
 }
