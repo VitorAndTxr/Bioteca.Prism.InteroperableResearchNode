@@ -64,4 +64,5 @@ public interface IResearchRepository : IBaseRepository<Domain.Entities.Research.
 
     // Group 6: Sensor read (scoped to research-device)
     Task<List<Domain.Entities.Sensor.Sensor>> GetSensorsByResearchDeviceAsync(Guid researchId, Guid deviceId);
+    Task<List<Domain.Entities.Sensor.Sensor>> GetAllSensorsByResearchIdAsync(Guid researchId);
 }

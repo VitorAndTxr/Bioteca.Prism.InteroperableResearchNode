@@ -988,7 +988,44 @@ public class ResearchController : BaseController
         }
     }
 
-    // ===== Group 6: Device Sensors (Read-Only) =====
+    // ===== Group 6: Device Sensors =====
+
+    [HttpGet("{researchId:guid}/sensors")]
+    [PrismEncryptedChannelConnection]
+    [PrismAuthenticatedSession]
+    [Authorize("sub")]
+    [ProducesResponseType(typeof(EncryptedPayload), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> GetAllResearchSensors(Guid researchId)
+    {
+        try
+        {
+            var research = await _researchService.GetByIdAsync(researchId);
+            if (research == null)
+            {
+                return NotFound(CreateError(
+                    "ERR_RESEARCH_NOT_FOUND",
+                    $"Research with ID {researchId} not found",
+                    new Dictionary<string, object> { ["researchId"] = researchId },
+                    retryable: false
+                ));
+            }
+
+            var sensors = await _researchService.GetAllSensorsForResearchAsync(researchId);
+            return await ServiceInvoke(() => Task.FromResult(sensors));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to retrieve all sensors for research {ResearchId}", researchId);
+            return StatusCode(StatusCodes.Status500InternalServerError, CreateError(
+                "ERR_SENSOR_RETRIEVAL_FAILED",
+                "Failed to retrieve sensors",
+                new Dictionary<string, object> { ["reason"] = "internal_error" },
+                retryable: true
+            ));
+        }
+    }
 
     [HttpGet("{researchId:guid}/devices/{deviceId:guid}/sensors")]
     [PrismEncryptedChannelConnection]

@@ -266,11 +266,18 @@ public class ResearchRepository : BaseRepository<Domain.Entities.Research.Resear
 
     public async Task<ResearchVolunteer> AddResearchVolunteerAsync(ResearchVolunteer entity)
     {
-        await _prismContext.Set<ResearchVolunteer>().AddAsync(entity);
-        await _prismContext.SaveChangesAsync();
+        try
+        {
+            
+            await _prismContext.Set<ResearchVolunteer>().AddAsync(entity);
+            await _prismContext.SaveChangesAsync();
 
-        await _prismContext.Entry(entity).Reference(rv => rv.Volunteer).LoadAsync();
-        return entity;
+            await _prismContext.Entry(entity).Reference(rv => rv.Volunteer).LoadAsync();
+            return entity;
+        }catch(Exception ex)
+        {
+            throw;
+        }
     }
 
     public async Task<ResearchVolunteer> UpdateResearchVolunteerAsync(ResearchVolunteer entity)
@@ -450,5 +457,45 @@ public class ResearchRepository : BaseRepository<Domain.Entities.Research.Resear
             .Where(s => s.DeviceId == deviceId)
             .AsNoTracking()
             .ToListAsync();
+    }
+
+    public async Task<List<Domain.Entities.Sensor.Sensor>> GetAllSensorsByResearchIdAsync(Guid researchId)
+    {
+        var page = _apiContext.PagingContext.RequestPaging.Page;
+        var pageSize = _apiContext.PagingContext.RequestPaging.PageSize;
+
+        if (page < 1) page = 1;
+        if (pageSize < 1) pageSize = 10;
+        if (pageSize > 100) pageSize = 100;
+
+        var deviceIds = await _prismContext.Set<ResearchDevice>()
+            .AsNoTracking()
+            .Where(rd => rd.ResearchId == researchId && rd.RemovedAt == null)
+            .Select(rd => rd.DeviceId)
+            .ToListAsync();
+
+        if (deviceIds.Count == 0)
+        {
+            _apiContext.PagingContext.ResponsePaging.SetValues(page, pageSize, 0, 0);
+            return new List<Domain.Entities.Sensor.Sensor>();
+        }
+
+        var query = _prismContext.Set<Domain.Entities.Sensor.Sensor>()
+            .Where(s => deviceIds.Contains(s.DeviceId))
+            .AsNoTracking();
+
+        var totalCount = await query.CountAsync();
+
+        var items = await query
+            .OrderBy(s => s.SensorName)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+
+        _apiContext.PagingContext.ResponsePaging.SetValues(page, pageSize, totalPages, totalCount);
+
+        return items;
     }
 }

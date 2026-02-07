@@ -297,7 +297,7 @@ public class ResearchService : BaseService<Domain.Entities.Research.Research, Gu
             // Reactivate the existing record
             existing.WithdrawnAt = null;
             existing.EnrollmentStatus = "Enrolled";
-            existing.ConsentDate = payload.ConsentDate;
+            existing.ConsentDate = DateTime.SpecifyKind(payload.ConsentDate, DateTimeKind.Utc);
             existing.ConsentVersion = payload.ConsentVersion;
             existing.ExclusionReason = null;
             existing.EnrolledAt = DateTime.UtcNow;
@@ -310,7 +310,7 @@ public class ResearchService : BaseService<Domain.Entities.Research.Research, Gu
             ResearchId = researchId,
             VolunteerId = payload.VolunteerId,
             EnrollmentStatus = "Enrolled",
-            ConsentDate = payload.ConsentDate,
+            ConsentDate = DateTime.SpecifyKind(payload.ConsentDate, DateTimeKind.Utc),
             ConsentVersion = payload.ConsentVersion,
             ExclusionReason = null,
             EnrolledAt = DateTime.UtcNow,
@@ -341,7 +341,7 @@ public class ResearchService : BaseService<Domain.Entities.Research.Research, Gu
         {
             if (payload.ConsentDate.Value > DateTime.UtcNow)
                 throw new Exception("ConsentDate must not be in the future");
-            entity.ConsentDate = payload.ConsentDate.Value;
+            entity.ConsentDate = DateTime.SpecifyKind(payload.ConsentDate.Value, DateTimeKind.Utc);
         }
 
         if (payload.ConsentVersion != null)
@@ -466,7 +466,9 @@ public class ResearchService : BaseService<Domain.Entities.Research.Research, Gu
             existing.RemovedAt = null;
             existing.Role = payload.Role;
             existing.CalibrationStatus = payload.CalibrationStatus;
-            existing.LastCalibrationDate = payload.LastCalibrationDate;
+            existing.LastCalibrationDate = payload.LastCalibrationDate.HasValue
+                ? DateTime.SpecifyKind(payload.LastCalibrationDate.Value, DateTimeKind.Utc)
+                : null;
             existing.AddedAt = DateTime.UtcNow;
 
             return MapToResearchDeviceDTO(await _researchRepository.UpdateResearchDeviceAsync(existing));
@@ -478,7 +480,9 @@ public class ResearchService : BaseService<Domain.Entities.Research.Research, Gu
             DeviceId = payload.DeviceId,
             Role = payload.Role,
             CalibrationStatus = payload.CalibrationStatus,
-            LastCalibrationDate = payload.LastCalibrationDate,
+            LastCalibrationDate = payload.LastCalibrationDate.HasValue
+                ? DateTime.SpecifyKind(payload.LastCalibrationDate.Value, DateTimeKind.Utc)
+                : null,
             AddedAt = DateTime.UtcNow,
             RemovedAt = null
         };
@@ -509,7 +513,7 @@ public class ResearchService : BaseService<Domain.Entities.Research.Research, Gu
         {
             if (payload.LastCalibrationDate.Value > DateTime.UtcNow)
                 throw new Exception("LastCalibrationDate must not be in the future");
-            entity.LastCalibrationDate = payload.LastCalibrationDate;
+            entity.LastCalibrationDate = DateTime.SpecifyKind(payload.LastCalibrationDate.Value, DateTimeKind.Utc);
         }
 
         return MapToResearchDeviceDTO(await _researchRepository.UpdateResearchDeviceAsync(entity));
@@ -526,6 +530,26 @@ public class ResearchService : BaseService<Domain.Entities.Research.Research, Gu
     {
         var sensors = await _researchRepository.GetSensorsByResearchDeviceAsync(researchId, deviceId);
         if (sensors == null) return null!;
+
+        return sensors.Select(s => new SensorDTO
+        {
+            SensorId = s.SensorId,
+            DeviceId = s.DeviceId,
+            SensorName = s.SensorName,
+            MaxSamplingRate = s.MaxSamplingRate,
+            Unit = s.Unit,
+            MinRange = s.MinRange,
+            MaxRange = s.MaxRange,
+            Accuracy = s.Accuracy,
+            AdditionalInfo = s.AdditionalInfo,
+            CreatedAt = s.CreatedAt,
+            UpdatedAt = s.UpdatedAt
+        }).ToList();
+    }
+
+    public async Task<List<SensorDTO>> GetAllSensorsForResearchAsync(Guid researchId)
+    {
+        var sensors = await _researchRepository.GetAllSensorsByResearchIdAsync(researchId);
 
         return sensors.Select(s => new SensorDTO
         {

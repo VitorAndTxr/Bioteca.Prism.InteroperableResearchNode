@@ -70,4 +70,5 @@ public interface IResearchService : IServiceBase<Domain.Entities.Research.Resear
 
     // Group 6: Device Sensors
     Task<List<SensorDTO>> GetDeviceSensorsForResearchAsync(Guid researchId, Guid deviceId);
+    Task<List<SensorDTO>> GetAllSensorsForResearchAsync(Guid researchId);
 }

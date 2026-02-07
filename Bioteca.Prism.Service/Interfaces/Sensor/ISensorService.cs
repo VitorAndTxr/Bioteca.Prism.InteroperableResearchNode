@@ -1,4 +1,6 @@
 using Bioteca.Prism.Core.Interfaces;
+using Bioteca.Prism.Domain.DTOs.Sensor;
+using Bioteca.Prism.Domain.Payloads.Sensor;
 
 namespace Bioteca.Prism.Service.Interfaces.Sensor;
 
@@ -11,4 +13,9 @@ public interface ISensorService : IServiceBase<Domain.Entities.Sensor.Sensor, Gu
     /// Get sensors by device ID
     /// </summary>
     Task<List<Domain.Entities.Sensor.Sensor>> GetByDeviceIdAsync(Guid deviceId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Create a new sensor from payload
+    /// </summary>
+    Task<SensorDTO> AddSensorAsync(AddSensorPayload payload);
 }
