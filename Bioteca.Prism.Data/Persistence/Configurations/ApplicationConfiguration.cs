@@ -53,5 +53,11 @@ public class ApplicationConfiguration : IEntityTypeConfiguration<Application>
         builder.Property(x => x.UpdatedAt)
             .HasColumnName("updated_at")
             .IsRequired();
+
+        // Relationships
+        builder.HasOne(x => x.Research)
+            .WithMany(x => x.Applications)
+            .HasForeignKey(x => x.ResearchId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }
