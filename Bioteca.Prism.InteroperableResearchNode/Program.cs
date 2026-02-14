@@ -18,6 +18,8 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
         // Allow trailing commas in JSON
         options.JsonSerializerOptions.AllowTrailingCommas = true;
+        // Prevent circular reference errors when serializing entities with navigation properties
+        options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
     });
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();

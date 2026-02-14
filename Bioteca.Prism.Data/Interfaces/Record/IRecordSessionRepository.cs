@@ -22,4 +22,20 @@ public interface IRecordSessionRepository : IBaseRepository<RecordSession, Guid>
     /// Get active (unfinished) record sessions
     /// </summary>
     Task<List<RecordSession>> GetActiveSessionsAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Get a record session by ID with all related details (Records, RecordChannels, SessionAnnotations)
+    /// </summary>
+    Task<RecordSession?> GetByIdWithDetailsAsync(Guid id, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Get filtered and paginated record sessions
+    /// </summary>
+    Task<List<RecordSession>> GetFilteredPagedAsync(
+        Guid? researchId,
+        Guid? volunteerId,
+        bool? isCompleted,
+        DateTime? dateFrom,
+        DateTime? dateTo,
+        CancellationToken cancellationToken = default);
 }

@@ -13,7 +13,7 @@ public class RecordSession
     /// <summary>
     /// Foreign key to research
     /// </summary>
-    public Guid ResearchId { get; set; }
+    public Guid? ResearchId { get; set; }
 
     /// <summary>
     /// Foreign key to volunteer
@@ -46,9 +46,11 @@ public class RecordSession
     public DateTime UpdatedAt { get; set; }
 
     // Navigation properties
-    public Research.Research Research { get; set; } = null!;
+    public Research.Research? Research { get; set; }
     public Volunteer.Volunteer Volunteer { get; set; } = null!;
     public ICollection<Record> Records { get; set; } = new List<Record>();
+
+    public ICollection<SessionAnnotation> SessionAnnotations { get; set; } = new List<SessionAnnotation>();
 
     // Clinical data captured during session
     public ICollection<Volunteer.VolunteerClinicalEvent> ClinicalEvents { get; set; } = new List<Volunteer.VolunteerClinicalEvent>();

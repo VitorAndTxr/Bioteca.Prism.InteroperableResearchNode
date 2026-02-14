@@ -20,7 +20,7 @@ public class RecordChannel
     /// <summary>
     /// Foreign key to sensor
     /// </summary>
-    public Guid SensorId { get; set; }
+    public Guid? SensorId { get; set; }
 
     /// <summary>
     /// Signal type
@@ -59,6 +59,6 @@ public class RecordChannel
 
     // Navigation properties
     public Record Record { get; set; } = null!;
-    public Sensor.Sensor Sensor { get; set; } = null!;
+    public Sensor.Sensor? Sensor { get; set; }
     public ICollection<TargetArea> TargetAreas { get; set; } = new List<TargetArea>();
 }

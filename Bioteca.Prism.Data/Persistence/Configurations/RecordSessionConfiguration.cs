@@ -22,8 +22,7 @@ public class RecordSessionConfiguration : IEntityTypeConfiguration<RecordSession
 
         // Foreign keys
         builder.Property(x => x.ResearchId)
-            .HasColumnName("research_id")
-            .IsRequired();
+            .HasColumnName("research_id");
 
         builder.Property(x => x.VolunteerId)
             .HasColumnName("volunteer_id")
@@ -55,7 +54,8 @@ public class RecordSessionConfiguration : IEntityTypeConfiguration<RecordSession
         builder.HasOne(x => x.Research)
             .WithMany(x => x.RecordSessions)
             .HasForeignKey(x => x.ResearchId)
-            .OnDelete(DeleteBehavior.Cascade);
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.SetNull);
 
         builder.HasOne(x => x.Volunteer)
             .WithMany(x => x.RecordSessions)

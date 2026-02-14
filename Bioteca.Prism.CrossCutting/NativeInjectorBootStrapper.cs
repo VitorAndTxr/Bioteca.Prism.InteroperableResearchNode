@@ -95,6 +95,8 @@ namespace Bioteca.Prism.CrossCutting
             services.AddScoped<IRecordService, RecordService>();
             services.AddScoped<IRecordChannelService, RecordChannelService>();
             services.AddScoped<ITargetAreaService, TargetAreaService>();
+            services.AddScoped<IClinicalSessionService, ClinicalSessionService>();
+            services.AddScoped<IFileUploadService, FileUploadService>();
 
             // SNOMED CT services
             services.AddScoped<ISnomedLateralityService, SnomedLateralityService>();
@@ -144,6 +146,7 @@ namespace Bioteca.Prism.CrossCutting
             services.AddScoped<IRecordRepository, RecordRepository>();
             services.AddScoped<IRecordChannelRepository, RecordChannelRepository>();
             services.AddScoped<ITargetAreaRepository, TargetAreaRepository>();
+            services.AddScoped<ISessionAnnotationRepository, SessionAnnotationRepository>();
 
             // SNOMED CT repositories
             services.AddScoped<ISnomedLateralityRepository, SnomedLateralityRepository>();

@@ -85,6 +85,11 @@ public class PrismDbContext : DbContext
     /// </summary>
     public DbSet<TargetArea> TargetAreas => Set<TargetArea>();
 
+    /// <summary>
+    /// Session annotations
+    /// </summary>
+    public DbSet<SessionAnnotation> SessionAnnotations => Set<SessionAnnotation>();
+
     // SNOMED CT entities
     /// <summary>
     /// SNOMED CT laterality codes

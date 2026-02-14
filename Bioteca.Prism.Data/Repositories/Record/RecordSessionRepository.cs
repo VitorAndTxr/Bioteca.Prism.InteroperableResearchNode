@@ -38,4 +38,62 @@ public class RecordSessionRepository : BaseRepository<RecordSession, Guid>, IRec
             .Where(rs => rs.FinishedAt == null)
             .ToListAsync(cancellationToken);
     }
+
+    public async Task<RecordSession?> GetByIdWithDetailsAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        return await _dbSet
+            .Where(rs => rs.Id == id)
+            .Include(rs => rs.Records)
+                .ThenInclude(r => r.RecordChannels)
+            .Include(rs => rs.SessionAnnotations)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    public async Task<List<RecordSession>> GetFilteredPagedAsync(
+        Guid? researchId,
+        Guid? volunteerId,
+        bool? isCompleted,
+        DateTime? dateFrom,
+        DateTime? dateTo,
+        CancellationToken cancellationToken = default)
+    {
+        var page = _apiContext.PagingContext.RequestPaging.Page;
+        var pageSize = _apiContext.PagingContext.RequestPaging.PageSize;
+
+        if (page < 1) page = 1;
+        if (pageSize < 1) pageSize = 10;
+        if (pageSize > 100) pageSize = 100;
+
+        var query = _dbSet.AsQueryable();
+
+        if (researchId.HasValue)
+            query = query.Where(rs => rs.ResearchId == researchId.Value);
+
+        if (volunteerId.HasValue)
+            query = query.Where(rs => rs.VolunteerId == volunteerId.Value);
+
+        if (isCompleted.HasValue)
+            query = isCompleted.Value
+                ? query.Where(rs => rs.FinishedAt != null)
+                : query.Where(rs => rs.FinishedAt == null);
+
+        if (dateFrom.HasValue)
+            query = query.Where(rs => rs.StartAt >= dateFrom.Value);
+
+        if (dateTo.HasValue)
+            query = query.Where(rs => rs.StartAt <= dateTo.Value);
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var items = await query
+            .OrderByDescending(rs => rs.StartAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+        _apiContext.PagingContext.ResponsePaging.SetValues(page, pageSize, totalPages, totalCount);
+
+        return items;
+    }
 }

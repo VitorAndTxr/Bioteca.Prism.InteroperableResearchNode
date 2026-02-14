@@ -26,8 +26,7 @@ public class RecordChannelConfiguration : IEntityTypeConfiguration<RecordChannel
             .IsRequired();
 
         builder.Property(x => x.SensorId)
-            .HasColumnName("sensor_id")
-            .IsRequired();
+            .HasColumnName("sensor_id");
 
         // Basic properties
         builder.Property(x => x.SignalType)
@@ -70,7 +69,8 @@ public class RecordChannelConfiguration : IEntityTypeConfiguration<RecordChannel
         builder.HasOne(x => x.Sensor)
             .WithMany(x => x.RecordChannels)
             .HasForeignKey(x => x.SensorId)
-            .OnDelete(DeleteBehavior.Restrict);
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.SetNull);
 
         // Indexes
         builder.HasIndex(x => x.RecordId)
