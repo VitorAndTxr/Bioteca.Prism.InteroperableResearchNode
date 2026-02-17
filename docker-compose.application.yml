@@ -28,6 +28,8 @@ services:
       - ASPNETCORE_URLS=http://+:8080
       - Redis__ConnectionString=irn-redis-node-a:6379,password=prism-redis-password-node-a,abortConnect=false
       - ConnectionStrings__PrismDatabase=Host=irn-postgres-node-a;Port=5432;Database=prism_node_a_registry;Username=prism_user_a;Password=prism_secure_password_2025_a
+      - AzureBlobStorage__ConnectionString=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://irn-azurite:10000/devstoreaccount1;
+      - AzureBlobStorage__ContainerName=node-a
     ports:
       - "5000:8080"
     networks:
@@ -55,6 +57,8 @@ services:
       - ASPNETCORE_URLS=http://+:8080
       - Redis__ConnectionString=irn-redis-node-b:6379,password=prism-redis-password-node-b,abortConnect=false
       - ConnectionStrings__PrismDatabase=Host=irn-postgres-node-b;Port=5432;Database=prism_node_b_registry;Username=prism_user_b;Password=prism_secure_password_2025_b
+      - AzureBlobStorage__ConnectionString=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://irn-azurite:10000/devstoreaccount1;
+      - AzureBlobStorage__ContainerName=node-b
     ports:
       - "5001:8080"
     networks:

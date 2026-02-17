@@ -43,6 +43,15 @@ public class ClinicalSessionController : BaseController
             var payload = HttpContext.Items["DecryptedRequest"] as CreateClinicalSessionPayload;
             return await ServiceInvoke(() => _clinicalSessionService.CreateAsync(payload!));
         }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(CreateError(
+                "ERR_VOLUNTEER_NOT_FOUND",
+                ex.Message,
+                null,
+                retryable: false
+            ));
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to create clinical session");

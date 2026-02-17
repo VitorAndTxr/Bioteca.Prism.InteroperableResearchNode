@@ -15,7 +15,6 @@ public class FileUploadService : IFileUploadService
     private readonly IRecordSessionRepository _recordSessionRepository;
     private readonly BlobContainerClient _containerClient;
     private bool _containerInitialized;
-    private const string ContainerName = "prism-recordings";
     private const long MaxFileSizeBytes = 50 * 1024 * 1024; // 50MB
 
     public FileUploadService(
@@ -27,8 +26,9 @@ public class FileUploadService : IFileUploadService
         _recordSessionRepository = recordSessionRepository;
 
         var connectionString = configuration["AzureBlobStorage:ConnectionString"] ?? "UseDevelopmentStorage=true";
+        var containerName = configuration["AzureBlobStorage:ContainerName"] ?? "node-a";
         var blobServiceClient = new BlobServiceClient(connectionString);
-        _containerClient = blobServiceClient.GetBlobContainerClient(ContainerName);
+        _containerClient = blobServiceClient.GetBlobContainerClient(containerName);
     }
 
     public async Task<string> UploadRecordingAsync(UploadRecordingPayload payload)

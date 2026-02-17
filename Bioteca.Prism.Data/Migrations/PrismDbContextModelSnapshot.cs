@@ -649,10 +649,6 @@ namespace Bioteca.Prism.Data.Migrations
                         .HasColumnType("character varying(50)")
                         .HasColumnName("body_structure_code");
 
-                    b.Property<string>("BodyStructureSnomedCode")
-                        .IsRequired()
-                        .HasColumnType("character varying(50)");
-
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -684,8 +680,6 @@ namespace Bioteca.Prism.Data.Migrations
 
                     b.HasIndex("BodyStructureCode")
                         .HasDatabaseName("ix_target_area_body_structure_code");
-
-                    b.HasIndex("BodyStructureSnomedCode");
 
                     b.HasIndex("LateralityCode");
 
@@ -1837,8 +1831,8 @@ namespace Bioteca.Prism.Data.Migrations
                 {
                     b.HasOne("Bioteca.Prism.Domain.Entities.Snomed.SnomedBodyStructure", "BodyStructure")
                         .WithMany()
-                        .HasForeignKey("BodyStructureSnomedCode")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasForeignKey("BodyStructureCode")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("Bioteca.Prism.Domain.Entities.Snomed.SnomedLaterality", "Laterality")

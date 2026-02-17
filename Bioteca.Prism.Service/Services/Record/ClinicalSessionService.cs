@@ -1,5 +1,6 @@
 using Bioteca.Prism.Core.Interfaces;
 using Bioteca.Prism.Data.Interfaces.Record;
+using Bioteca.Prism.Data.Interfaces.Volunteer;
 using Bioteca.Prism.Domain.Entities.Record;
 using Bioteca.Prism.Domain.Payloads.Record;
 using Bioteca.Prism.Service.Interfaces.Record;
@@ -16,6 +17,7 @@ public class ClinicalSessionService : IClinicalSessionService
     private readonly IRecordRepository _recordRepository;
     private readonly IRecordChannelRepository _recordChannelRepository;
     private readonly ISessionAnnotationRepository _sessionAnnotationRepository;
+    private readonly IVolunteerRepository _volunteerRepository;
     private readonly IApiContext _apiContext;
 
     public ClinicalSessionService(
@@ -23,12 +25,14 @@ public class ClinicalSessionService : IClinicalSessionService
         IRecordRepository recordRepository,
         IRecordChannelRepository recordChannelRepository,
         ISessionAnnotationRepository sessionAnnotationRepository,
+        IVolunteerRepository volunteerRepository,
         IApiContext apiContext)
     {
         _recordSessionRepository = recordSessionRepository;
         _recordRepository = recordRepository;
         _recordChannelRepository = recordChannelRepository;
         _sessionAnnotationRepository = sessionAnnotationRepository;
+        _volunteerRepository = volunteerRepository;
         _apiContext = apiContext;
     }
 
@@ -45,8 +49,13 @@ public class ClinicalSessionService : IClinicalSessionService
             existing.StartAt = payload.StartAt;
             existing.FinishedAt = payload.FinishedAt;
             existing.UpdatedAt = DateTime.UtcNow;
-            return await _recordSessionRepository.UpdateAsync(existing);
+            var updated = await _recordSessionRepository.UpdateAsync(existing);
+            return StripNavigationProperties(updated);
         }
+
+        var volunteer = await _volunteerRepository.GetByIdAsync(payload.VolunteerId);
+        if (volunteer == null)
+            throw new KeyNotFoundException($"Volunteer with ID {payload.VolunteerId} not found");
 
         var session = new RecordSession
         {
@@ -60,7 +69,8 @@ public class ClinicalSessionService : IClinicalSessionService
             UpdatedAt = DateTime.UtcNow
         };
 
-        return await _recordSessionRepository.AddAsync(session);
+        var created = await _recordSessionRepository.AddAsync(session);
+        return StripNavigationProperties(created);
     }
 
     public async Task<RecordSession?> GetByIdDetailAsync(Guid id)
@@ -99,7 +109,8 @@ public class ClinicalSessionService : IClinicalSessionService
             session.ClinicalContext = payload.ClinicalContext;
 
         session.UpdatedAt = DateTime.UtcNow;
-        return await _recordSessionRepository.UpdateAsync(session);
+        var updated = await _recordSessionRepository.UpdateAsync(session);
+        return StripNavigationProperties(updated);
     }
 
     public async Task<RecordEntity> CreateRecordingAsync(Guid sessionId, CreateRecordingPayload payload)
@@ -107,6 +118,23 @@ public class ClinicalSessionService : IClinicalSessionService
         var session = await _recordSessionRepository.GetByIdAsync(sessionId);
         if (session == null)
             throw new KeyNotFoundException($"Session with ID {sessionId} not found");
+
+        // Upsert: if record with client-generated Id already exists, return it (idempotent retry)
+        var existing = await _recordRepository.GetByIdAsync(payload.Id);
+        if (existing != null)
+        {
+            return new RecordEntity
+            {
+                Id = existing.Id,
+                RecordSessionId = existing.RecordSessionId,
+                CollectionDate = existing.CollectionDate,
+                SessionId = existing.SessionId,
+                RecordType = existing.RecordType,
+                Notes = existing.Notes,
+                CreatedAt = existing.CreatedAt,
+                UpdatedAt = existing.UpdatedAt
+            };
+        }
 
         var record = new RecordEntity
         {
@@ -137,7 +165,17 @@ public class ClinicalSessionService : IClinicalSessionService
 
         await _recordChannelRepository.AddAsync(channel);
 
-        return record;
+        return new RecordEntity
+        {
+            Id = record.Id,
+            RecordSessionId = record.RecordSessionId,
+            CollectionDate = record.CollectionDate,
+            SessionId = record.SessionId,
+            RecordType = record.RecordType,
+            Notes = record.Notes,
+            CreatedAt = record.CreatedAt,
+            UpdatedAt = record.UpdatedAt
+        };
     }
 
     public async Task<List<RecordEntity>> GetRecordingsBySessionAsync(Guid sessionId)
@@ -160,11 +198,40 @@ public class ClinicalSessionService : IClinicalSessionService
             UpdatedAt = DateTime.UtcNow
         };
 
-        return await _sessionAnnotationRepository.AddAsync(annotation);
+        var created = await _sessionAnnotationRepository.AddAsync(annotation);
+
+        // Return clean object without navigation properties
+        return new SessionAnnotation
+        {
+            Id = created.Id,
+            RecordSessionId = created.RecordSessionId,
+            Text = created.Text,
+            CreatedAt = created.CreatedAt,
+            UpdatedAt = created.UpdatedAt
+        };
     }
 
     public async Task<List<SessionAnnotation>> GetAnnotationsBySessionAsync(Guid sessionId)
     {
         return await _sessionAnnotationRepository.GetBySessionIdAsync(sessionId);
+    }
+
+    /// <summary>
+    /// Returns a new RecordSession with only scalar properties,
+    /// preventing circular reference errors during JSON serialization.
+    /// </summary>
+    private static RecordSession StripNavigationProperties(RecordSession session)
+    {
+        return new RecordSession
+        {
+            Id = session.Id,
+            ResearchId = session.ResearchId,
+            VolunteerId = session.VolunteerId,
+            ClinicalContext = session.ClinicalContext,
+            StartAt = session.StartAt,
+            FinishedAt = session.FinishedAt,
+            CreatedAt = session.CreatedAt,
+            UpdatedAt = session.UpdatedAt
+        };
     }
 }

@@ -59,6 +59,11 @@ public class TargetAreaConfiguration : IEntityTypeConfiguration<TargetArea>
             .HasForeignKey(x => x.RecordChannelId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        builder.HasOne(x => x.BodyStructure)
+            .WithMany()
+            .HasForeignKey(x => x.BodyStructureCode)
+            .OnDelete(DeleteBehavior.Restrict);
+
         builder.HasOne(x => x.Laterality)
             .WithMany(x => x.TargetAreas)
             .HasForeignKey(x => x.LateralityCode)
