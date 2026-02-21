@@ -40,6 +40,15 @@ public class SnomedTopographicalModifierConfiguration : IEntityTypeConfiguration
             .HasColumnName("is_active")
             .IsRequired();
 
+        // Timestamps (added for incremental sync watermark support)
+        builder.Property(x => x.CreatedAt)
+            .HasColumnName("created_at")
+            .IsRequired();
+
+        builder.Property(x => x.UpdatedAt)
+            .HasColumnName("updated_at")
+            .IsRequired();
+
         // Indexes
         builder.HasIndex(x => x.Category)
             .HasDatabaseName("ix_snomed_topographical_modifier_category");

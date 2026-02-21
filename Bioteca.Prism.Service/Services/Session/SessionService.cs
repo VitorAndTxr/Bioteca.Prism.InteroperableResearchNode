@@ -210,7 +210,7 @@ public class SessionService : ISessionService
         return 0;
     }
 
-    public async Task<bool> RecordRequestAsync(string sessionToken)
+    public async Task<bool> RecordRequestAsync(string sessionToken, int overrideLimit = 0)
     {
         var sessionData = await _sessionStore.GetSessionAsync(sessionToken);
 
@@ -230,13 +230,17 @@ public class SessionService : ISessionService
 
         var requestCount = await _sessionStore.GetRequestCountAsync(sessionToken, TimeSpan.FromMinutes(1));
 
+        // Use overrideLimit for sync endpoints (600 req/min); fall back to standard 60 req/min
+        var effectiveLimit = overrideLimit > 0 ? overrideLimit : MaxRequestsPerMinute;
+
         // Check if rate limit exceeded
-        if (requestCount >= MaxRequestsPerMinute)
+        if (requestCount >= effectiveLimit)
         {
             _logger.LogWarning(
-                "Rate limit exceeded for session {SessionToken}, node {NodeId}",
+                "Rate limit exceeded for session {SessionToken}, node {NodeId} (limit: {Limit}/min)",
                 sessionToken,
-                sessionData.NodeId);
+                sessionData.NodeId,
+                effectiveLimit);
             return false;
         }
 

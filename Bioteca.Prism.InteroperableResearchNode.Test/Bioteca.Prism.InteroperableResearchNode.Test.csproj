@@ -27,6 +27,8 @@
     <ProjectReference Include="..\Bioteca.Prism.InteroperableResearchNode\Bioteca.Prism.InteroperableResearchNode.csproj" />
     <ProjectReference Include="..\Bioteca.Prism.Service\Bioteca.Prism.Service.csproj" />
     <ProjectReference Include="..\Bioteca.Prism.Domain\Bioteca.Prism.Domain.csproj" />
+    <ProjectReference Include="..\Bioteca.Prism.Core\Bioteca.Prism.Core.csproj" />
+    <ProjectReference Include="..\Bioteca.Prism.Data\Bioteca.Prism.Data.csproj" />
   </ItemGroup>
 
 </Project>

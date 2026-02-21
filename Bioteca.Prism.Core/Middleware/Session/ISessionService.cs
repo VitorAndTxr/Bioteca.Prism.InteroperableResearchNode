@@ -68,8 +68,10 @@ public interface ISessionService
     /// Record a request for rate limiting
     /// </summary>
     /// <param name="sessionToken">Session token</param>
+    /// <param name="overrideLimit">When greater than 0, overrides the default rate limit (60 req/min).
+    /// Use 600 for sync endpoints.</param>
     /// <returns>True if request allowed, false if rate limit exceeded</returns>
-    Task<bool> RecordRequestAsync(string sessionToken);
+    Task<bool> RecordRequestAsync(string sessionToken, int overrideLimit = 0);
 }
 
 /// <summary>

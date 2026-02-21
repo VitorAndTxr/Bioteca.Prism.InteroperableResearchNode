@@ -158,14 +158,19 @@ public class PrismAuthenticatedSessionAttribute : Attribute, IAsyncActionFilter
         }
 
         // 4. Rate limiting
-        var allowed = await sessionService.RecordRequestAsync(sessionToken);
+        // Sync endpoints use 600 req/min (elevated) to allow paginated sync operations.
+        // All other endpoints use the standard 60 req/min enforced by SessionService.
+        var isSyncEndpoint = context.ActionDescriptor.EndpointMetadata
+            .Any(m => m is PrismSyncEndpointAttribute);
+        var allowed = await sessionService.RecordRequestAsync(sessionToken, isSyncEndpoint ? 600 : 0);
         if (!allowed)
         {
-            logger.LogWarning("Rate limit exceeded for session {SessionToken}", sessionToken);
+            var limit = isSyncEndpoint ? 600 : 60;
+            logger.LogWarning("Rate limit exceeded for session {SessionToken} (limit: {Limit}/min)", sessionToken, limit);
             context.Result = new ObjectResult(new
             {
                 error = "ERR_RATE_LIMIT_EXCEEDED",
-                message = "Too many requests. Maximum 60 requests per minute.",
+                message = $"Too many requests. Maximum {limit} requests per minute.",
                 retryAfter = 60
             })
             {

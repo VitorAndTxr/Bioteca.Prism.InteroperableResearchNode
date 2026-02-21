@@ -337,6 +337,78 @@ public class NodeChannelClient : INodeChannelClient
         return _encryptionService.DecryptPayload<AuthenticationResponse>(encryptedResponse, channelContext.SymmetricKey);
     }
 
+    /// <inheritdoc/>
+    public async Task<TResponse> InvokeAsync<TResponse>(
+        string channelId,
+        string sessionToken,
+        HttpMethod method,
+        string path,
+        object? body = null)
+    {
+        var channelContext = await _channelStore.GetChannelAsync(channelId)
+            ?? throw new InvalidOperationException($"Channel {channelId} not found or expired");
+
+        var httpClient = _httpClientFactory.CreateClient();
+        httpClient.DefaultRequestHeaders.Add("X-Channel-Id", channelId);
+        httpClient.DefaultRequestHeaders.Add("X-Session-Id", sessionToken);
+
+        HttpRequestMessage request;
+        if (body != null)
+        {
+            var encryptedPayload = _encryptionService.EncryptPayload(body, channelContext.SymmetricKey);
+            request = new HttpRequestMessage(method, $"{channelContext.RemoteNodeUrl}{path}")
+            {
+                Content = JsonContent.Create(encryptedPayload)
+            };
+        }
+        else
+        {
+            request = new HttpRequestMessage(method, $"{channelContext.RemoteNodeUrl}{path}");
+        }
+
+        var response = await httpClient.SendAsync(request);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var error = await response.Content.ReadFromJsonAsync<Error>();
+            throw new Exception($"Sync request failed [{response.StatusCode}]: {error?.ErrorDetail?.Message}");
+        }
+
+        var encryptedResponse = await response.Content.ReadFromJsonAsync<EncryptedPayload>();
+        if (encryptedResponse == null)
+        {
+            throw new Exception("Failed to deserialize encrypted response");
+        }
+
+        return _encryptionService.DecryptPayload<TResponse>(encryptedResponse, channelContext.SymmetricKey);
+    }
+
+    /// <inheritdoc/>
+    public async Task<Stream> InvokeStreamAsync(
+        string channelId,
+        string sessionToken,
+        string path)
+    {
+        var channelContext = await _channelStore.GetChannelAsync(channelId)
+            ?? throw new InvalidOperationException($"Channel {channelId} not found or expired");
+
+        var httpClient = _httpClientFactory.CreateClient();
+        httpClient.DefaultRequestHeaders.Add("X-Channel-Id", channelId);
+        httpClient.DefaultRequestHeaders.Add("X-Session-Id", sessionToken);
+
+        var request = new HttpRequestMessage(HttpMethod.Get, $"{channelContext.RemoteNodeUrl}{path}");
+        var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var error = await response.Content.ReadFromJsonAsync<Error>();
+            throw new Exception($"Stream request failed [{response.StatusCode}]: {error?.ErrorDetail?.Message}");
+        }
+
+        // Return raw stream; caller is responsible for disposing
+        return await response.Content.ReadAsStreamAsync();
+    }
+
     private string ExtractCurveFromAlgorithm(string algorithm)
     {
         // Extract curve from "ECDH-P384" -> "P384"

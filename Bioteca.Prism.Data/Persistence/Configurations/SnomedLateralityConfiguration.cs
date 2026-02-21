@@ -35,6 +35,15 @@ public class SnomedLateralityConfiguration : IEntityTypeConfiguration<SnomedLate
             .HasColumnName("is_active")
             .IsRequired();
 
+        // Timestamps (added for incremental sync watermark support)
+        builder.Property(x => x.CreatedAt)
+            .HasColumnName("created_at")
+            .IsRequired();
+
+        builder.Property(x => x.UpdatedAt)
+            .HasColumnName("updated_at")
+            .IsRequired();
+
         // Indexes
         builder.HasIndex(x => x.IsActive)
             .HasDatabaseName("ix_snomed_laterality_is_active");

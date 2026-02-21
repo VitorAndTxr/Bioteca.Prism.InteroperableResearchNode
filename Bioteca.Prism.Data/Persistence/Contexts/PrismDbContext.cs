@@ -7,6 +7,7 @@ using Bioteca.Prism.Domain.Entities.Research;
 using Bioteca.Prism.Domain.Entities.Researcher;
 using Bioteca.Prism.Domain.Entities.Sensor;
 using Bioteca.Prism.Domain.Entities.Snomed;
+using Bioteca.Prism.Domain.Entities.Sync;
 using Bioteca.Prism.Domain.Entities.User;
 using Bioteca.Prism.Domain.Entities.Volunteer;
 using Microsoft.EntityFrameworkCore;
@@ -183,6 +184,12 @@ public class PrismDbContext : DbContext
     /// User accounts for system access
     /// </summary>
     public DbSet<User> Users => Set<User>();
+
+    // Sync infrastructure
+    /// <summary>
+    /// Sync operation history per remote node
+    /// </summary>
+    public DbSet<SyncLog> SyncLogs => Set<SyncLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

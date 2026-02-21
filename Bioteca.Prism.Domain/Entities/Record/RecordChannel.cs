@@ -57,6 +57,11 @@ public class RecordChannel
     /// </summary>
     public DateTime CreatedAt { get; set; }
 
+    /// <summary>
+    /// Last update timestamp (used as watermark for incremental sync)
+    /// </summary>
+    public DateTime UpdatedAt { get; set; }
+
     // Navigation properties
     public Record Record { get; set; } = null!;
     public Sensor.Sensor? Sensor { get; set; }

@@ -25,6 +25,16 @@ public class SnomedLaterality
     /// </summary>
     public bool IsActive { get; set; }
 
+    /// <summary>
+    /// Creation timestamp (required for incremental sync)
+    /// </summary>
+    public DateTime CreatedAt { get; set; }
+
+    /// <summary>
+    /// Last update timestamp (used as watermark for incremental sync)
+    /// </summary>
+    public DateTime UpdatedAt { get; set; }
+
     // Navigation properties
     public ICollection<Record.TargetArea> TargetAreas { get; set; } = new List<Record.TargetArea>();
 }

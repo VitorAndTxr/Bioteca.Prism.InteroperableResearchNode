@@ -60,6 +60,10 @@ public class RecordChannelConfiguration : IEntityTypeConfiguration<RecordChannel
             .HasColumnName("created_at")
             .IsRequired();
 
+        builder.Property(x => x.UpdatedAt)
+            .HasColumnName("updated_at")
+            .IsRequired();
+
         // Relationships
         builder.HasOne(x => x.Record)
             .WithMany(x => x.RecordChannels)

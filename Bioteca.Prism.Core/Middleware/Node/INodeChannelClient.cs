@@ -53,6 +53,36 @@ public interface INodeChannelClient
     /// <param name="request">Challenge response request</param>
     /// <returns>Authentication response</returns>
     Task<AuthenticationResponse> AuthenticateAsync(string channelId, ChallengeResponseRequest request);
+
+    /// <summary>
+    /// Post-handshake: Make an arbitrary authenticated JSON request through the encrypted channel.
+    /// Encrypts the request body, adds X-Channel-Id and X-Session-Id headers, and decrypts the JSON response.
+    /// </summary>
+    /// <typeparam name="TResponse">Type to deserialize the response into</typeparam>
+    /// <param name="channelId">Active channel identifier</param>
+    /// <param name="sessionToken">Active session token</param>
+    /// <param name="method">HTTP method</param>
+    /// <param name="path">Request path (e.g. /api/sync/manifest)</param>
+    /// <param name="body">Optional request body (encrypted before sending)</param>
+    Task<TResponse> InvokeAsync<TResponse>(
+        string channelId,
+        string sessionToken,
+        HttpMethod method,
+        string path,
+        object? body = null);
+
+    /// <summary>
+    /// Post-handshake: Make an authenticated binary file download request through the encrypted channel.
+    /// Returns the raw response stream; the caller is responsible for reading and disposing it.
+    /// Used for recording file downloads where JSON deserialization is not appropriate.
+    /// </summary>
+    /// <param name="channelId">Active channel identifier</param>
+    /// <param name="sessionToken">Active session token</param>
+    /// <param name="path">Request path (e.g. /api/sync/recordings/{id}/file)</param>
+    Task<Stream> InvokeStreamAsync(
+        string channelId,
+        string sessionToken,
+        string path);
 }
 
 /// <summary>

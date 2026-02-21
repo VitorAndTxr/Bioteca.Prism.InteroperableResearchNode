@@ -16,6 +16,7 @@ using Bioteca.Prism.Data.Interfaces.Research;
 using Bioteca.Prism.Data.Interfaces.Researcher;
 using Bioteca.Prism.Data.Interfaces.Sensor;
 using Bioteca.Prism.Data.Interfaces.Snomed;
+using Bioteca.Prism.Data.Interfaces.Sync;
 using Bioteca.Prism.Data.Interfaces.User;
 using Bioteca.Prism.Data.Interfaces.Volunteer;
 using Bioteca.Prism.Data.Repositories.Application;
@@ -27,6 +28,7 @@ using Bioteca.Prism.Data.Repositories.Research;
 using Bioteca.Prism.Data.Repositories.Researcher;
 using Bioteca.Prism.Data.Repositories.Sensor;
 using Bioteca.Prism.Data.Repositories.Snomed;
+using Bioteca.Prism.Data.Repositories.Sync;
 using Bioteca.Prism.Data.Repositories.User;
 using Bioteca.Prism.Data.Repositories.Volunteer;
 using Bioteca.Prism.Service.Interfaces.Application;
@@ -37,6 +39,7 @@ using Bioteca.Prism.Service.Interfaces.Research;
 using Bioteca.Prism.Service.Interfaces.Researcher;
 using Bioteca.Prism.Service.Interfaces.Sensor;
 using Bioteca.Prism.Service.Interfaces.Snomed;
+using Bioteca.Prism.Service.Interfaces.Sync;
 using Bioteca.Prism.Service.Interfaces.User;
 using Bioteca.Prism.Service.Interfaces.Volunteer;
 using Bioteca.Prism.Service.Services.Application;
@@ -50,6 +53,7 @@ using Bioteca.Prism.Service.Services.Researcher;
 using Bioteca.Prism.Service.Services.Sensor;
 using Bioteca.Prism.Service.Services.Session;
 using Bioteca.Prism.Service.Services.Snomed;
+using Bioteca.Prism.Service.Services.Sync;
 using Bioteca.Prism.Service.Services.User;
 using Bioteca.Prism.Service.Services.Volunteer;
 using Microsoft.Extensions.DependencyInjection;
@@ -124,6 +128,10 @@ namespace Bioteca.Prism.CrossCutting
 
             // Register PostgreSQL-backed node registry service
             services.AddScoped<IResearchNodeService, ResearchNodeService>();
+
+            // Sync services
+            services.AddScoped<ISyncExportService, SyncExportService>();
+            services.AddScoped<ISyncImportService, SyncImportService>();
         }
 
 
@@ -160,6 +168,9 @@ namespace Bioteca.Prism.CrossCutting
             services.AddScoped<IAllergyIntoleranceRepository, AllergyIntoleranceRepository>();
             services.AddScoped<IMedicationRepository, MedicationRepository>();
             services.AddScoped<IResearchResearcherRepository, ResearchResearcherRepository>();
+
+            // Sync repositories
+            services.AddScoped<ISyncLogRepository, SyncLogRepository>();
         }
 
         public static void RegisterDatabase(IServiceCollection services)
