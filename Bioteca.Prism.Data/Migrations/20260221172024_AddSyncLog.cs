@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -11,45 +11,41 @@ namespace Bioteca.Prism.Data.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            // Add UpdatedAt to record_channel (was missing, required for incremental sync)
+            migrationBuilder.AddColumn<DateTime>(
+                name: "created_at",
+                table: "snomed_topographical_modifier",
+                type: "timestamp with time zone",
+                nullable: false,
+                defaultValue: new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified));
+
+            migrationBuilder.AddColumn<DateTime>(
+                name: "updated_at",
+                table: "snomed_topographical_modifier",
+                type: "timestamp with time zone",
+                nullable: false,
+                defaultValue: new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified));
+
+            migrationBuilder.AddColumn<DateTime>(
+                name: "created_at",
+                table: "snomed_laterality",
+                type: "timestamp with time zone",
+                nullable: false,
+                defaultValue: new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified));
+
+            migrationBuilder.AddColumn<DateTime>(
+                name: "updated_at",
+                table: "snomed_laterality",
+                type: "timestamp with time zone",
+                nullable: false,
+                defaultValue: new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified));
+
             migrationBuilder.AddColumn<DateTime>(
                 name: "updated_at",
                 table: "record_channel",
                 type: "timestamp with time zone",
                 nullable: false,
-                defaultValueSql: "NOW()");
+                defaultValue: new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified));
 
-            // Add CreatedAt + UpdatedAt to snomed_laterality (were missing, required for incremental sync)
-            migrationBuilder.AddColumn<DateTime>(
-                name: "created_at",
-                table: "snomed_laterality",
-                type: "timestamp with time zone",
-                nullable: false,
-                defaultValueSql: "NOW()");
-
-            migrationBuilder.AddColumn<DateTime>(
-                name: "updated_at",
-                table: "snomed_laterality",
-                type: "timestamp with time zone",
-                nullable: false,
-                defaultValueSql: "NOW()");
-
-            // Add CreatedAt + UpdatedAt to snomed_topographical_modifier (were missing, required for incremental sync)
-            migrationBuilder.AddColumn<DateTime>(
-                name: "created_at",
-                table: "snomed_topographical_modifier",
-                type: "timestamp with time zone",
-                nullable: false,
-                defaultValueSql: "NOW()");
-
-            migrationBuilder.AddColumn<DateTime>(
-                name: "updated_at",
-                table: "snomed_topographical_modifier",
-                type: "timestamp with time zone",
-                nullable: false,
-                defaultValueSql: "NOW()");
-
-            // Create sync_logs table
             migrationBuilder.CreateTable(
                 name: "sync_logs",
                 columns: table => new
@@ -74,35 +70,47 @@ namespace Bioteca.Prism.Data.Migrations
                         onDelete: ReferentialAction.Restrict);
                 });
 
-            // Indexes on sync_logs
             migrationBuilder.CreateIndex(
                 name: "ix_sync_logs_remote_node_id",
                 table: "sync_logs",
                 column: "remote_node_id");
 
             migrationBuilder.CreateIndex(
-                name: "ix_sync_logs_status",
-                table: "sync_logs",
-                column: "status");
-
-            migrationBuilder.CreateIndex(
                 name: "ix_sync_logs_started_at",
                 table: "sync_logs",
                 column: "started_at");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_sync_logs_status",
+                table: "sync_logs",
+                column: "status");
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropTable(name: "sync_logs");
+            migrationBuilder.DropTable(
+                name: "sync_logs");
 
-            migrationBuilder.DropColumn(name: "updated_at", table: "record_channel");
+            migrationBuilder.DropColumn(
+                name: "created_at",
+                table: "snomed_topographical_modifier");
 
-            migrationBuilder.DropColumn(name: "created_at", table: "snomed_laterality");
-            migrationBuilder.DropColumn(name: "updated_at", table: "snomed_laterality");
+            migrationBuilder.DropColumn(
+                name: "updated_at",
+                table: "snomed_topographical_modifier");
 
-            migrationBuilder.DropColumn(name: "created_at", table: "snomed_topographical_modifier");
-            migrationBuilder.DropColumn(name: "updated_at", table: "snomed_topographical_modifier");
+            migrationBuilder.DropColumn(
+                name: "created_at",
+                table: "snomed_laterality");
+
+            migrationBuilder.DropColumn(
+                name: "updated_at",
+                table: "snomed_laterality");
+
+            migrationBuilder.DropColumn(
+                name: "updated_at",
+                table: "record_channel");
         }
     }
 }
