@@ -132,6 +132,7 @@ namespace Bioteca.Prism.CrossCutting
             // Sync services
             services.AddScoped<ISyncExportService, SyncExportService>();
             services.AddScoped<ISyncImportService, SyncImportService>();
+            services.AddScoped<ISyncPullService, SyncPullService>();
         }
 
 
