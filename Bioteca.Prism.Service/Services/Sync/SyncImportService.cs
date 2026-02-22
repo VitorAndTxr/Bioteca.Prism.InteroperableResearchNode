@@ -118,6 +118,22 @@ public class SyncImportService : ISyncImportService
             counts["sessions"] = await ImportSessionsAsync(payload.Sessions);
             await _context.SaveChangesAsync();
 
+            // Recording blob uploads run inside the transaction so that FileUrl updates
+            // and entity metadata are atomically consistent. If any upload fails, both
+            // the DB transaction and all already-uploaded blobs are rolled back.
+            var uploadedBlobs = new List<(BlobContainerClient container, string blobName)>();
+            try
+            {
+                counts["recordings"] = await ImportRecordingsAsync(payload.Recordings, uploadedBlobs);
+                await _context.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Recording upload failed — rolling back {Count} uploaded blobs", uploadedBlobs.Count);
+                await RollbackBlobsAsync(uploadedBlobs);
+                throw;
+            }
+
             var completedAt = DateTime.UtcNow;
             syncLog.Status = "completed";
             syncLog.CompletedAt = completedAt;
@@ -126,9 +142,6 @@ public class SyncImportService : ISyncImportService
             await _context.SaveChangesAsync();
 
             await transaction.CommitAsync();
-
-            // Blob uploads happen outside the DB transaction — they are idempotent
-            counts["recordings"] = await ImportRecordingsAsync(payload.Recordings);
 
             return new SyncResultDTO
             {
@@ -1237,56 +1250,70 @@ public class SyncImportService : ISyncImportService
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Recording file import — uploads to blob storage outside DB transaction.
-    // Updates RecordChannel.FileUrl after successful upload.
-    // Idempotent: if blob already exists, overwrites it (same content expected).
+    // Recording file import — uploads to blob storage inside the DB transaction.
+    // Tracks uploaded blobs so they can be rolled back if any upload fails.
+    // FileUrl updates are part of the same transaction as entity metadata.
     // ─────────────────────────────────────────────────────────────────────────
 
-    private async Task<int> ImportRecordingsAsync(List<RecordingFileEntry> recordings)
+    private async Task<int> ImportRecordingsAsync(
+        List<RecordingFileEntry> recordings,
+        List<(BlobContainerClient container, string blobName)> uploadedBlobs)
     {
         if (recordings.Count == 0) return 0;
 
         var connectionString = _configuration["AzureBlobStorage:ConnectionString"] ?? "UseDevelopmentStorage=true";
         var containerName = _configuration["AzureBlobStorage:ContainerName"] ?? "recordings";
 
+        var blobServiceClient = new BlobServiceClient(connectionString);
+        var containerClient = blobServiceClient.GetBlobContainerClient(containerName);
+        await containerClient.CreateIfNotExistsAsync();
+
         int count = 0;
         foreach (var entry in recordings)
         {
+            var channel = await _context.RecordChannels.FindAsync(entry.Id);
+            if (channel == null)
+            {
+                _logger.LogWarning("RecordChannel {Id} not found; skipping recording upload", entry.Id);
+                continue;
+            }
+
+            var blobName = !string.IsNullOrEmpty(entry.BlobPath)
+                ? entry.BlobPath
+                : !string.IsNullOrEmpty(entry.FileName)
+                    ? entry.FileName
+                    : $"{entry.Id}.bin";
+            var blobClient = containerClient.GetBlobClient(blobName);
+
+            var fileBytes = Convert.FromBase64String(entry.ContentBase64);
+            using var ms = new MemoryStream(fileBytes);
+            await blobClient.UploadAsync(ms, overwrite: true);
+            uploadedBlobs.Add((containerClient, blobName));
+
+            channel.FileUrl = blobClient.Uri.ToString();
+            count++;
+        }
+        return count;
+    }
+
+    /// <summary>
+    /// Compensating action: deletes all blobs that were uploaded during a failed import.
+    /// Best-effort — individual delete failures are logged but do not propagate.
+    /// </summary>
+    private async Task RollbackBlobsAsync(List<(BlobContainerClient container, string blobName)> uploadedBlobs)
+    {
+        foreach (var (container, blobName) in uploadedBlobs)
+        {
             try
             {
-                var channel = await _context.RecordChannels.FindAsync(entry.Id);
-                if (channel == null)
-                {
-                    _logger.LogWarning("RecordChannel {Id} not found; skipping recording upload", entry.Id);
-                    continue;
-                }
-
-                var blobServiceClient = new BlobServiceClient(connectionString);
-                var containerClient = blobServiceClient.GetBlobContainerClient(containerName);
-                await containerClient.CreateIfNotExistsAsync();
-
-                var blobName = !string.IsNullOrEmpty(entry.BlobPath)
-                    ? entry.BlobPath
-                    : !string.IsNullOrEmpty(entry.FileName)
-                        ? entry.FileName
-                        : $"{entry.Id}.bin";
-                var blobClient = containerClient.GetBlobClient(blobName);
-
-                var fileBytes = Convert.FromBase64String(entry.ContentBase64);
-                using var ms = new MemoryStream(fileBytes);
-                await blobClient.UploadAsync(ms, overwrite: true);
-
-                channel.FileUrl = blobClient.Uri.ToString();
-                await _context.SaveChangesAsync();
-                count++;
+                await container.DeleteBlobIfExistsAsync(blobName);
+                _logger.LogInformation("Rolled back blob: {BlobName}", blobName);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to upload recording file for RecordChannel {Id}", entry.Id);
-                // Non-fatal: continue with remaining recordings
+                _logger.LogWarning(ex, "Failed to rollback blob {BlobName} — manual cleanup may be required", blobName);
             }
         }
-        return count;
     }
 
     // ─────────────────────────────────────────────────────────────────────────
