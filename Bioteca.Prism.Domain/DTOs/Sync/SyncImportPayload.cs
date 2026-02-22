@@ -31,6 +31,16 @@ public class SyncImportPayload
     public List<JsonElement> Volunteers { get; set; } = new();
 
     /// <summary>
+    /// Researcher entities (FK dependency for ResearchResearcher join table)
+    /// </summary>
+    public List<JsonElement> Researchers { get; set; } = new();
+
+    /// <summary>
+    /// Device entities (FK dependency for ResearchDevice join table)
+    /// </summary>
+    public List<JsonElement> Devices { get; set; } = new();
+
+    /// <summary>
     /// Research entities with nested sub-entities
     /// </summary>
     public List<JsonElement> Research { get; set; } = new();

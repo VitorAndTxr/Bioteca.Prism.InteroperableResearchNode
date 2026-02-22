@@ -370,8 +370,16 @@ public class NodeChannelClient : INodeChannelClient
 
         if (!response.IsSuccessStatusCode)
         {
-            var error = await response.Content.ReadFromJsonAsync<Error>();
-            throw new Exception($"Sync request failed [{response.StatusCode}]: {error?.ErrorDetail?.Message}");
+            var errorBody = await response.Content.ReadAsStringAsync();
+            try
+            {
+                var error = System.Text.Json.JsonSerializer.Deserialize<Error>(errorBody);
+                throw new Exception($"Sync request failed [{response.StatusCode}]: {error?.ErrorDetail?.Message}");
+            }
+            catch (System.Text.Json.JsonException)
+            {
+                throw new Exception($"Sync request failed [{response.StatusCode}]: {errorBody}");
+            }
         }
 
         var encryptedResponse = await response.Content.ReadFromJsonAsync<EncryptedPayload>();

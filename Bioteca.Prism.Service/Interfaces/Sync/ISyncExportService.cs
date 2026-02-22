@@ -33,6 +33,20 @@ public interface ISyncExportService
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Export researchers with pagination and since-filtering.
+    /// </summary>
+    Task<PagedSyncResult<Domain.Entities.Researcher.Researcher>> GetResearchersAsync(
+        DateTime? since, int page, int pageSize,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Export devices with pagination and since-filtering.
+    /// </summary>
+    Task<PagedSyncResult<Domain.Entities.Device.Device>> GetDevicesAsync(
+        DateTime? since, int page, int pageSize,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Export research projects with nested sub-entities (Applications, ResearchDevices, ResearchResearchers).
     /// </summary>
     Task<PagedSyncResult<Domain.Entities.Research.Research>> GetResearchAsync(

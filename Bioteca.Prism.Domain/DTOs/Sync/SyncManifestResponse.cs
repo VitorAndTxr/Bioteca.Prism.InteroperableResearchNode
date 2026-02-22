@@ -13,6 +13,8 @@ public class SyncManifestResponse
     public DateTime? LastSyncedAt { get; set; }
     public SyncEntitySummaryDto Snomed { get; set; } = new();
     public SyncEntitySummaryDto Volunteers { get; set; } = new();
+    public SyncEntitySummaryDto Researchers { get; set; } = new();
+    public SyncEntitySummaryDto Devices { get; set; } = new();
     public SyncEntitySummaryDto Research { get; set; } = new();
     public SyncEntitySummaryDto Sessions { get; set; } = new();
     public SyncRecordingSummaryDto Recordings { get; set; } = new();

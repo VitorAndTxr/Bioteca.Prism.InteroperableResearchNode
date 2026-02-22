@@ -1,6 +1,8 @@
+using Bioteca.Prism.Core.Middleware.Channel;
+using Bioteca.Prism.Core.Security.Authorization;
 using Bioteca.Prism.Domain.DTOs.Sync;
+using Bioteca.Prism.InteroperableResearchNode.Middleware;
 using Bioteca.Prism.Service.Interfaces.Sync;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Bioteca.Prism.InteroperableResearchNode.Controllers;
@@ -8,17 +10,13 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers;
 /// <summary>
 /// User-authenticated pull/preview endpoints for triggering backend-to-backend sync.
 ///
-/// These endpoints use standard JWT [Authorize] (user authentication), NOT the
-/// [PrismAuthenticatedSession] node-session attribute used by SyncController.
-/// Having two controllers share the "api/sync" route prefix is fully supported by
-/// ASP.NET Core — attribute routing resolves actions by method + path independently.
-///
+/// These endpoints use the encrypted channel + node session + user JWT auth stack,
+/// following the same pattern as other PRISM controllers.
 /// The backend performs the full 4-phase node handshake internally via INodeChannelClient.
 /// Sensitive entity data never transits through the UI layer.
 /// </summary>
 [ApiController]
 [Route("api/sync")]
-[Authorize]
 public class SyncPullController : ControllerBase
 {
     private readonly ISyncPullService _syncPullService;
@@ -35,9 +33,14 @@ public class SyncPullController : ControllerBase
     /// Useful for showing the user how many entities will be synced before confirming.
     /// </summary>
     [HttpPost("preview")]
-    public async Task<IActionResult> Preview([FromBody] SyncPullRequest request)
+    [PrismEncryptedChannelConnection<SyncPullRequest>]
+    [PrismAuthenticatedSession]
+    [Authorize("sub")]
+    public async Task<IActionResult> Preview()
     {
-        if (request.RemoteNodeId == Guid.Empty)
+        var request = HttpContext.Items["DecryptedRequest"] as SyncPullRequest;
+
+        if (request == null || request.RemoteNodeId == Guid.Empty)
         {
             return BadRequest(new { error = "ERR_INVALID_REQUEST", message = "remoteNodeId is required" });
         }
@@ -75,9 +78,14 @@ public class SyncPullController : ControllerBase
     /// them transactionally. Returns a summary of synced entities.
     /// </summary>
     [HttpPost("pull")]
-    public async Task<IActionResult> Pull([FromBody] SyncPullRequest request)
+    [PrismEncryptedChannelConnection<SyncPullRequest>]
+    [PrismAuthenticatedSession]
+    [Authorize("sub")]
+    public async Task<IActionResult> Pull()
     {
-        if (request.RemoteNodeId == Guid.Empty)
+        var request = HttpContext.Items["DecryptedRequest"] as SyncPullRequest;
+
+        if (request == null || request.RemoteNodeId == Guid.Empty)
         {
             return BadRequest(new { error = "ERR_INVALID_REQUEST", message = "remoteNodeId is required" });
         }

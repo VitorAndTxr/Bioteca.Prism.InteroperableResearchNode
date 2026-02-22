@@ -225,23 +225,35 @@ public class SyncPullService : ISyncPullService
 
         // Volunteers → Research → Sessions (dependency order)
         payload.Volunteers = await FetchAllPagesAsync(channelId, sessionToken, "/api/sync/volunteers", sinceParam);
+
+        // Researchers and Devices (FK dependencies for Research join tables)
+        payload.Researchers = await FetchAllPagesAsync(channelId, sessionToken, "/api/sync/researchers", sinceParam);
+        payload.Devices = await FetchAllPagesAsync(channelId, sessionToken, "/api/sync/devices", sinceParam);
+
         payload.Research = await FetchAllPagesAsync(channelId, sessionToken, "/api/sync/research", sinceParam);
         payload.Sessions = await FetchAllPagesAsync(channelId, sessionToken, "/api/sync/sessions", sinceParam);
 
-        // Recording files for channels that have a file reference
+        // Recording files for channels that have a file reference (non-fatal: skip files that fail)
         var recordingIds = ExtractRecordingChannelIds(payload.Sessions);
         foreach (var id in recordingIds)
         {
-            var fileEntry = await _nodeChannelClient.InvokeAsync<RecordingFileResponseDto>(
-                channelId, sessionToken, HttpMethod.Get, $"/api/sync/recordings/{id}/file");
-
-            payload.Recordings.Add(new RecordingFileEntry
+            try
             {
-                Id = Guid.Parse(id),
-                ContentBase64 = fileEntry.ContentBase64,
-                ContentType = fileEntry.ContentType,
-                FileName = fileEntry.FileName
-            });
+                var fileEntry = await _nodeChannelClient.InvokeAsync<RecordingFileResponseDto>(
+                    channelId, sessionToken, HttpMethod.Get, $"/api/sync/recordings/{id}/file");
+
+                payload.Recordings.Add(new RecordingFileEntry
+                {
+                    Id = Guid.Parse(id),
+                    ContentBase64 = fileEntry.ContentBase64,
+                    ContentType = fileEntry.ContentType,
+                    FileName = fileEntry.FileName
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Skipping recording file {RecordChannelId} — fetch failed", id);
+            }
         }
 
         return payload;

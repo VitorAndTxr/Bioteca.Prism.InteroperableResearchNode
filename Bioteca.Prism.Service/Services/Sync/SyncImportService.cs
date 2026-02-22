@@ -62,6 +62,8 @@ public class SyncImportService : ISyncImportService
         {
             ["snomed"] = 0,
             ["volunteers"] = 0,
+            ["researchers"] = 0,
+            ["devices"] = 0,
             ["research"] = 0,
             ["sessions"] = 0,
             ["recordings"] = 0
@@ -102,6 +104,12 @@ public class SyncImportService : ISyncImportService
             await _context.SaveChangesAsync();
 
             counts["volunteers"] = await ImportVolunteersAsync(payload.Volunteers, localNodeId);
+            await _context.SaveChangesAsync();
+
+            counts["researchers"] = await ImportResearchersAsync(payload.Researchers, localNodeId);
+            await _context.SaveChangesAsync();
+
+            counts["devices"] = await ImportDevicesAsync(payload.Devices);
             await _context.SaveChangesAsync();
 
             counts["research"] = await ImportResearchAsync(payload.Research, localNodeId);
@@ -792,6 +800,89 @@ public class SyncImportService : ISyncImportService
                 }
             }
         }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Researcher import
+    // ResearchNodeId is overwritten to local node ID (same as Volunteer).
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private async Task<int> ImportResearchersAsync(List<JsonElement> items, Guid localNodeId)
+    {
+        int count = 0;
+        foreach (var item in items)
+        {
+            var id = GetGuid(item, "researcherId");
+            var existing = await _context.Researchers.FindAsync(id);
+            var updatedAt = GetDateTime(item, "updatedAt");
+
+            if (existing == null)
+            {
+                _context.Researchers.Add(new Domain.Entities.Researcher.Researcher
+                {
+                    ResearcherId = id,
+                    ResearchNodeId = localNodeId,
+                    Name = GetString(item, "name"),
+                    Email = GetString(item, "email"),
+                    Institution = GetString(item, "institution"),
+                    Role = GetString(item, "role"),
+                    Orcid = GetString(item, "orcid"),
+                    CreatedAt = GetDateTime(item, "createdAt"),
+                    UpdatedAt = updatedAt
+                });
+                count++;
+            }
+            else if (updatedAt > existing.UpdatedAt)
+            {
+                existing.ResearchNodeId = localNodeId;
+                existing.Name = GetString(item, "name");
+                existing.Email = GetString(item, "email");
+                existing.Institution = GetString(item, "institution");
+                existing.Role = GetString(item, "role");
+                existing.Orcid = GetString(item, "orcid");
+                existing.UpdatedAt = updatedAt;
+            }
+        }
+        return count;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Device import
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private async Task<int> ImportDevicesAsync(List<JsonElement> items)
+    {
+        int count = 0;
+        foreach (var item in items)
+        {
+            var id = GetGuid(item, "deviceId");
+            var existing = await _context.Devices.FindAsync(id);
+            var updatedAt = GetDateTime(item, "updatedAt");
+
+            if (existing == null)
+            {
+                _context.Devices.Add(new Domain.Entities.Device.Device
+                {
+                    DeviceId = id,
+                    DeviceName = GetString(item, "deviceName"),
+                    Manufacturer = GetString(item, "manufacturer"),
+                    Model = GetString(item, "model"),
+                    AdditionalInfo = GetString(item, "additionalInfo"),
+                    CreatedAt = GetDateTime(item, "createdAt"),
+                    UpdatedAt = updatedAt
+                });
+                count++;
+            }
+            else if (updatedAt > existing.UpdatedAt)
+            {
+                existing.DeviceName = GetString(item, "deviceName");
+                existing.Manufacturer = GetString(item, "manufacturer");
+                existing.Model = GetString(item, "model");
+                existing.AdditionalInfo = GetString(item, "additionalInfo");
+                existing.UpdatedAt = updatedAt;
+            }
+        }
+        return count;
     }
 
     // ─────────────────────────────────────────────────────────────────────────

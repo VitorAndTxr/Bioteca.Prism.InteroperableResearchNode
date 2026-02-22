@@ -113,6 +113,50 @@ public class SyncController : ControllerBase
     }
 
     /// <summary>
+    /// Export researchers with pagination and since-filtering.
+    /// </summary>
+    [HttpGet("researchers")]
+    [PrismEncryptedChannelConnection]
+    public async Task<IActionResult> GetResearchers(
+        [FromQuery] DateTime? since,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 100)
+    {
+        try
+        {
+            var result = await _syncExportService.GetResearchersAsync(since, page, pageSize);
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error exporting researchers");
+            return StatusCode(500, new { error = "ERR_EXPORT_FAILED", message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Export devices with pagination and since-filtering.
+    /// </summary>
+    [HttpGet("devices")]
+    [PrismEncryptedChannelConnection]
+    public async Task<IActionResult> GetDevices(
+        [FromQuery] DateTime? since,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 100)
+    {
+        try
+        {
+            var result = await _syncExportService.GetDevicesAsync(since, page, pageSize);
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error exporting devices");
+            return StatusCode(500, new { error = "ERR_EXPORT_FAILED", message = ex.Message });
+        }
+    }
+
+    /// <summary>
     /// Export research projects with nested sub-entities, with pagination and since-filtering.
     /// </summary>
     [HttpGet("research")]

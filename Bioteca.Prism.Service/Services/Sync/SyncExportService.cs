@@ -220,6 +220,30 @@ public class SyncExportService : ISyncExportService
         return BuildResult(items, page, pageSize, total);
     }
 
+    public async Task<PagedSyncResult<Domain.Entities.Researcher.Researcher>> GetResearchersAsync(
+        DateTime? since, int page, int pageSize, CancellationToken cancellationToken = default)
+    {
+        var skip = (page - 1) * pageSize;
+        var query = _context.Researchers.AsNoTracking().AsQueryable();
+        if (since.HasValue) query = query.Where(r => r.UpdatedAt > since.Value);
+        query = query.OrderBy(r => r.UpdatedAt);
+        var total = await query.CountAsync(cancellationToken);
+        var items = await query.Skip(skip).Take(pageSize).ToListAsync(cancellationToken);
+        return BuildResult(items, page, pageSize, total);
+    }
+
+    public async Task<PagedSyncResult<Domain.Entities.Device.Device>> GetDevicesAsync(
+        DateTime? since, int page, int pageSize, CancellationToken cancellationToken = default)
+    {
+        var skip = (page - 1) * pageSize;
+        var query = _context.Devices.AsNoTracking().AsQueryable();
+        if (since.HasValue) query = query.Where(d => d.UpdatedAt > since.Value);
+        query = query.OrderBy(d => d.UpdatedAt);
+        var total = await query.CountAsync(cancellationToken);
+        var items = await query.Skip(skip).Take(pageSize).ToListAsync(cancellationToken);
+        return BuildResult(items, page, pageSize, total);
+    }
+
     public async Task<PagedSyncResult<Domain.Entities.Research.Research>> GetResearchAsync(
         DateTime? since, int page, int pageSize, CancellationToken cancellationToken = default)
     {
@@ -275,7 +299,14 @@ public class SyncExportService : ISyncExportService
         try
         {
             var connectionString = _configuration["AzureBlobStorage:ConnectionString"] ?? "UseDevelopmentStorage=true";
-            var blobClient = new BlobClient(new Uri(channel.FileUrl), null);
+            var containerName = _configuration["AzureBlobStorage:ContainerName"] ?? "recordings";
+            var blobName = new Uri(channel.FileUrl).AbsolutePath.TrimStart('/');
+            // Remove the account/container prefix if present (e.g., "devstoreaccount1/node-a/file.zip" → "file.zip")
+            var parts = blobName.Split('/', 3);
+            if (parts.Length == 3) blobName = parts[2];
+            else if (parts.Length == 2) blobName = parts[1];
+            var blobServiceClient = new Azure.Storage.Blobs.BlobServiceClient(connectionString);
+            var blobClient = blobServiceClient.GetBlobContainerClient(containerName).GetBlobClient(blobName);
 
             if (!await blobClient.ExistsAsync(cancellationToken))
             {
