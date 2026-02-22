@@ -1265,9 +1265,11 @@ public class SyncImportService : ISyncImportService
                 var containerClient = blobServiceClient.GetBlobContainerClient(containerName);
                 await containerClient.CreateIfNotExistsAsync();
 
-                var blobName = string.IsNullOrEmpty(entry.FileName)
-                    ? $"{entry.Id}.bin"
-                    : entry.FileName;
+                var blobName = !string.IsNullOrEmpty(entry.BlobPath)
+                    ? entry.BlobPath
+                    : !string.IsNullOrEmpty(entry.FileName)
+                        ? entry.FileName
+                        : $"{entry.Id}.bin";
                 var blobClient = containerClient.GetBlobClient(blobName);
 
                 var fileBytes = Convert.FromBase64String(entry.ContentBase64);

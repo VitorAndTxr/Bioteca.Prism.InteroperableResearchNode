@@ -284,7 +284,7 @@ public class SyncExportService : ISyncExportService
         return BuildResult(items, page, pageSize, total);
     }
 
-    public async Task<(byte[] data, string contentType, string fileName)?> GetRecordingFileAsync(
+    public async Task<(byte[] data, string contentType, string fileName, string blobPath)?> GetRecordingFileAsync(
         Guid recordChannelId, CancellationToken cancellationToken = default)
     {
         var channel = await _context.RecordChannels
@@ -317,7 +317,7 @@ public class SyncExportService : ISyncExportService
             using var ms = new MemoryStream();
             await blobClient.DownloadToAsync(ms, cancellationToken);
             var fileName = Path.GetFileName(channel.FileUrl.Split('/').Last());
-            return (ms.ToArray(), "application/octet-stream", fileName);
+            return (ms.ToArray(), "application/octet-stream", fileName, blobName);
         }
         catch (Exception ex)
         {

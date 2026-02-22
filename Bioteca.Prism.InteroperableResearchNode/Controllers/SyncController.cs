@@ -218,12 +218,13 @@ public class SyncController : ControllerBase
                 return NotFound(new { error = "ERR_RECORDING_NOT_FOUND", message = $"Recording file for channel {id} not found" });
             }
 
-            var (data, contentType, fileName) = result.Value;
+            var (data, contentType, fileName, blobPath) = result.Value;
             return Ok(new
             {
                 ContentBase64 = Convert.ToBase64String(data),
                 ContentType = contentType,
-                FileName = fileName
+                FileName = fileName,
+                BlobPath = blobPath
             });
         }
         catch (Exception ex)

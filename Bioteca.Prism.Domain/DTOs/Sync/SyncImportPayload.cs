@@ -93,4 +93,10 @@ public class RecordingFileEntry
     /// Original file name for storage
     /// </summary>
     public string FileName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Relative blob path preserving the source node's folder structure
+    /// (e.g. "{ResearchId}/{SessionId}/{RecordingId}.csv")
+    /// </summary>
+    public string BlobPath { get; set; } = string.Empty;
 }

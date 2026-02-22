@@ -247,7 +247,8 @@ public class SyncPullService : ISyncPullService
                     Id = Guid.Parse(id),
                     ContentBase64 = fileEntry.ContentBase64,
                     ContentType = fileEntry.ContentType,
-                    FileName = fileEntry.FileName
+                    FileName = fileEntry.FileName,
+                    BlobPath = fileEntry.BlobPath
                 });
             }
             catch (Exception ex)
@@ -421,5 +422,6 @@ public class SyncPullService : ISyncPullService
         public string ContentBase64 { get; set; } = string.Empty;
         public string ContentType { get; set; } = "application/octet-stream";
         public string FileName { get; set; } = string.Empty;
+        public string BlobPath { get; set; } = string.Empty;
     }
 }

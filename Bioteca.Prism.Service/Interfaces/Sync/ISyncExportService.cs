@@ -64,7 +64,7 @@ public interface ISyncExportService
     /// Get recording file bytes by RecordChannel ID.
     /// Returns null if the file does not exist.
     /// </summary>
-    Task<(byte[] data, string contentType, string fileName)?> GetRecordingFileAsync(
+    Task<(byte[] data, string contentType, string fileName, string blobPath)?> GetRecordingFileAsync(
         Guid recordChannelId,
         CancellationToken cancellationToken = default);
 }
