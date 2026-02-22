@@ -70,31 +70,39 @@ public class BaseRepository<TEntity, TKey> : IBaseRepository<TEntity, TKey> wher
 
     public virtual async Task<List<TEntity>> GetPagedAsync()
     {
-        // Set request pagination in ApiContext
-        var page = _apiContext.PagingContext.RequestPaging.Page;
-        var pageSize = _apiContext.PagingContext.RequestPaging.PageSize;
+        try
+        {
 
-        // Validate and normalize pagination parameters
-        if (page < 1) page = 1;
-        if (pageSize < 1) pageSize = 10;
-        if (pageSize > 100) pageSize = 100; // Max page size limit
+            // Set request pagination in ApiContext
+            var page = _apiContext.PagingContext.RequestPaging.Page;
+            var pageSize = _apiContext.PagingContext.RequestPaging.PageSize;
 
-        // Build base query
-        var query = _dbSet.AsQueryable();
+            // Validate and normalize pagination parameters
+            if (page < 1) page = 1;
+            if (pageSize < 1) pageSize = 10;
+            if (pageSize > 100) pageSize = 100; // Max page size limit
 
-        // Get total count
-        var totalCount = await query.CountAsync();
+            // Build base query
+            var query = _dbSet.AsQueryable();
 
-        // Apply pagination
-        var items = await query
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .ToListAsync();
+            // Get total count
+            var totalCount = await query.CountAsync();
 
-        var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+            // Apply pagination
+            var items = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
 
-        _apiContext.PagingContext.ResponsePaging.SetValues(page, pageSize, totalPages, totalCount);
+            var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
 
-        return items;
+            _apiContext.PagingContext.ResponsePaging.SetValues(page, pageSize, totalPages, totalCount);
+
+            return items;
+        }
+        catch (Exception)
+        {
+            throw;
+        }
     }
 }

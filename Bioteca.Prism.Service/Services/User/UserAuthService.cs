@@ -101,11 +101,16 @@ namespace Bioteca.Prism.Service.Services.User
             List<Claim> claims = new List<Claim>
             {
                 new Claim("sub", user.Id.ToString()),
-                new Claim("login", user.Login),
-                new Claim("name", user.Researcher.Name),
-                new Claim("email", user.Researcher.Email),
-                new Claim("orcid", user.Researcher.Orcid),
+                new Claim("login", user.Login)
             };
+
+            if(user.Researcher!= null)
+            {
+                claims.Add(new Claim("name", user.Researcher.Name));
+                claims.Add(new Claim("email", user.Researcher.Email));
+                claims.Add(new Claim("orcid", user.Researcher.Orcid));
+
+            }
 
             if (loadResearchs)
             {
