@@ -87,8 +87,9 @@ public class SyncExportService : ISyncExportService
             : await _context.RecordSessions.CountAsync(cancellationToken);
         var sessionLatest = await _context.RecordSessions.MaxAsync(s => (DateTime?)s.UpdatedAt, cancellationToken);
 
-        var recordingCount = await _context.RecordChannels
-            .CountAsync(rc => !string.IsNullOrEmpty(rc.FileUrl), cancellationToken);
+        var recordingCount = since.HasValue
+            ? await _context.RecordChannels.CountAsync(rc => !string.IsNullOrEmpty(rc.FileUrl) && rc.UpdatedAt > since.Value, cancellationToken)
+            : await _context.RecordChannels.CountAsync(rc => !string.IsNullOrEmpty(rc.FileUrl), cancellationToken);
 
         return new SyncManifestResponse
         {

@@ -1,5 +1,6 @@
 using Bioteca.Prism.Core.Middleware.Node;
 using Bioteca.Prism.Data.Interfaces.Node;
+using Bioteca.Prism.Data.Interfaces.Sync;
 using Bioteca.Prism.Domain.DTOs.ResearchNode;
 using Bioteca.Prism.Domain.DTOs.Snomed;
 using Bioteca.Prism.Domain.Entities.Node;
@@ -18,11 +19,13 @@ namespace Bioteca.Prism.Service.Services.Node;
 public class ResearchNodeService : IResearchNodeService
 {
     private readonly INodeRepository _repository;
+    private readonly ISyncLogRepository _syncLogRepository;
     private readonly ILogger<ResearchNodeService> _logger;
 
-    public ResearchNodeService(INodeRepository repository, ILogger<ResearchNodeService> logger)
+    public ResearchNodeService(INodeRepository repository, ISyncLogRepository syncLogRepository, ILogger<ResearchNodeService> logger)
     {
         _repository = repository;
+        _syncLogRepository = syncLogRepository;
         _logger = logger;
     }
 
@@ -30,20 +33,27 @@ public class ResearchNodeService : IResearchNodeService
     {
         List<ResearchNode> results = await _repository.GetAllConnectionsPaginatedAsync();
 
-        var mappedResults = results.Select(node => new ResearchNodeConnectionDTO
+        var mappedResults = new List<ResearchNodeConnectionDTO>();
+        foreach (var node in results)
         {
-            Id = node.Id,
-            NodeName = node.NodeName,
-            NodeUrl = node.NodeUrl,
-            Status = node.Status,
-            NodeAccessLevel = node.NodeAccessLevel,
-            ContactInfo = node.ContactInfo,
-            Certificate = node.Certificate,
-            CertificateFingerprint = node.CertificateFingerprint,
-            InstitutionDetails = node.InstitutionDetails,
-            RegisteredAt = node.RegisteredAt,
-            UpdatedAt = node.UpdatedAt
-        }).ToList();
+            var latestSync = await _syncLogRepository.GetLatestCompletedAsync(node.Id);
+            mappedResults.Add(new ResearchNodeConnectionDTO
+            {
+                Id = node.Id,
+                NodeName = node.NodeName,
+                NodeUrl = node.NodeUrl,
+                Status = node.Status,
+                NodeAccessLevel = node.NodeAccessLevel,
+                ContactInfo = node.ContactInfo,
+                Certificate = node.Certificate,
+                CertificateFingerprint = node.CertificateFingerprint,
+                InstitutionDetails = node.InstitutionDetails,
+                RegisteredAt = node.RegisteredAt,
+                UpdatedAt = node.UpdatedAt,
+                LastSyncedAt = latestSync?.CompletedAt,
+                LastSyncStatus = latestSync?.Status
+            });
+        }
 
         return mappedResults;
     }
