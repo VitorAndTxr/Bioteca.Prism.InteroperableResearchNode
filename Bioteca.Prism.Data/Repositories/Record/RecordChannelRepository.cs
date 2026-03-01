@@ -25,7 +25,6 @@ public class RecordChannelRepository : BaseRepository<RecordChannel, Guid>, IRec
     {
         return await _dbSet
             .Where(rc => rc.RecordId == recordId)
-            .Include(rc => rc.TargetAreas)
             .ToListAsync(cancellationToken);
     }
 

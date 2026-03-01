@@ -9,9 +9,9 @@ namespace Bioteca.Prism.Data.Interfaces.Record;
 public interface ITargetAreaRepository : IBaseRepository<TargetArea, Guid>
 {
     /// <summary>
-    /// Get target areas by record channel ID
+    /// Get target areas by record session ID
     /// </summary>
-    Task<List<TargetArea>> GetByRecordChannelIdAsync(Guid recordChannelId, CancellationToken cancellationToken = default);
+    Task<List<TargetArea>> GetByRecordSessionIdAsync(Guid recordSessionId, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Get target areas by body structure code

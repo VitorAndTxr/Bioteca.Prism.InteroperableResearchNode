@@ -1074,7 +1074,7 @@ public class SyncImportService : ISyncImportService
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Session import (with nested Records → RecordChannels → TargetAreas + Annotations)
+    // Session import (with nested Records → RecordChannels + TargetArea + Annotations)
     // ─────────────────────────────────────────────────────────────────────────
 
     private async Task<int> ImportSessionsAsync(List<JsonElement> items)
@@ -1084,7 +1084,7 @@ public class SyncImportService : ISyncImportService
         {
             var id = GetGuid(item, "id");
             var existing = await _context.RecordSessions
-                .Include(s => s.Records).ThenInclude(r => r.RecordChannels).ThenInclude(rc => rc.TargetAreas)
+                .Include(s => s.Records).ThenInclude(r => r.RecordChannels)
                 .Include(s => s.SessionAnnotations)
                 .FirstOrDefaultAsync(s => s.Id == id);
 
@@ -1097,7 +1097,6 @@ public class SyncImportService : ISyncImportService
                     Id = id,
                     ResearchId = TryGetGuid(item, "researchId"),
                     VolunteerId = GetGuid(item, "volunteerId"),
-                    ClinicalContext = GetString(item, "clinicalContext"),
                     StartAt = GetDateTime(item, "startAt"),
                     FinishedAt = TryGetDateTime(item, "finishedAt"),
                     CreatedAt = GetDateTime(item, "createdAt"),
@@ -1108,12 +1107,99 @@ public class SyncImportService : ISyncImportService
             else if (updatedAt > existing.UpdatedAt)
             {
                 existing.ResearchId = TryGetGuid(item, "researchId");
-                existing.ClinicalContext = GetString(item, "clinicalContext");
                 existing.FinishedAt = TryGetDateTime(item, "finishedAt");
                 existing.UpdatedAt = updatedAt;
             }
 
-            // Records → RecordChannels → TargetAreas
+            // Session-level TargetArea (single object, not array)
+            if (item.TryGetProperty("targetArea", out var taElement) && taElement.ValueKind == JsonValueKind.Object)
+            {
+                var taId = GetGuid(taElement, "id");
+                var taExisting = await _context.TargetAreas
+                    .Include(ta => ta.TopographicalModifiers)
+                    .FirstOrDefaultAsync(ta => ta.Id == taId);
+                var taUpdatedAt = GetDateTime(taElement, "updatedAt");
+
+                if (taExisting == null)
+                {
+                    var newTargetArea = new TargetArea
+                    {
+                        Id = taId,
+                        RecordSessionId = id,
+                        BodyStructureCode = GetString(taElement, "bodyStructureCode"),
+                        LateralityCode = TryGetString(taElement, "lateralityCode"),
+                        CreatedAt = GetDateTime(taElement, "createdAt"),
+                        UpdatedAt = taUpdatedAt
+                    };
+
+                    if (taElement.TryGetProperty("topographicalModifierCodes", out var codesArray))
+                    {
+                        foreach (var codeEl in codesArray.EnumerateArray())
+                        {
+                            var code = codeEl.GetString();
+                            if (!string.IsNullOrEmpty(code))
+                            {
+                                newTargetArea.TopographicalModifiers.Add(new TargetAreaTopographicalModifier
+                                {
+                                    TargetAreaId = taId,
+                                    TopographicalModifierCode = code
+                                });
+                            }
+                        }
+                    }
+
+                    _context.TargetAreas.Add(newTargetArea);
+
+                    // Link the session to its target area.
+                    // When the session is new (existing == null), it has been added to the EF change tracker
+                    // at the sessions loop above but not yet persisted (SaveChangesAsync runs after all sessions
+                    // are processed). A DB query would miss it at this point, so we fall back to
+                    // ChangeTracker.Local to resolve the in-flight entity within the same transaction batch.
+                    var sessionToLink = existing ?? _context.RecordSessions.Local.FirstOrDefault(s => s.Id == id);
+                    if (sessionToLink != null)
+                        sessionToLink.TargetAreaId = taId;
+                }
+                else if (taUpdatedAt > taExisting.UpdatedAt)
+                {
+                    taExisting.BodyStructureCode = GetString(taElement, "bodyStructureCode");
+                    taExisting.LateralityCode = TryGetString(taElement, "lateralityCode");
+                    taExisting.UpdatedAt = taUpdatedAt;
+
+                    // Re-sync topographical modifier codes
+                    if (taElement.TryGetProperty("topographicalModifierCodes", out var codesArray))
+                    {
+                        var incomingCodes = codesArray.EnumerateArray()
+                            .Select(c => c.GetString())
+                            .Where(c => !string.IsNullOrEmpty(c))
+                            .ToHashSet();
+
+                        // Remove codes that are no longer present
+                        var toRemove = taExisting.TopographicalModifiers
+                            .Where(tm => !incomingCodes.Contains(tm.TopographicalModifierCode))
+                            .ToList();
+                        foreach (var r in toRemove)
+                            _context.TargetAreaTopographicalModifiers.Remove(r);
+
+                        // Add new codes
+                        var existingCodes = taExisting.TopographicalModifiers
+                            .Select(tm => tm.TopographicalModifierCode)
+                            .ToHashSet();
+                        foreach (var code in incomingCodes)
+                        {
+                            if (!existingCodes.Contains(code!))
+                            {
+                                _context.TargetAreaTopographicalModifiers.Add(new TargetAreaTopographicalModifier
+                                {
+                                    TargetAreaId = taId,
+                                    TopographicalModifierCode = code!
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Records → RecordChannels
             if (item.TryGetProperty("records", out var recordsArray))
             {
                 foreach (var rec in recordsArray.EnumerateArray())
@@ -1132,7 +1218,6 @@ public class SyncImportService : ISyncImportService
                             CollectionDate = GetDateTime(rec, "collectionDate"),
                             SessionId = GetString(rec, "sessionId"),
                             RecordType = GetString(rec, "recordType"),
-                            Notes = GetString(rec, "notes"),
                             CreatedAt = GetDateTime(rec, "createdAt"),
                             UpdatedAt = recUpdatedAt
                         });
@@ -1141,7 +1226,6 @@ public class SyncImportService : ISyncImportService
                     {
                         recExisting.CollectionDate = GetDateTime(rec, "collectionDate");
                         recExisting.RecordType = GetString(rec, "recordType");
-                        recExisting.Notes = GetString(rec, "notes");
                         recExisting.UpdatedAt = recUpdatedAt;
                     }
 
@@ -1177,40 +1261,6 @@ public class SyncImportService : ISyncImportService
                                 chExisting.SamplingRate = GetFloat(ch, "samplingRate");
                                 chExisting.SamplesCount = GetInt(ch, "samplesCount");
                                 chExisting.UpdatedAt = chUpdatedAt;
-                            }
-
-                            // TargetAreas
-                            if (ch.TryGetProperty("targetAreas", out var areasArray))
-                            {
-                                foreach (var ta in areasArray.EnumerateArray())
-                                {
-                                    var taId = GetGuid(ta, "id");
-                                    var taExisting = await _context.TargetAreas.FindAsync(taId);
-                                    var taUpdatedAt = GetDateTime(ta, "updatedAt");
-
-                                    if (taExisting == null)
-                                    {
-                                        _context.TargetAreas.Add(new TargetArea
-                                        {
-                                            Id = taId,
-                                            RecordChannelId = chId,
-                                            BodyStructureCode = GetString(ta, "bodyStructureCode"),
-                                            LateralityCode = TryGetString(ta, "lateralityCode"),
-                                            TopographicalModifierCode = TryGetString(ta, "topographicalModifierCode"),
-                                            Notes = GetString(ta, "notes"),
-                                            CreatedAt = GetDateTime(ta, "createdAt"),
-                                            UpdatedAt = taUpdatedAt
-                                        });
-                                    }
-                                    else if (taUpdatedAt > taExisting.UpdatedAt)
-                                    {
-                                        taExisting.BodyStructureCode = GetString(ta, "bodyStructureCode");
-                                        taExisting.LateralityCode = TryGetString(ta, "lateralityCode");
-                                        taExisting.TopographicalModifierCode = TryGetString(ta, "topographicalModifierCode");
-                                        taExisting.Notes = GetString(ta, "notes");
-                                        taExisting.UpdatedAt = taUpdatedAt;
-                                    }
-                                }
                             }
                         }
                     }

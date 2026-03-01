@@ -91,9 +91,10 @@ public class ResearchExportService : IResearchExportService
             .Include(s => s.SessionAnnotations)
             .Include(s => s.ClinicalEvents)
             .Include(s => s.VitalSigns)
+            .Include(s => s.TargetArea)
+                .ThenInclude(ta => ta!.TopographicalModifiers)
             .Include(s => s.Records)
                 .ThenInclude(r => r.RecordChannels)
-                    .ThenInclude(rc => rc.TargetAreas)
             .ToListAsync(cancellationToken);
 
         // Sanitize title for ZIP root folder name
@@ -271,7 +272,17 @@ public class ResearchExportService : IResearchExportService
                     session.Id,
                     session.ResearchId,
                     session.VolunteerId,
-                    session.ClinicalContext,
+                    session.TargetAreaId,
+                    TargetArea = session.TargetArea == null ? null : new
+                    {
+                        session.TargetArea.Id,
+                        session.TargetArea.BodyStructureCode,
+                        session.TargetArea.LateralityCode,
+                        TopographicalModifierCodes = session.TargetArea.TopographicalModifiers
+                            .Select(tm => tm.TopographicalModifierCode).ToList(),
+                        session.TargetArea.CreatedAt,
+                        session.TargetArea.UpdatedAt
+                    },
                     session.StartAt,
                     session.FinishedAt,
                     session.CreatedAt,
@@ -316,20 +327,13 @@ public class ResearchExportService : IResearchExportService
                         record.CollectionDate,
                         record.SessionId,
                         record.RecordType,
-                        record.Notes,
                         record.CreatedAt,
                         record.UpdatedAt,
                         Channels = record.RecordChannels.Select(ch => new
                         {
                             ch.Id, ch.RecordId, ch.SensorId, ch.SignalType,
                             ch.FileUrl, ch.SamplingRate, ch.SamplesCount,
-                            ch.StartTimestamp, ch.CreatedAt, ch.UpdatedAt,
-                            TargetAreas = ch.TargetAreas.Select(ta => new
-                            {
-                                ta.Id, ta.RecordChannelId, ta.BodyStructureCode,
-                                ta.LateralityCode, ta.TopographicalModifierCode,
-                                ta.Notes, ta.CreatedAt, ta.UpdatedAt
-                            }).ToList()
+                            ch.StartTimestamp, ch.CreatedAt, ch.UpdatedAt
                         }).ToList()
                     });
 
@@ -348,13 +352,7 @@ public class ResearchExportService : IResearchExportService
                             channel.SamplesCount,
                             channel.StartTimestamp,
                             channel.CreatedAt,
-                            channel.UpdatedAt,
-                            TargetAreas = channel.TargetAreas.Select(ta => new
-                            {
-                                ta.Id, ta.RecordChannelId, ta.BodyStructureCode,
-                                ta.LateralityCode, ta.TopographicalModifierCode,
-                                ta.Notes, ta.CreatedAt, ta.UpdatedAt
-                            }).ToList()
+                            channel.UpdatedAt
                         });
 
                         if (!string.IsNullOrEmpty(channel.FileUrl))

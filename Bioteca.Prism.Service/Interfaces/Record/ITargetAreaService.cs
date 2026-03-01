@@ -9,9 +9,9 @@ namespace Bioteca.Prism.Service.Interfaces.Record;
 public interface ITargetAreaService : IServiceBase<TargetArea, Guid>
 {
     /// <summary>
-    /// Get target areas by record channel ID (with SNOMED navigation properties)
+    /// Get target areas by record session ID (with SNOMED navigation properties)
     /// </summary>
-    Task<List<TargetArea>> GetByRecordChannelIdAsync(Guid recordChannelId, CancellationToken cancellationToken = default);
+    Task<List<TargetArea>> GetByRecordSessionIdAsync(Guid recordSessionId, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Get target areas by body structure code

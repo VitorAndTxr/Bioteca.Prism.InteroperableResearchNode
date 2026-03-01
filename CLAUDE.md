@@ -219,10 +219,13 @@ docker-compose.application.yml # Application containers
 
 ## Clinical Data Model (28 Tables)
 
-**Core Entities** (10 tables):
+**Core Entities** (10 tables + 1 join table):
 - Research projects, volunteers, researchers
 - Devices, sensors, applications
 - Recording sessions, records, record channels, target areas
+- `target_area_topographical_modifier` join table (N:M between TargetArea and SNOMED topographical modifiers)
+
+**TargetArea ownership (Phase 20)**: `TargetArea` is owned by `RecordSession` (via `RecordSession.TargetAreaId` nullable FK and `TargetArea.RecordSessionId` required FK). It is **not** owned by `RecordChannel`. A session has at most one TargetArea describing the anatomical target for the full session. Multiple topographical modifiers are expressed via the explicit join entity `TargetAreaTopographicalModifier`.
 
 **SNOMED CT Terminologies** (4 tables):
 - Body structures, body regions, lateralities, topographical modifiers, severity codes
@@ -398,7 +401,7 @@ When encountering Portuguese documentation, translate to English while preservin
   - **`PAGINATION_SYSTEM.md`** - Pagination architecture and usage ✅
   - **`RECENT_IMPLEMENTATIONS.md`** - Recent changes and migration guide ✅
 - `docs/testing/` - Testing documentation
-- `docs/PROJECT_STATUS.md` - Implementation status (v0.8.0)
+- `docs/PROJECT_STATUS.md` - Implementation status (v0.11.0)
 
 ### Testing
 - `test-phase4.sh` - End-to-end test script (Phases 1→2→3→4)
@@ -419,7 +422,7 @@ When encountering Portuguese documentation, translate to English while preservin
 **Compiler Warnings**:
 - `NodeRegistryService.cs:44` - Async method without await (intentional)
 
-**Details**: `docs/KNOWN_ISSUES.md` (TODO)
+**Details**: `docs/KNOWN_ISSUES.md`
 
 ---
 
@@ -468,9 +471,10 @@ When encountering Portuguese documentation, translate to English while preservin
 ### Completed Features ✅
 - Phase 1-4 handshake protocol
 - Redis + PostgreSQL persistence
-- Clinical data model (28 tables)
+- Clinical data model (28 tables + join table)
 - Generic repository pattern
 - Complete service layer
+- Phase 20: Entity mapping corrections (TargetArea re-parented to RecordSession, N:M topographical modifiers, ClinicalContext JSON replaced by direct FK)
 
 ### In Progress 🚧
 - Phase 5 (Federated Queries): Cross-node data querying

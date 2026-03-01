@@ -272,6 +272,8 @@ public class SyncExportService : ISyncExportService
         var skip = (page - 1) * pageSize;
         var query = _context.RecordSessions
             .AsNoTracking()
+            .Include(s => s.TargetArea)
+                .ThenInclude(ta => ta!.TopographicalModifiers)
             .Include(s => s.Records)
                 .ThenInclude(r => r.RecordChannels)
             .Include(s => s.SessionAnnotations)

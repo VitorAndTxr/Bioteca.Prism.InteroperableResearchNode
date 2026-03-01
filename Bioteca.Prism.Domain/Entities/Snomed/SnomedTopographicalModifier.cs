@@ -41,5 +41,5 @@ public class SnomedTopographicalModifier
     public DateTime UpdatedAt { get; set; }
 
     // Navigation properties
-    public ICollection<Record.TargetArea> TargetAreas { get; set; } = new List<Record.TargetArea>();
+    public ICollection<Record.TargetAreaTopographicalModifier> TargetAreaTopographicalModifiers { get; set; } = new List<Record.TargetAreaTopographicalModifier>();
 }

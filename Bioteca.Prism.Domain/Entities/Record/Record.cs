@@ -31,11 +31,6 @@ public class Record
     public string RecordType { get; set; } = string.Empty;
 
     /// <summary>
-    /// Notes
-    /// </summary>
-    public string Notes { get; set; } = string.Empty;
-
-    /// <summary>
     /// Creation timestamp
     /// </summary>
     public DateTime CreatedAt { get; set; }

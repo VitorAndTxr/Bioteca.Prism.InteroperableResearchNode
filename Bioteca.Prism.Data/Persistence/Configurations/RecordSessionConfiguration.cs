@@ -28,12 +28,10 @@ public class RecordSessionConfiguration : IEntityTypeConfiguration<RecordSession
             .HasColumnName("volunteer_id")
             .IsRequired();
 
-        // Basic properties
-        builder.Property(x => x.ClinicalContext)
-            .HasColumnName("clinical_context")
-            .HasColumnType("text")
-            .IsRequired();
+        builder.Property(x => x.TargetAreaId)
+            .HasColumnName("target_area_id");
 
+        // Basic properties
         builder.Property(x => x.StartAt)
             .HasColumnName("start_at")
             .IsRequired();
@@ -62,6 +60,9 @@ public class RecordSessionConfiguration : IEntityTypeConfiguration<RecordSession
             .HasForeignKey(x => x.VolunteerId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        // The session↔targetArea 1:1 relationship is declared authoritatively in TargetAreaConfiguration.
+        // The optional FK column (target_area_id) with SET NULL delete behaviour is defined there.
+
         // Indexes
         builder.HasIndex(x => x.ResearchId)
             .HasDatabaseName("ix_record_session_research_id");
@@ -71,5 +72,8 @@ public class RecordSessionConfiguration : IEntityTypeConfiguration<RecordSession
 
         builder.HasIndex(x => x.StartAt)
             .HasDatabaseName("ix_record_session_start_at");
+
+        builder.HasIndex(x => x.TargetAreaId)
+            .HasDatabaseName("ix_record_session_target_area_id");
     }
 }

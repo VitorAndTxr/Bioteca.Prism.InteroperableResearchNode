@@ -1,20 +1,28 @@
 # Database Entity-Relationship Diagram
 
-**Implementation Status**: ✅ **COMPLETED** (2025-10-07)
+**Implementation Status**: ✅ **COMPLETED** — last updated Phase 20 (2026-03-01)
 
-All 16 entities have been implemented with:
+All entities have been implemented with:
 - Domain entities in `Bioteca.Prism.Domain/Entities/`
-- EF Core configurations in `Bioteca.Prism.Data/Persistence/Configurations/`
-- Repository pattern (base + 14 specialized repositories)
-- PostgreSQL migration `AddResearchDataTables`
+- EF Core configurations in `Bioteca.Prism.Data/Configurations/`
+- Repository pattern (base + specialized repositories)
+- PostgreSQL migrations: `AddResearchDataTables`, `EntityMappingCorrections` (20260301163557)
 - Dependency injection registration in `Program.cs`
+
+**Phase 20 changes (EntityMappingCorrections)**:
+- `TARGET_AREA` re-parented from `RECORD_CHANNEL` → `RECORD_SESSION` (1:0..1 relationship)
+- `TARGET_AREA` topographical modifiers are now N:M via explicit join `TARGET_AREA_TOPOGRAPHICAL_MODIFIER`
+- `RECORD_SESSION.clinical_context` (text) replaced by `target_area_id` FK
+- `RECORD.notes` removed
+- `RECORD_CHANNEL.annotations` (JSONB) removed — session annotations use `SESSION_ANNOTATION`
+- `TARGET_AREA.topographical_modifier_code` scalar FK removed
+- `TARGET_AREA.notes` removed
 
 ## Key Implementation Features
 
 - **Generic Repository Pattern**: Base `IRepository<TEntity, TKey>` with specialized implementations
-- **PostgreSQL-Specific**: JSONB columns for metadata and annotations
 - **SNOMED CT Integration**: Self-referencing hierarchies for medical terminology
-- **Composite Primary Keys**: Many-to-many join tables
+- **Composite Primary Keys**: Many-to-many join tables (`target_area_topographical_modifier`)
 - **Navigation Properties**: Full EF Core relationship mapping
 - **Snake Case Naming**: PostgreSQL column naming convention
 
@@ -116,26 +124,32 @@ erDiagram
     RECORD_SESSION{
         uuid id PK
         uuid volunteer_id FK
-        text clinical_context
+        uuid research_id FK
+        uuid target_area_id FK
         datetime start_at
         datetime finished_at
-
-        uuid research_id FK
         datetime created_at
         datetime updated_at
     }
-    
+
+    SESSION_ANNOTATION {
+        uuid id PK
+        uuid record_session_id FK
+        text text
+        datetime created_at
+        datetime updated_at
+    }
+
     RECORD {
         uuid id PK
         uuid record_session_id FK
         datetime collection_date
         string session_id
         string record_type
-        text notes
         datetime created_at
         datetime updated_at
     }
-    
+
     RECORD_CHANNEL {
         uuid id PK
         uuid record_id FK
@@ -145,19 +159,22 @@ erDiagram
         float sampling_rate
         integer samples_count
         datetime start_timestamp
-        json annotations
         datetime created_at
+        datetime updated_at
     }
 
     TARGET_AREA {
         uuid id PK
-        uuid record_channel_id FK
+        uuid record_session_id FK
         string body_structure_code FK
         string laterality_code FK
-        string topographical_modifier_code FK
-        text notes
         datetime created_at
         datetime updated_at
+    }
+
+    TARGET_AREA_TOPOGRAPHICAL_MODIFIER {
+        uuid target_area_id PK,FK
+        string topographical_modifier_code PK,FK
     }
 
     SNOMED_LATERALITY {
@@ -409,6 +426,8 @@ erDiagram
     RESEARCHER ||--o{ RECORD_SESSION : participates_in
     
     RECORD_SESSION ||--|{ RECORD : contains
+    RECORD_SESSION ||--o| TARGET_AREA : "targets"
+    RECORD_SESSION ||--o{ SESSION_ANNOTATION : "annotated_by"
     RECORD ||--|{ RECORD_CHANNEL : contains
     SENSOR ||--o{ RECORD_CHANNEL : captures
 
@@ -416,9 +435,9 @@ erDiagram
     SNOMED_BODY_REGION ||--o{ SNOMED_BODY_STRUCTURE : "contains structures"
     SNOMED_BODY_STRUCTURE ||--o{ SNOMED_BODY_STRUCTURE : "has sub-structures"
     SNOMED_BODY_STRUCTURE ||--o{ TARGET_AREA : "instantiated as"
-    RECORD_CHANNEL ||--o{ TARGET_AREA : "targets"
     TARGET_AREA }o--o| SNOMED_LATERALITY : "qualified by"
-    TARGET_AREA }o--o| SNOMED_TOPOGRAPHICAL_MODIFIER : "modified by"
+    TARGET_AREA ||--o{ TARGET_AREA_TOPOGRAPHICAL_MODIFIER : "qualified_by"
+    SNOMED_TOPOGRAPHICAL_MODIFIER ||--o{ TARGET_AREA_TOPOGRAPHICAL_MODIFIER : "used_in"
     
     %% Voluntário e suas condições clínicas
     VOLUNTEER ||--o{ VOLUNTEER_CLINICAL_CONDITION : "diagnosed_with"
@@ -483,7 +502,7 @@ Each repository extends the generic base repository with domain-specific queries
 - `IRecordSessionRepository`: Query by research ID, volunteer ID, date range
 - `IRecordRepository`: Query by session ID, record type, date range
 - `IRecordChannelRepository`: Query by record ID, sensor ID, signal type (includes navigation)
-- `ITargetAreaRepository`: Query by channel ID, body structure code (includes SNOMED navigation)
+- `ITargetAreaRepository`: Query by **session ID** (`GetByRecordSessionIdAsync`), body structure code (includes SNOMED navigation + TopographicalModifiers collection)
 
 **SNOMED Repositories**:
 - `ISnomedLateralityRepository`: Query active laterality codes
@@ -491,13 +510,20 @@ Each repository extends the generic base repository with domain-specific queries
 - `ISnomedBodyRegionRepository`: Query top-level regions, sub-regions, active codes
 - `ISnomedBodyStructureRepository`: Query by body region, structure type, parent/sub-structures
 
-### Database Migration
+### Database Migrations
 
-Generated migration: `AddResearchDataTables`
+| Migration | Description |
+|-----------|-------------|
+| `AddResearchDataTables` | Initial clinical data model (28 tables) |
+| `EntityMappingCorrections` (20260301163557) | Phase 20: TargetArea re-parented to RecordSession, N:M topographical modifiers join table, removed clinical_context/notes/annotations fields |
 
 Apply with:
 ```bash
+# Node A
 dotnet ef database update --project Bioteca.Prism.Data --startup-project Bioteca.Prism.InteroperableResearchNode
+
+# Node B
+dotnet ef database update --project Bioteca.Prism.Data --startup-project Bioteca.Prism.InteroperableResearchNode -- --node NodeB
 ```
 
 ### Testing

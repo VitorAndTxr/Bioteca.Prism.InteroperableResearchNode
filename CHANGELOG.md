@@ -5,6 +5,132 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0] - 2026-03-01
+
+### Summary
+
+Phase 20 — Entity Mapping Corrections — delivered 17 stories (US-1819–US-1835) that corrected structural misplacements in the clinical data model. The core change moves `TargetArea` ownership from `RecordChannel` to `RecordSession`, replaces the single-FK topographical modifier with an N:M join table, and removes three unused columns (`RecordChannel.Annotations`, `Record.Notes`, `TargetArea.Notes`) alongside the `RecordSession.ClinicalContext` JSON escape-hatch. The mobile sync mapper was updated to send structured `TargetArea` data instead of a serialized JSON string.
+
+### Business Objectives Completed
+
+| # | Objective | Outcome |
+|---|-----------|---------|
+| 1 | Move annotations from `RecordChannel` to `RecordSession` | `RecordChannel.Annotations` (JsonDocument) column removed; mobile annotations continue to persist as `SessionAnnotation` rows linked to `RecordSession` via the existing endpoint |
+| 2 | Remove unused `notes` field from `Record` | `Record.Notes` column dropped with no data loss (field was never populated in production) |
+| 3 | Support multiple topographical modifier codes on `TargetArea` | New join table `target_area_topographical_modifier` (composite PK) enables N:M relationship; replaces single `topographical_modifier_code` FK |
+| 4 | Replace `ClinicalContext` JSON string on `RecordSession` with a `TargetArea` FK | `RecordSession.ClinicalContext` string column removed; `RecordSession` gains nullable FK `target_area_id` → `TargetArea`, capturing body structure + laterality + topography codes structurally |
+
+### Added
+
+#### New Entity: `TargetAreaTopographicalModifier` (Join Table)
+- New domain entity `Bioteca.Prism.Domain/Entities/Record/TargetAreaTopographicalModifier.cs`
+- Composite primary key (`TargetAreaId`, `TopographicalModifierCode`)
+- Navigation properties to `TargetArea` and `SnomedTopographicalModifier`
+- EF Core configuration: `TargetAreaTopographicalModifierConfiguration.cs`
+- `DbSet<TargetAreaTopographicalModifier>` registered in `PrismDbContext`
+- Enables `TargetArea` to reference 0–N SNOMED topographical modifier codes
+
+#### `RecordSession.TargetAreaId` FK
+- New nullable FK `target_area_id` on `record_session` table
+- Navigation property `TargetArea?` on `RecordSession` entity
+- `RecordSessionRepository` updated to include `TargetArea` → `TopographicalModifiers` navigation graph
+- `ClinicalSessionService` creates/updates a `TargetArea` row and join table rows on session create/update
+
+#### New Integration Test (US-1835)
+- `SyncExportServiceTests.GetSessionsAsync_WithTargetAreaAndModifiers_ReturnsFullGraph`
+- Verifies that a session with a linked `TargetArea` (2 topographical modifier codes) is correctly exported with the full navigation graph loaded
+
+### Changed
+
+#### `TargetArea` Entity — Parent FK Migrated to `RecordSession`
+- `RecordChannelId` FK removed; replaced by `RecordSessionId` FK
+- `TargetArea` is now owned at the session level, reflecting the mobile app's data model
+- `TargetAreaConfiguration.cs` updated: new FK relationship to `RecordSession`, many-to-many relationship for topographical modifiers
+- `TargetAreaService` updated to work with `RecordSession` parent and accept `string[]` of topographical modifier codes
+- `TargetAreaRepository` updated: queries use `RecordSessionId`; `RecordChannelRepository` no longer includes `TargetAreas`
+
+#### `ClinicalSessionController` — Structured TargetArea Payload
+- `CreateClinicalSessionPayload` and `UpdateClinicalSessionPayload` now accept a structured `TargetArea` object (`BodyStructureCode`, `LateralityCode`, `TopographicalModifierCodes[]`) instead of a `ClinicalContext` JSON string
+- `ClinicalSessionResponseDTO` exposes `targetArea` object instead of `clinicalContext` string
+
+#### Mobile Sync Mapper — Conditional TargetArea (US-1832)
+- `IRIS/apps/mobile/src/services/SyncService.mappers.ts` updated
+- `mapToCreateSessionPayload` now sends `TargetArea: { BodyStructureCode, LateralityCode, TopographicalModifierCodes[] }` when `bodyStructureSnomedCode` is present
+- Conditional guard added: `TargetArea` is `null` when no body structure is selected (prevents FK constraint violations)
+- `topographyCodes ?? []` null coalesce ensures backend receives empty array instead of `null`
+
+#### Export / Import Services
+- `ResearchExportService`: Include paths updated to load `TargetArea` from `RecordSession` instead of `RecordChannel.TargetAreas`
+- `SyncExportService`: Export DTOs updated to include `TargetArea` data sourced from `RecordSession`
+- `SyncImportService`: Import logic updated to create `TargetArea` + `TargetAreaTopographicalModifier` join rows during transactional upsert
+
+#### Shared Domain Types (US-1833)
+- `IRIS/packages/domain/` NodeSync DTOs updated to reflect new TargetArea structure
+
+#### Test Infrastructure (US-1834)
+- `TestPrismDbContext` updated: `Annotations` JSON converter removed (column no longer exists)
+- `SyncImportServiceTests` and `SyncExportServiceTests` updated for new entity structure
+
+### Removed
+
+| Field | Entity | Table Column | Reason |
+|-------|--------|-------------|--------|
+| `Annotations` | `RecordChannel` | `record_channel.annotations` (JsonDocument) | Annotations belong at session level via `SessionAnnotation`; column was structurally misleading and redundant |
+| `TargetAreas` navigation | `RecordChannel` | N/A (FK on `target_area`) | `TargetArea` ownership moved to `RecordSession` |
+| `Notes` | `Record` | `record.notes` | Never populated by any consumer (mobile, desktop, sync) |
+| `TopographicalModifierCode` (single FK) | `TargetArea` | `target_area.topographical_modifier_code` | Replaced by N:M join table to support multiple codes |
+| `Notes` | `TargetArea` | `target_area.notes` | Never populated by any consumer |
+| `ClinicalContext` | `RecordSession` | `record_session.clinical_context` | JSON escape-hatch replaced by structured `TargetAreaId` FK |
+
+### Breaking Changes
+
+> **This release contains breaking schema changes.** All consumers (mobile app, desktop, sync pipeline) were updated simultaneously. No backward-compatibility shims were added.
+
+1. **`RecordChannel.Annotations` removed** — Any code reading `recChannel.Annotations` will not compile. Annotations are available via `RecordSession.SessionAnnotations`.
+2. **`Record.Notes` removed** — Any code referencing `record.Notes` will not compile.
+3. **`RecordSession.ClinicalContext` removed** — Replaced by `RecordSession.TargetArea` (navigation) and `RecordSession.TargetAreaId` (FK). Mobile payload field `clinicalContext` is replaced by `TargetArea` object.
+4. **`RecordChannel.TargetAreas` navigation removed** — `TargetArea` is now accessed via `RecordSession.TargetArea`.
+5. **`TargetArea.TopographicalModifierCode` (single FK) removed** — Replaced by `TargetArea.TopographicalModifiers` (collection via join table).
+
+### EF Core Migration
+
+Single migration `AddEntityMappingCorrections` applies all schema changes in one step:
+
+1. Drops `record_channel.annotations` column
+2. Drops `record.notes` column
+3. Drops `target_area.record_channel_id` FK and index
+4. Adds `target_area.record_session_id` FK and index
+5. Drops `target_area.topographical_modifier_code` FK
+6. Drops `target_area.notes` column
+7. Creates `target_area_topographical_modifier` join table (composite PK)
+8. Drops `record_session.clinical_context` column
+9. Adds `record_session.target_area_id` FK (nullable)
+
+### Testing
+
+| Suite | Passed | Failed | Skipped | Notes |
+|-------|--------|--------|---------|-------|
+| `SyncExportServiceTests` | 8 | 0 | 0 | Includes new US-1835 test |
+| `SyncImportServiceTests` | 7 | 0 | 1 | 1 skipped (pre-existing) |
+| `SyncSessionConstraintTests` | 5 | 0 | 0 | |
+| `Phase4SessionManagementTests` (core) | 10 | 0 | 0 | |
+| **Functional subtotal** | **30** | **0** | **1** | Zero regressions |
+| DI registration failures (pre-existing) | — | 68 | — | Pre-existing baseline, unrelated to Phase 20 |
+| Timing-sensitive Phase 4 (pre-existing) | — | 2 | — | Pre-existing, unrelated to Phase 20 |
+
+**No regressions.** All previously passing tests continue to pass. New test `GetSessionsAsync_WithTargetAreaAndModifiers_ReturnsFullGraph` passes.
+
+### Known Open Items (Non-blocking)
+
+The following low-severity issues were accepted for follow-up and do not affect production correctness:
+
+- **F-002**: Duplicate `HasMany/WithOne` declaration in `TargetAreaConfiguration` — noise only
+- **F-006**: Update path in `SyncImportService` does not repair `session.TargetAreaId` if null on existing rows
+- **F-008**: Missing `[JsonIgnore]` on `TargetArea.RecordSession` navigation property
+- **F-009**: Stale comment at `SyncImportService.cs:100`
+
+---
+
 ## [0.10.0] - 2025-10-23
 
 ### ✨ Added

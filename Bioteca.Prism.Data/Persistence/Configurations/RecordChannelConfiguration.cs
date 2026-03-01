@@ -51,10 +51,6 @@ public class RecordChannelConfiguration : IEntityTypeConfiguration<RecordChannel
             .HasColumnName("start_timestamp")
             .IsRequired();
 
-        builder.Property(x => x.Annotations)
-            .HasColumnName("annotations")
-            .HasColumnType("jsonb");
-
         // Timestamps
         builder.Property(x => x.CreatedAt)
             .HasColumnName("created_at")

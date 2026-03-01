@@ -17,6 +17,7 @@ public class ClinicalSessionService : IClinicalSessionService
     private readonly IRecordRepository _recordRepository;
     private readonly IRecordChannelRepository _recordChannelRepository;
     private readonly ISessionAnnotationRepository _sessionAnnotationRepository;
+    private readonly ITargetAreaRepository _targetAreaRepository;
     private readonly IVolunteerRepository _volunteerRepository;
     private readonly IApiContext _apiContext;
 
@@ -25,6 +26,7 @@ public class ClinicalSessionService : IClinicalSessionService
         IRecordRepository recordRepository,
         IRecordChannelRepository recordChannelRepository,
         ISessionAnnotationRepository sessionAnnotationRepository,
+        ITargetAreaRepository targetAreaRepository,
         IVolunteerRepository volunteerRepository,
         IApiContext apiContext)
     {
@@ -32,6 +34,7 @@ public class ClinicalSessionService : IClinicalSessionService
         _recordRepository = recordRepository;
         _recordChannelRepository = recordChannelRepository;
         _sessionAnnotationRepository = sessionAnnotationRepository;
+        _targetAreaRepository = targetAreaRepository;
         _volunteerRepository = volunteerRepository;
         _apiContext = apiContext;
     }
@@ -45,10 +48,13 @@ public class ClinicalSessionService : IClinicalSessionService
         {
             existing.ResearchId = payload.ResearchId;
             existing.VolunteerId = payload.VolunteerId;
-            existing.ClinicalContext = payload.ClinicalContext;
             existing.StartAt = payload.StartAt;
             existing.FinishedAt = payload.FinishedAt;
             existing.UpdatedAt = DateTime.UtcNow;
+
+            if (payload.TargetArea != null)
+                existing.TargetAreaId = await UpsertTargetAreaAsync(existing.Id, payload.TargetArea);
+
             var updated = await _recordSessionRepository.UpdateAsync(existing);
             return StripNavigationProperties(updated);
         }
@@ -62,7 +68,6 @@ public class ClinicalSessionService : IClinicalSessionService
             Id = payload.Id,
             ResearchId = payload.ResearchId,
             VolunteerId = payload.VolunteerId,
-            ClinicalContext = payload.ClinicalContext,
             StartAt = payload.StartAt,
             FinishedAt = payload.FinishedAt,
             CreatedAt = DateTime.UtcNow,
@@ -70,6 +75,13 @@ public class ClinicalSessionService : IClinicalSessionService
         };
 
         var created = await _recordSessionRepository.AddAsync(session);
+
+        if (payload.TargetArea != null)
+        {
+            created.TargetAreaId = await UpsertTargetAreaAsync(created.Id, payload.TargetArea);
+            await _recordSessionRepository.UpdateAsync(created);
+        }
+
         return StripNavigationProperties(created);
     }
 
@@ -105,8 +117,8 @@ public class ClinicalSessionService : IClinicalSessionService
         if (payload.FinishedAt.HasValue)
             session.FinishedAt = payload.FinishedAt.Value;
 
-        if (payload.ClinicalContext != null)
-            session.ClinicalContext = payload.ClinicalContext;
+        if (payload.TargetArea != null)
+            session.TargetAreaId = await UpsertTargetAreaAsync(session.Id, payload.TargetArea);
 
         session.UpdatedAt = DateTime.UtcNow;
         var updated = await _recordSessionRepository.UpdateAsync(session);
@@ -130,7 +142,6 @@ public class ClinicalSessionService : IClinicalSessionService
                 CollectionDate = existing.CollectionDate,
                 SessionId = existing.SessionId,
                 RecordType = existing.RecordType,
-                Notes = existing.Notes,
                 CreatedAt = existing.CreatedAt,
                 UpdatedAt = existing.UpdatedAt
             };
@@ -143,7 +154,6 @@ public class ClinicalSessionService : IClinicalSessionService
             CollectionDate = payload.CollectionDate,
             SessionId = sessionId.ToString(),
             RecordType = payload.SignalType,
-            Notes = string.Empty,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
@@ -172,7 +182,6 @@ public class ClinicalSessionService : IClinicalSessionService
             CollectionDate = record.CollectionDate,
             SessionId = record.SessionId,
             RecordType = record.RecordType,
-            Notes = record.Notes,
             CreatedAt = record.CreatedAt,
             UpdatedAt = record.UpdatedAt
         };
@@ -217,6 +226,63 @@ public class ClinicalSessionService : IClinicalSessionService
     }
 
     /// <summary>
+    /// Creates or updates the TargetArea for a session and returns its Id.
+    /// If the session already owns a TargetArea, updates its fields and replaces
+    /// its topographical modifier join rows in-place to avoid orphaned rows.
+    /// </summary>
+    private async Task<Guid> UpsertTargetAreaAsync(Guid sessionId, TargetAreaPayload payload)
+    {
+        // True upsert: check whether this session already owns a TargetArea row.
+        var existing = (await _targetAreaRepository.GetByRecordSessionIdAsync(sessionId)).FirstOrDefault();
+
+        if (existing != null)
+        {
+            existing.BodyStructureCode = payload.BodyStructureCode;
+            existing.LateralityCode = payload.LateralityCode;
+            existing.UpdatedAt = DateTime.UtcNow;
+
+            // Replace join rows: remove stale codes, add incoming codes that are missing.
+            var incomingCodes = payload.TopographicalModifierCodes.ToHashSet();
+            var existingCodes = existing.TopographicalModifiers.Select(m => m.TopographicalModifierCode).ToHashSet();
+
+            foreach (var modifier in existing.TopographicalModifiers.Where(m => !incomingCodes.Contains(m.TopographicalModifierCode)).ToList())
+                existing.TopographicalModifiers.Remove(modifier);
+
+            foreach (var code in incomingCodes.Where(c => !existingCodes.Contains(c)))
+                existing.TopographicalModifiers.Add(new TargetAreaTopographicalModifier
+                {
+                    TargetAreaId = existing.Id,
+                    TopographicalModifierCode = code
+                });
+
+            await _targetAreaRepository.UpdateAsync(existing);
+            return existing.Id;
+        }
+
+        var targetArea = new TargetArea
+        {
+            Id = Guid.NewGuid(),
+            RecordSessionId = sessionId,
+            BodyStructureCode = payload.BodyStructureCode,
+            LateralityCode = payload.LateralityCode,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+
+        foreach (var code in payload.TopographicalModifierCodes)
+        {
+            targetArea.TopographicalModifiers.Add(new TargetAreaTopographicalModifier
+            {
+                TargetAreaId = targetArea.Id,
+                TopographicalModifierCode = code
+            });
+        }
+
+        await _targetAreaRepository.AddAsync(targetArea);
+        return targetArea.Id;
+    }
+
+    /// <summary>
     /// Returns a new RecordSession with only scalar properties,
     /// preventing circular reference errors during JSON serialization.
     /// </summary>
@@ -227,7 +293,7 @@ public class ClinicalSessionService : IClinicalSessionService
             Id = session.Id,
             ResearchId = session.ResearchId,
             VolunteerId = session.VolunteerId,
-            ClinicalContext = session.ClinicalContext,
+            TargetAreaId = session.TargetAreaId,
             StartAt = session.StartAt,
             FinishedAt = session.FinishedAt,
             CreatedAt = session.CreatedAt,

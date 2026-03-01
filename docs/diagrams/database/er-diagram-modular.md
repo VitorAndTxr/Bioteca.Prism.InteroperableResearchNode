@@ -218,9 +218,17 @@ erDiagram
         uuid id PK
         uuid volunteer_id FK
         uuid research_id FK
-        text clinical_context
+        uuid target_area_id FK
         datetime start_at
         datetime finished_at
+        datetime created_at
+        datetime updated_at
+    }
+
+    SESSION_ANNOTATION {
+        uuid id PK
+        uuid record_session_id FK
+        text text
         datetime created_at
         datetime updated_at
     }
@@ -231,7 +239,6 @@ erDiagram
         datetime collection_date
         string session_id
         string record_type
-        text notes
         datetime created_at
         datetime updated_at
     }
@@ -245,30 +252,37 @@ erDiagram
         float sampling_rate
         integer samples_count
         datetime start_timestamp
-        json annotations
         datetime created_at
+        datetime updated_at
     }
 
     RESEARCH ||--o{ RECORD_SESSION : "generates"
     VOLUNTEER ||--o{ RECORD_SESSION : "participates_in"
     RECORD_SESSION ||--|{ RECORD : "contains"
+    RECORD_SESSION ||--o{ SESSION_ANNOTATION : "annotated_by"
     RECORD ||--|{ RECORD_CHANNEL : "contains"
     SENSOR ||--o{ RECORD_CHANNEL : "captures"
 ```
 
 **Key Points:**
-- `RECORD_SESSION` groups all recordings from a single collection event
-- `RECORD_CHANNEL` stores actual biosignal data (file_url points to binary storage)
-- `annotations` JSONB enables flexible metadata without schema changes
+- `RECORD_SESSION` groups all recordings from a single collection event and holds a nullable FK to `TARGET_AREA` (the anatomical target for the entire session — Phase 20)
+- `SESSION_ANNOTATION` replaces the removed `RECORD_CHANNEL.annotations` JSONB field; annotations are persisted at session level via `POST /api/ClinicalSession/{sessionId}/annotations/New`
+- `RECORD_CHANNEL` stores actual biosignal data (`file_url` points to binary storage)
+- `RECORD.notes` and `RECORD_CHANNEL.annotations` were removed in Phase 20
 
 ---
 
 ## 5. SNOMED CT Anatomical Terminology Domain
 
-Self-referencing hierarchies for body regions and structures.
+Self-referencing hierarchies for body regions and structures, plus the session-level target area.
 
 ```mermaid
 erDiagram
+    RECORD_SESSION {
+        uuid id PK
+        uuid target_area_id FK
+    }
+
     SNOMED_BODY_REGION {
         string snomed_code PK
         string display_name
@@ -317,26 +331,32 @@ erDiagram
 
     TARGET_AREA {
         uuid id PK
-        uuid record_channel_id FK
+        uuid record_session_id FK
         string body_structure_code FK
         string laterality_code FK
-        string topographical_modifier_code FK
-        text notes
         datetime created_at
         datetime updated_at
     }
 
+    TARGET_AREA_TOPOGRAPHICAL_MODIFIER {
+        uuid target_area_id PK,FK
+        string topographical_modifier_code PK,FK
+    }
+
+    RECORD_SESSION ||--o| TARGET_AREA : "targets"
     SNOMED_BODY_REGION ||--o{ SNOMED_BODY_REGION : "has_sub_regions"
     SNOMED_BODY_REGION ||--o{ SNOMED_BODY_STRUCTURE : "contains"
     SNOMED_BODY_STRUCTURE ||--o{ SNOMED_BODY_STRUCTURE : "has_sub_structures"
     SNOMED_BODY_STRUCTURE ||--o{ TARGET_AREA : "instantiated_as"
     TARGET_AREA }o--o| SNOMED_LATERALITY : "qualified_by"
-    TARGET_AREA }o--o| SNOMED_TOPOGRAPHICAL_MODIFIER : "modified_by"
+    TARGET_AREA ||--o{ TARGET_AREA_TOPOGRAPHICAL_MODIFIER : "qualified_by"
+    SNOMED_TOPOGRAPHICAL_MODIFIER ||--o{ TARGET_AREA_TOPOGRAPHICAL_MODIFIER : "used_in"
 ```
 
 **Key Points:**
 - Self-referencing hierarchies enable anatomical taxonomy (e.g., Upper Limb → Arm → Forearm)
-- `TARGET_AREA` post-coordinates SNOMED concepts: structure + laterality + modifier
+- `TARGET_AREA` post-coordinates SNOMED concepts: structure + optional laterality + N topographical modifiers
+- **Phase 20**: `TARGET_AREA` is now owned by `RECORD_SESSION` (1:0..1), not `RECORD_CHANNEL`. Topographical modifiers moved from a scalar FK to the explicit N:M join table `TARGET_AREA_TOPOGRAPHICAL_MODIFIER`
 - `SNOMED_SEVERITY_CODE` shared across clinical conditions and events
 
 ---
@@ -563,6 +583,7 @@ flowchart TB
 
     subgraph Recording["4. Data Recording"]
         SESS[RECORD_SESSION]
+        ANN[SESSION_ANNOTATION]
         REC[RECORD]
         CHAN[RECORD_CHANNEL]
     end
@@ -571,6 +592,7 @@ flowchart TB
         REG[BODY_REGION]
         STR[BODY_STRUCTURE]
         TA[TARGET_AREA]
+        TAJOIN[TARGET_AREA_TOPOGRAPHICAL_MODIFIER]
         LAT[LATERALITY]
         MOD[MODIFIER]
         SEV[SEVERITY]
@@ -597,12 +619,14 @@ flowchart TB
 
     VOL --> SESS
     SESS --> REC
+    SESS --> ANN
+    SESS --> TA
     REC --> CHAN
-    CHAN --> TA
 
     STR --> TA
     LAT --> TA
-    MOD --> TA
+    MOD --> TAJOIN
+    TAJOIN --> TA
     REG --> STR
 
     VOL --> COND
@@ -632,10 +656,12 @@ flowchart TB
 | **1. Research Infrastructure** | 4 | Root of all data ownership |
 | **2. Volunteer Management** | 2 | Connects participants to research |
 | **3. Equipment & Sensors** | 3 | Defines acquisition capabilities |
-| **4. Data Recording** | 3 | Captures biosignal data |
-| **5. SNOMED CT Terminology** | 6 | Standardized anatomical vocabulary |
-| **6. Clinical Data** | 10 | Health records and observations |
-| **Total** | **28** | |
+| **4. Data Recording** | 4 | Captures biosignal data (`+SESSION_ANNOTATION`) |
+| **5. SNOMED CT Terminology** | 7 | Standardized anatomical vocabulary (`+TARGET_AREA_TOPOGRAPHICAL_MODIFIER`) |
+| **6. Clinical Data** | 9 | Health records and observations |
+| **Total** | **29** | 28 main + 1 explicit join table |
+
+> **Phase 20 delta**: Domain 4 gained `SESSION_ANNOTATION`; Domain 5 gained `TARGET_AREA_TOPOGRAPHICAL_MODIFIER` join table and re-parented `TARGET_AREA` from channel to session. Domains 1-3 and 6 unchanged.
 
 ---
 

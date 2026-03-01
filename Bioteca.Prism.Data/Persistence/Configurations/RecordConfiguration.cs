@@ -40,11 +40,6 @@ public class RecordConfiguration : IEntityTypeConfiguration<Record>
             .HasMaxLength(100)
             .IsRequired();
 
-        builder.Property(x => x.Notes)
-            .HasColumnName("notes")
-            .HasColumnType("text")
-            .IsRequired();
-
         // Timestamps
         builder.Property(x => x.CreatedAt)
             .HasColumnName("created_at")

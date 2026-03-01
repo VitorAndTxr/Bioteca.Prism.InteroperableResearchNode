@@ -21,9 +21,9 @@ public class RecordSession
     public Guid VolunteerId { get; set; }
 
     /// <summary>
-    /// Clinical context
+    /// Optional FK to the TargetArea that captures clinical context for this session
     /// </summary>
-    public string ClinicalContext { get; set; } = string.Empty;
+    public Guid? TargetAreaId { get; set; }
 
     /// <summary>
     /// Session start timestamp
@@ -48,8 +48,8 @@ public class RecordSession
     // Navigation properties
     public Research.Research? Research { get; set; }
     public Volunteer.Volunteer Volunteer { get; set; } = null!;
+    public TargetArea? TargetArea { get; set; }
     public ICollection<Record> Records { get; set; } = new List<Record>();
-
     public ICollection<SessionAnnotation> SessionAnnotations { get; set; } = new List<SessionAnnotation>();
 
     // Clinical data captured during session

@@ -13,7 +13,6 @@ using Bioteca.Prism.Service.Services.Sync;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -664,6 +663,82 @@ public class SyncExportServiceTests
         // Assert
         result.Should().BeNull("unknown RecordChannel ID should return null, not throw");
     }
+
+    // TEST 9c (US-1835): GetSessionsAsync returns TargetArea with TopographicalModifiers join table
+
+    [Fact]
+    public async Task GetSessionsAsync_WithTargetAreaAndModifiers_ReturnsFullGraph()
+    {
+        // Arrange
+        var dbName = Guid.NewGuid().ToString();
+        await using var context = CreateContext(dbName);
+        await SeedLocalNodeAsync(context);
+
+        var volunteerId = Guid.NewGuid();
+        context.Volunteers.Add(new Domain.Entities.Volunteer.Volunteer
+        {
+            VolunteerId = volunteerId,
+            VolunteerCode = "VC-001",
+            Name = "Test Volunteer",
+            Email = "v@test.com",
+            UpdatedAt = DateTime.UtcNow
+        });
+
+        var targetAreaId = Guid.NewGuid();
+        var sessionId = Guid.NewGuid();
+
+        var targetArea = new TargetArea
+        {
+            Id = targetAreaId,
+            RecordSessionId = sessionId,
+            BodyStructureCode = "368209003",
+            LateralityCode = "7771000",
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+        targetArea.TopographicalModifiers.Add(new TargetAreaTopographicalModifier
+        {
+            TargetAreaId = targetAreaId,
+            TopographicalModifierCode = "255503000"
+        });
+        targetArea.TopographicalModifiers.Add(new TargetAreaTopographicalModifier
+        {
+            TargetAreaId = targetAreaId,
+            TopographicalModifierCode = "419161000"
+        });
+
+        context.TargetAreas.Add(targetArea);
+
+        context.RecordSessions.Add(new Domain.Entities.Record.RecordSession
+        {
+            Id = sessionId,
+            VolunteerId = volunteerId,
+            TargetAreaId = targetAreaId,
+            StartAt = DateTime.UtcNow,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        });
+
+        await context.SaveChangesAsync();
+
+        var exportService = BuildExportService(context);
+
+        // Act
+        var result = await exportService.GetSessionsAsync(null, 1, 100);
+
+        // Assert
+        result.TotalRecords.Should().Be(1);
+        var session = result.Data.Single();
+        session.TargetAreaId.Should().Be(targetAreaId);
+        session.TargetArea.Should().NotBeNull();
+        session.TargetArea!.BodyStructureCode.Should().Be("368209003");
+        session.TargetArea.LateralityCode.Should().Be("7771000");
+        session.TargetArea.TopographicalModifiers.Should().HaveCount(2,
+            "both topographical modifier join rows must be loaded");
+        session.TargetArea.TopographicalModifiers
+            .Select(tm => tm.TopographicalModifierCode)
+            .Should().BeEquivalentTo(new[] { "255503000", "419161000" });
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -788,8 +863,6 @@ public class SyncSessionConstraintTests
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TestPrismDbContext: InMemory-compatible PrismDbContext subclass.
-// Adds a string value converter for JsonDocument? properties that are stored
-// as 'jsonb' in PostgreSQL but are not natively supported by the InMemory provider.
 // ─────────────────────────────────────────────────────────────────────────────
 
 internal class TestPrismDbContext : PrismDbContext
@@ -804,24 +877,6 @@ internal class TestPrismDbContext : PrismDbContext
             .Options;
         return new TestPrismDbContext(options);
     }
-
-    protected override void OnModelCreating(ModelBuilder modelBuilder)
-    {
-        base.OnModelCreating(modelBuilder);
-
-        // The InMemory provider cannot handle JsonDocument natively.
-        // Override the RecordChannel.Annotations property to use a string value converter
-        // so that the model passes InMemory validation and round-trips correctly.
-        var jsonDocConverter = new ValueConverter<JsonDocument?, string?>(
-            v => v == null ? null : v.RootElement.GetRawText(),
-            v => v == null ? null : ParseJsonDocument(v));
-
-        modelBuilder.Entity<RecordChannel>()
-            .Property(x => x.Annotations)
-            .HasConversion(jsonDocConverter);
-    }
-
-    private static JsonDocument ParseJsonDocument(string json) => JsonDocument.Parse(json);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

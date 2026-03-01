@@ -1,7 +1,7 @@
 namespace Bioteca.Prism.Domain.Entities.Record;
 
 /// <summary>
-/// Represents a target area (body structure) for a record channel
+/// Represents a target area (body structure) for a record session
 /// </summary>
 public class TargetArea
 {
@@ -11,9 +11,9 @@ public class TargetArea
     public Guid Id { get; set; }
 
     /// <summary>
-    /// Foreign key to record channel
+    /// Foreign key to record session
     /// </summary>
-    public Guid RecordChannelId { get; set; }
+    public Guid RecordSessionId { get; set; }
 
     /// <summary>
     /// SNOMED body structure code
@@ -26,16 +26,6 @@ public class TargetArea
     public string? LateralityCode { get; set; }
 
     /// <summary>
-    /// SNOMED topographical modifier code (optional)
-    /// </summary>
-    public string? TopographicalModifierCode { get; set; }
-
-    /// <summary>
-    /// Notes
-    /// </summary>
-    public string Notes { get; set; } = string.Empty;
-
-    /// <summary>
     /// Creation timestamp
     /// </summary>
     public DateTime CreatedAt { get; set; }
@@ -46,8 +36,8 @@ public class TargetArea
     public DateTime UpdatedAt { get; set; }
 
     // Navigation properties
-    public RecordChannel RecordChannel { get; set; } = null!;
+    public RecordSession RecordSession { get; set; } = null!;
     public Snomed.SnomedBodyStructure BodyStructure { get; set; } = null!;
     public Snomed.SnomedLaterality? Laterality { get; set; }
-    public Snomed.SnomedTopographicalModifier? TopographicalModifier { get; set; }
+    public ICollection<TargetAreaTopographicalModifier> TopographicalModifiers { get; set; } = new List<TargetAreaTopographicalModifier>();
 }

@@ -87,12 +87,31 @@ Phase 3 Authentication → Use NodeId (string)
 
 ### Clinical Data Model (HL7 FHIR-aligned)
 
-**28 Main Tables**:
+**29 tables (28 main + 1 explicit join)**:
 
-**Core Entities** (10 tables):
+**Core Entities** (10 main tables + 1 join table):
 - Research projects, volunteers, researchers
 - Devices, sensors, applications
 - Recording sessions, records, record channels, target areas
+- `target_area_topographical_modifier` — explicit N:M join between `TargetArea` and SNOMED topographical modifier codes
+
+**TargetArea Ownership (Phase 20)**:
+`TargetArea` is owned by `RecordSession`, not by `RecordChannel`. A session has **at most one** `TargetArea` describing the anatomical target for the full recording session. Multiple topographical modifiers are expressed via the explicit join entity `TargetAreaTopographicalModifier` (composite PK: `TargetAreaId` + `TopographicalModifierCode`).
+
+```
+RecordSession (1) ──── (0..1) TargetArea (1) ──── (N) TargetAreaTopographicalModifier
+                                                          │
+                                                          └── SnomedTopographicalModifier
+```
+
+Key FKs:
+- `RecordSession.TargetAreaId` (nullable) — optional reference to the session's target area
+- `TargetArea.RecordSessionId` (required) — owning session; `TargetAreaConfiguration` is the single authoritative EF declaration of this 1:1 relationship
+
+**Removed fields (Phase 20)**:
+- `RecordChannel.Annotations` (JSONB) — removed; session-level annotations use `SessionAnnotation` entity
+- `Record.Notes` — removed; no consumers
+- `RecordSession.ClinicalContext` (text JSON) — replaced by the structured `TargetArea` FK relationship
 
 **SNOMED CT Terminologies** (4 tables):
 - Body structures, body regions
@@ -111,7 +130,6 @@ Phase 3 Authentication → Use NodeId (string)
 **Key Features**:
 - SNOMED CT integration for medical terminologies
 - HL7 FHIR alignment for interoperability
-- JSONB columns for flexible metadata
 - Hierarchical relationships (body structures, regions)
 - Audit timestamps (created_at, updated_at)
 
@@ -251,7 +269,7 @@ public interface IVolunteerService : IServiceBase<Volunteer, Guid>
 ### SNOMED CT Integration
 - Body structures (123037004 - Body structure)
 - Lateralities (7771000 - Left, 24028007 - Right)
-- Topographical modifiers (255561001 - Medial, 49370004 - Lateral)
+- Topographical modifiers (255561001 - Medial, 49370004 - Lateral) — linked to `TargetArea` via N:M join table `target_area_topographical_modifier`
 - Severity codes (255604002 - Mild, 6736007 - Moderate, 24484000 - Severe)
 - Clinical conditions (ICD-10/SNOMED CT codes)
 - Clinical events (observable entities)

@@ -1,5 +1,3 @@
-using System.Text.Json;
-
 namespace Bioteca.Prism.Domain.Entities.Record;
 
 /// <summary>
@@ -48,11 +46,6 @@ public class RecordChannel
     public DateTime StartTimestamp { get; set; }
 
     /// <summary>
-    /// Annotations stored as JSON
-    /// </summary>
-    public JsonDocument? Annotations { get; set; }
-
-    /// <summary>
     /// Creation timestamp
     /// </summary>
     public DateTime CreatedAt { get; set; }
@@ -65,5 +58,4 @@ public class RecordChannel
     // Navigation properties
     public Record Record { get; set; } = null!;
     public Sensor.Sensor? Sensor { get; set; }
-    public ICollection<TargetArea> TargetAreas { get; set; } = new List<TargetArea>();
 }

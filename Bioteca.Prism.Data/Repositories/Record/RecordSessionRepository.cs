@@ -43,6 +43,8 @@ public class RecordSessionRepository : BaseRepository<RecordSession, Guid>, IRec
     {
         return await _dbSet
             .Where(rs => rs.Id == id)
+            .Include(rs => rs.TargetArea)
+                .ThenInclude(ta => ta!.TopographicalModifiers)
             .Include(rs => rs.Records)
                 .ThenInclude(r => r.RecordChannels)
             .Include(rs => rs.SessionAnnotations)

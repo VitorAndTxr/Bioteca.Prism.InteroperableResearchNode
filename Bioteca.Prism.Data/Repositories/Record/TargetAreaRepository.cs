@@ -16,13 +16,14 @@ public class TargetAreaRepository : BaseRepository<TargetArea, Guid>, ITargetAre
     {
     }
 
-    public async Task<List<TargetArea>> GetByRecordChannelIdAsync(Guid recordChannelId, CancellationToken cancellationToken = default)
+    public async Task<List<TargetArea>> GetByRecordSessionIdAsync(Guid recordSessionId, CancellationToken cancellationToken = default)
     {
         return await _dbSet
-            .Where(ta => ta.RecordChannelId == recordChannelId)
+            .Where(ta => ta.RecordSessionId == recordSessionId)
             .Include(ta => ta.BodyStructure)
             .Include(ta => ta.Laterality)
-            .Include(ta => ta.TopographicalModifier)
+            .Include(ta => ta.TopographicalModifiers)
+                .ThenInclude(tm => tm.TopographicalModifier)
             .ToListAsync(cancellationToken);
     }
 

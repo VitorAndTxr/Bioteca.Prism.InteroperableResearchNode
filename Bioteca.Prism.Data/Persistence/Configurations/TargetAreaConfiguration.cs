@@ -21,8 +21,8 @@ public class TargetAreaConfiguration : IEntityTypeConfiguration<TargetArea>
             .ValueGeneratedOnAdd();
 
         // Foreign keys
-        builder.Property(x => x.RecordChannelId)
-            .HasColumnName("record_channel_id")
+        builder.Property(x => x.RecordSessionId)
+            .HasColumnName("record_session_id")
             .IsRequired();
 
         builder.Property(x => x.BodyStructureCode)
@@ -34,16 +34,6 @@ public class TargetAreaConfiguration : IEntityTypeConfiguration<TargetArea>
             .HasColumnName("laterality_code")
             .HasMaxLength(50);
 
-        builder.Property(x => x.TopographicalModifierCode)
-            .HasColumnName("topographical_modifier_code")
-            .HasMaxLength(50);
-
-        // Basic properties
-        builder.Property(x => x.Notes)
-            .HasColumnName("notes")
-            .HasColumnType("text")
-            .IsRequired();
-
         // Timestamps
         builder.Property(x => x.CreatedAt)
             .HasColumnName("created_at")
@@ -54,9 +44,13 @@ public class TargetAreaConfiguration : IEntityTypeConfiguration<TargetArea>
             .IsRequired();
 
         // Relationships
-        builder.HasOne(x => x.RecordChannel)
-            .WithMany(x => x.TargetAreas)
-            .HasForeignKey(x => x.RecordChannelId)
+        // Single authoritative declaration for the 1:1 session↔targetArea relationship.
+        // RecordSession.TargetAreaId (SET NULL) is the optional FK; TargetArea.RecordSessionId (CASCADE) is the required FK.
+        // WithOne(x => x.TargetArea) connects this side to RecordSession's navigation property so EF
+        // treats both FKs as one bidirectional 1:1 relationship instead of creating two separate associations.
+        builder.HasOne(x => x.RecordSession)
+            .WithOne(x => x.TargetArea)
+            .HasForeignKey<TargetArea>(x => x.RecordSessionId)
             .OnDelete(DeleteBehavior.Cascade);
 
         builder.HasOne(x => x.BodyStructure)
@@ -69,14 +63,15 @@ public class TargetAreaConfiguration : IEntityTypeConfiguration<TargetArea>
             .HasForeignKey(x => x.LateralityCode)
             .OnDelete(DeleteBehavior.Restrict);
 
-        builder.HasOne(x => x.TopographicalModifier)
-            .WithMany(x => x.TargetAreas)
-            .HasForeignKey(x => x.TopographicalModifierCode)
-            .OnDelete(DeleteBehavior.Restrict);
+        // N:M topographical modifiers via join entity
+        builder.HasMany(x => x.TopographicalModifiers)
+            .WithOne(x => x.TargetArea)
+            .HasForeignKey(x => x.TargetAreaId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         // Indexes
-        builder.HasIndex(x => x.RecordChannelId)
-            .HasDatabaseName("ix_target_area_record_channel_id");
+        builder.HasIndex(x => x.RecordSessionId)
+            .HasDatabaseName("ix_target_area_record_session_id");
 
         builder.HasIndex(x => x.BodyStructureCode)
             .HasDatabaseName("ix_target_area_body_structure_code");

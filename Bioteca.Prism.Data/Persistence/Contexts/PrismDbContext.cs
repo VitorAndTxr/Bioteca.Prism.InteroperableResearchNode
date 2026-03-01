@@ -87,6 +87,11 @@ public class PrismDbContext : DbContext
     public DbSet<TargetArea> TargetAreas => Set<TargetArea>();
 
     /// <summary>
+    /// Topographical modifier join rows for target areas
+    /// </summary>
+    public DbSet<TargetAreaTopographicalModifier> TargetAreaTopographicalModifiers => Set<TargetAreaTopographicalModifier>();
+
+    /// <summary>
     /// Session annotations
     /// </summary>
     public DbSet<SessionAnnotation> SessionAnnotations => Set<SessionAnnotation>();

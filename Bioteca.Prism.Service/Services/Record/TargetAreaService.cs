@@ -19,9 +19,9 @@ public class TargetAreaService : BaseService<TargetArea, Guid>, ITargetAreaServi
         _targetAreaRepository = repository;
     }
 
-    public async Task<List<TargetArea>> GetByRecordChannelIdAsync(Guid recordChannelId, CancellationToken cancellationToken = default)
+    public async Task<List<TargetArea>> GetByRecordSessionIdAsync(Guid recordSessionId, CancellationToken cancellationToken = default)
     {
-        return await _targetAreaRepository.GetByRecordChannelIdAsync(recordChannelId, cancellationToken);
+        return await _targetAreaRepository.GetByRecordSessionIdAsync(recordSessionId, cancellationToken);
     }
 
     public async Task<List<TargetArea>> GetByBodyStructureCodeAsync(string bodyStructureCode, CancellationToken cancellationToken = default)
