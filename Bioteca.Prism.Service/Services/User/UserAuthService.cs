@@ -143,9 +143,6 @@ namespace Bioteca.Prism.Service.Services.User
 
         private void ValidatePassword(string password, Domain.Entities.User.User user)
         {
-
-            return;
-
             string payloadPassword = DecodePasswordToPlainText(password, out bool errorDecodingPw);
 
             if (errorDecodingPw)
