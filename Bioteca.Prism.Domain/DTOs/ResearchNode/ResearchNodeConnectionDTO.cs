@@ -16,6 +16,8 @@ public class ResearchNodeConnectionDTO
     public string InstitutionDetails { get; set; } = string.Empty;
     public DateTime RegisteredAt { get; set; }
     public DateTime UpdatedAt { get; set; }
+    public DateTime? LastSyncedAt { get; set; }
+    public string? LastSyncStatus { get; set; }
 }
 
 

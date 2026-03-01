@@ -46,11 +46,12 @@ public class SyncController : ControllerBase
     /// Used by the requesting node to estimate sync scope before pulling data.
     /// </summary>
     [HttpPost("manifest")]
-    [PrismEncryptedChannelConnection]
-    public async Task<IActionResult> GetManifest([FromBody] SyncManifestRequest request)
+    [PrismEncryptedChannelConnection<SyncManifestRequest>]
+    public async Task<IActionResult> GetManifest()
     {
         try
         {
+            var request = HttpContext.Items["DecryptedRequest"] as SyncManifestRequest;
             var manifest = await _syncExportService.GetManifestAsync(request?.Since);
             return Ok(manifest);
         }

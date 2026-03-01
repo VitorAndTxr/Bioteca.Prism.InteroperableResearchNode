@@ -16,16 +16,19 @@ namespace Bioteca.Prism.InteroperableResearchNode.Controllers;
 public class ResearchController : BaseController
 {
     private readonly IResearchService _researchService;
+    private readonly IResearchExportService _researchExportService;
     private readonly ILogger<ResearchController> _logger;
 
     public ResearchController(
             IResearchService researchService,
+            IResearchExportService researchExportService,
             ILogger<ResearchController> logger,
             IConfiguration configuration,
             IApiContext apiContext
         ) : base(logger, configuration, apiContext)
     {
         _researchService = researchService;
+        _researchExportService = researchExportService;
         _logger = logger;
     }
 
@@ -1071,6 +1074,41 @@ public class ResearchController : BaseController
                 "Failed to retrieve sensors",
                 new Dictionary<string, object> { ["reason"] = "internal_error" },
                 retryable: true
+            ));
+        }
+    }
+
+    // ===== Export =====
+
+    [HttpGet("{id:guid}/export")]
+    [Authorize("sub")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> Export(Guid id, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await _researchExportService.ExportAsync(id, cancellationToken);
+            return File(result.ZipStream, "application/zip", result.FileName);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(CreateError(
+                "ERR_RESEARCH_NOT_FOUND",
+                $"Research with ID {id} not found",
+                new Dictionary<string, object> { ["researchId"] = id },
+                retryable: false
+            ));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to export research {ResearchId}", id);
+            return StatusCode(StatusCodes.Status500InternalServerError, CreateError(
+                "ERR_EXPORT_FAILED",
+                "Failed to export research data",
+                new Dictionary<string, object> { ["reason"] = "internal_error" },
+                retryable: false
             ));
         }
     }

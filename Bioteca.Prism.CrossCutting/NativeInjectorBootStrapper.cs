@@ -129,6 +129,9 @@ namespace Bioteca.Prism.CrossCutting
             // Register PostgreSQL-backed node registry service
             services.AddScoped<IResearchNodeService, ResearchNodeService>();
 
+            // Research export service
+            services.AddScoped<IResearchExportService, ResearchExportService>();
+
             // Sync services
             services.AddScoped<ISyncExportService, SyncExportService>();
             services.AddScoped<ISyncImportService, SyncImportService>();
