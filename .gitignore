@@ -4,7 +4,6 @@
 
 /.vs
 /Bioteca.DotNet/bin/Debug/net8.0
-/Bioteca.DotNet/Bioteca.DotNet.csproj
 /Bioteca.DotNet/obj
 /Bioteca.Prism.InteroperableResearchNode/.vs
 /Bioteca.Prism.InteroperableResearchNode/bin/Debug/net8.0
