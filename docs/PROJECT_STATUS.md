@@ -1,8 +1,8 @@
 # Project Status Report - IRN
 
 **Date:** 2026-03-01
-**Version:** 0.11.0
-**Overall Status:** ✅ Phase 20 Complete — Entity Mapping Corrections (Clinical Data Model Structural Fix)
+**Version:** 0.11.1
+**Overall Status:** ✅ Phase 20 Complete + Session Export SNOMED Enrichment (ResearchExportService)
 
 ---
 
@@ -697,9 +697,9 @@ InteroperableResearchNode/
 
 ## 🧪 Tests
 
-### Automated Test Status (2025-10-07)
+### Automated Test Status (2026-03-01)
 
-**Overall: 33 functional tests passing, 0 regressions from Phase 20** ✅
+**Overall: 33 functional tests passing, 0 regressions from Phase 20 or v0.11.1** ✅
 
 | Suite | Passed | Failed | Skipped | Notes |
 |-------|--------|--------|---------|-------|
@@ -707,8 +707,10 @@ InteroperableResearchNode/
 | `SyncImportServiceTests` | 7 | 0 | 1 | 1 skipped (pre-existing) |
 | `SyncSessionConstraintTests` | 5 | 0 | 0 | |
 | `Phase4SessionManagementTests` (core) | 10 | 0 | 0 | |
-| DI registration failures | — | 68 | — | Pre-existing baseline (missing clinical service registrations in test host) |
+| DI registration failures | — | 68 | — | Pre-existing: `IMedicationRepository`, `IVitalSignsRepository`, `IVolunteerClinicalConditionRepository` not registered in test host `Program.cs`; causes `WebApplicationFactory` to fail DI container construction |
 | Timing-sensitive Phase 4 failures | — | 2 | — | Pre-existing (rate-limit off-by-one, no-DB session cleanup) |
+
+> **Note**: The historical "73/75 tests passing" figure cited in earlier documentation is stale. The actual current baseline is 33/102 functional tests passing, with 68 failures caused by a pre-existing DI registration gap in the test host (unrelated to handshake protocol or export functionality). The 33 passing tests cover all core functional suites.
 
 **Current Status:**
 - All core functionality (Phases 1-4) working correctly with PostgreSQL + Redis persistence
@@ -1066,6 +1068,21 @@ For questions, bugs, or suggestions:
 
 **Last Update:** 2026-03-01
 **Next Review:** After Phase 5 (Federated Queries) implementation
+
+---
+
+## 📝 Recent Changes (v0.11.1 - 2026-03-01)
+
+### Session Export — TargetArea SNOMED Enrichment
+
+**File changed**: `Bioteca.Prism.Service/Services/Research/ResearchExportService.cs`
+
+The `ResearchExportService.ExportAsync` export ZIP (`session.json`) previously serialized only raw SNOMED codes for each session's `TargetArea`. Two fixes were applied:
+
+1. **EF eager loading** — Added `.ThenInclude` chains for `TargetArea.BodyStructure`, `TargetArea.Laterality`, and `TargetArea.TopographicalModifiers[].TopographicalModifier`. These navigations were `null` at serialization time despite FK values existing.
+2. **Enriched projection** — The `targetArea` JSON object now includes resolved SNOMED objects (`bodyStructure`, `laterality`, `topographicalModifiers`) with `DisplayName`, `Description`, and type-specific fields alongside the original code strings. The exported ZIP is now self-contained.
+
+Backward compatible: all pre-existing code fields remain unchanged.
 
 ---
 

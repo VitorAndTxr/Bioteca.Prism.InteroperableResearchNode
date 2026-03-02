@@ -92,7 +92,8 @@ builder.Services.AddDbContext<PrismDbContext>(options =>
     options.UseNpgsql(connectionString);
 });
 
-
+// Allow BaseRepository<T, TKey> to resolve DbContext via the registered PrismDbContext
+builder.Services.AddScoped<DbContext>(sp => sp.GetRequiredService<PrismDbContext>());
 
 // Register Redis infrastructure (conditionally)
 var useRedisForSessions = builder.Configuration.GetValue<bool>("FeatureFlags:UseRedisForSessions");

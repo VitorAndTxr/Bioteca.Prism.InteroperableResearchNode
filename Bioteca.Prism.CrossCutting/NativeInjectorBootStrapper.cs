@@ -1,12 +1,14 @@
 ﻿using Bioteca.Prism.Core.Cache;
 using Bioteca.Prism.Core.Cache.Session;
 using Bioteca.Prism.Core.Context;
+using Bioteca.Prism.Core.Database;
 using Bioteca.Prism.Core.Interfaces;
 using Bioteca.Prism.Core.Middleware.Channel;
 using Bioteca.Prism.Core.Middleware.Node;
 using Bioteca.Prism.Core.Middleware.Session;
 using Bioteca.Prism.Core.Security;
 using Bioteca.Prism.Core.Security.Cryptography;
+using Bioteca.Prism.Domain.Entities.Volunteer;
 using Bioteca.Prism.Data.Interfaces.Application;
 using Bioteca.Prism.Data.Interfaces.Clinical;
 using Bioteca.Prism.Data.Interfaces.Device;
@@ -172,6 +174,12 @@ namespace Bioteca.Prism.CrossCutting
             services.AddScoped<IAllergyIntoleranceRepository, AllergyIntoleranceRepository>();
             services.AddScoped<IMedicationRepository, MedicationRepository>();
             services.AddScoped<IResearchResearcherRepository, ResearchResearcherRepository>();
+
+            // Volunteer clinical repositories (generic — no custom query logic needed)
+            services.AddScoped<IBaseRepository<VolunteerClinicalCondition, Guid>, BaseRepository<VolunteerClinicalCondition, Guid>>();
+            services.AddScoped<IBaseRepository<VolunteerClinicalEvent, Guid>, BaseRepository<VolunteerClinicalEvent, Guid>>();
+            services.AddScoped<IBaseRepository<VolunteerMedication, Guid>, BaseRepository<VolunteerMedication, Guid>>();
+            services.AddScoped<IBaseRepository<VolunteerAllergyIntolerance, Guid>, BaseRepository<VolunteerAllergyIntolerance, Guid>>();
 
             // Sync repositories
             services.AddScoped<ISyncLogRepository, SyncLogRepository>();

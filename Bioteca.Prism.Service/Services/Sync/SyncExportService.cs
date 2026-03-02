@@ -209,6 +209,7 @@ public class SyncExportService : ISyncExportService
             .AsNoTracking()
             .Include(v => v.VitalSigns)
             .Include(v => v.ClinicalConditions)
+            .Include(v => v.ClinicalEvents)
             .Include(v => v.Medications)
             .Include(v => v.AllergyIntolerances)
             .AsQueryable();

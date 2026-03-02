@@ -61,11 +61,6 @@ public class VolunteerConfiguration : IEntityTypeConfiguration<Volunteer>
         builder.Property(x => x.Weight)
             .HasColumnName("weight");
 
-        builder.Property(x => x.MedicalHistory)
-            .HasColumnName("medical_history")
-            .HasColumnType("text")
-            .IsRequired();
-
         builder.Property(x => x.ConsentStatus)
             .HasColumnName("consent_status")
             .HasMaxLength(50)

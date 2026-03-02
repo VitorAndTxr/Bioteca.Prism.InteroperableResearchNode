@@ -3,6 +3,7 @@ using System;
 using Bioteca.Prism.Data.Persistence.Contexts;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Bioteca.Prism.Data.Migrations
 {
     [DbContext(typeof(PrismDbContext))]
-    partial class PrismDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260302035532_RemoveMedicalHistoryColumn")]
+    partial class RemoveMedicalHistoryColumn
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1543,6 +1546,15 @@ namespace Bioteca.Prism.Data.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<DateTime?>("AbatementDate")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("abatement_date");
+
+                    b.Property<string>("ClinicalNotes")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("clinical_notes");
+
                     b.Property<string>("ClinicalStatus")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -1553,9 +1565,18 @@ namespace Bioteca.Prism.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
+                    b.Property<DateTime?>("OnsetDate")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("onset_date");
+
                     b.Property<Guid>("RecordedBy")
                         .HasColumnType("uuid")
                         .HasColumnName("recorded_by");
+
+                    b.Property<string>("SeverityCode")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("severity_code");
 
                     b.Property<string>("SnomedCode")
                         .IsRequired()
@@ -1563,12 +1584,15 @@ namespace Bioteca.Prism.Data.Migrations
                         .HasColumnType("character varying(50)")
                         .HasColumnName("snomed_code");
 
-                    b.Property<string>("SnomedSeverityCodeCode")
-                        .HasColumnType("character varying(50)");
-
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
+
+                    b.Property<string>("VerificationStatus")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("verification_status");
 
                     b.Property<Guid>("VolunteerId")
                         .HasColumnType("uuid")
@@ -1582,10 +1606,11 @@ namespace Bioteca.Prism.Data.Migrations
                     b.HasIndex("RecordedBy")
                         .HasDatabaseName("ix_volunteer_clinical_conditions_recorded_by");
 
+                    b.HasIndex("SeverityCode")
+                        .HasDatabaseName("ix_volunteer_clinical_conditions_severity_code");
+
                     b.HasIndex("SnomedCode")
                         .HasDatabaseName("ix_volunteer_clinical_conditions_snomed_code");
-
-                    b.HasIndex("SnomedSeverityCodeCode");
 
                     b.HasIndex("VolunteerId")
                         .HasDatabaseName("ix_volunteer_clinical_conditions_volunteer_id");
@@ -2086,15 +2111,16 @@ namespace Bioteca.Prism.Data.Migrations
 
             modelBuilder.Entity("Bioteca.Prism.Domain.Entities.Volunteer.VolunteerClinicalCondition", b =>
                 {
+                    b.HasOne("Bioteca.Prism.Domain.Entities.Snomed.SnomedSeverityCode", "Severity")
+                        .WithMany("ClinicalConditions")
+                        .HasForeignKey("SeverityCode")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Bioteca.Prism.Domain.Entities.Clinical.ClinicalCondition", "ClinicalCondition")
                         .WithMany("VolunteerClinicalConditions")
                         .HasForeignKey("SnomedCode")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
-
-                    b.HasOne("Bioteca.Prism.Domain.Entities.Snomed.SnomedSeverityCode", null)
-                        .WithMany("ClinicalConditions")
-                        .HasForeignKey("SnomedSeverityCodeCode");
 
                     b.HasOne("Bioteca.Prism.Domain.Entities.Volunteer.Volunteer", "Volunteer")
                         .WithMany("ClinicalConditions")
@@ -2103,6 +2129,8 @@ namespace Bioteca.Prism.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("ClinicalCondition");
+
+                    b.Navigation("Severity");
 
                     b.Navigation("Volunteer");
                 });

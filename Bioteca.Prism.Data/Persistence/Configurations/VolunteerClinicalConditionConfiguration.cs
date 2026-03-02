@@ -30,11 +30,6 @@ public class VolunteerClinicalConditionConfiguration : IEntityTypeConfiguration<
             .HasMaxLength(50)
             .IsRequired();
 
-        builder.Property(x => x.SeverityCode)
-            .HasColumnName("severity_code")
-            .HasMaxLength(50)
-            .IsRequired(false);
-
         builder.Property(x => x.RecordedBy)
             .HasColumnName("recorded_by")
             .IsRequired();
@@ -43,24 +38,6 @@ public class VolunteerClinicalConditionConfiguration : IEntityTypeConfiguration<
         builder.Property(x => x.ClinicalStatus)
             .HasColumnName("clinical_status")
             .HasMaxLength(50)
-            .IsRequired();
-
-        builder.Property(x => x.OnsetDate)
-            .HasColumnName("onset_date")
-            .IsRequired(false);
-
-        builder.Property(x => x.AbatementDate)
-            .HasColumnName("abatement_date")
-            .IsRequired(false);
-
-        builder.Property(x => x.VerificationStatus)
-            .HasColumnName("verification_status")
-            .HasMaxLength(50)
-            .IsRequired();
-
-        builder.Property(x => x.ClinicalNotes)
-            .HasColumnName("clinical_notes")
-            .HasColumnType("text")
             .IsRequired();
 
         builder.Property(x => x.CreatedAt)
@@ -82,12 +59,6 @@ public class VolunteerClinicalConditionConfiguration : IEntityTypeConfiguration<
             .HasForeignKey(x => x.SnomedCode)
             .OnDelete(DeleteBehavior.Restrict);
 
-        builder.HasOne(x => x.Severity)
-            .WithMany(x => x.ClinicalConditions)
-            .HasForeignKey(x => x.SeverityCode)
-            .OnDelete(DeleteBehavior.Restrict);
-
-
         // Indexes
         builder.HasIndex(x => x.VolunteerId)
             .HasDatabaseName("ix_volunteer_clinical_conditions_volunteer_id");
@@ -97,9 +68,6 @@ public class VolunteerClinicalConditionConfiguration : IEntityTypeConfiguration<
 
         builder.HasIndex(x => x.ClinicalStatus)
             .HasDatabaseName("ix_volunteer_clinical_conditions_clinical_status");
-
-        builder.HasIndex(x => x.SeverityCode)
-            .HasDatabaseName("ix_volunteer_clinical_conditions_severity_code");
 
         builder.HasIndex(x => x.RecordedBy)
             .HasDatabaseName("ix_volunteer_clinical_conditions_recorded_by");

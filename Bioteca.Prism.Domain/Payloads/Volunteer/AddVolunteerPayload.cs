@@ -46,11 +46,6 @@ public class AddVolunteerPayload
     public float? Weight { get; set; }
 
     /// <summary>
-    /// Medical history
-    /// </summary>
-    public string MedicalHistory { get; set; } = string.Empty;
-
-    /// <summary>
     /// Consent status (e.g., Pending, Consented, Withdrawn)
     /// </summary>
     public string ConsentStatus { get; set; } = string.Empty;
@@ -59,4 +54,24 @@ public class AddVolunteerPayload
     /// Research node ID this volunteer belongs to
     /// </summary>
     public Guid ResearchNodeId { get; set; }
+
+    /// <summary>
+    /// SNOMED codes for clinical conditions to associate on creation (null = skip)
+    /// </summary>
+    public List<string>? ClinicalConditionCodes { get; set; }
+
+    /// <summary>
+    /// SNOMED codes for clinical events to associate on creation (null = skip)
+    /// </summary>
+    public List<string>? ClinicalEventCodes { get; set; }
+
+    /// <summary>
+    /// SNOMED codes for medications to associate on creation (null = skip)
+    /// </summary>
+    public List<string>? MedicationCodes { get; set; }
+
+    /// <summary>
+    /// SNOMED codes for allergy/intolerances to associate on creation (null = skip)
+    /// </summary>
+    public List<string>? AllergyIntoleranceCodes { get; set; }
 }

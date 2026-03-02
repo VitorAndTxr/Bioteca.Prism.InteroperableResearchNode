@@ -5,6 +5,44 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.2] - 2026-03-02
+
+### Fixed
+
+#### Volunteer-Clinical Relationship Persistence
+
+The volunteer clinical data join tables (`volunteer_clinical_conditions`, `volunteer_clinical_events`, `volunteer_medications`, `volunteer_allergy_intolerances`) were never populated because the service layer did not persist payload SNOMED codes to the database and the required repository DI registrations were missing.
+
+**Root cause**: Three bugs — (1) no DI registrations for volunteer clinical repositories, (2) `VolunteerService.AddAsync` and `UpdateVolunteerAsync` did not create/merge clinical join entities from payload codes, (3) `SyncExportService` was missing `.Include(v => v.ClinicalEvents)`.
+
+**Changes**:
+
+- **`AddVolunteerPayload` / `UpdateVolunteerPayload`**: Added 4 nullable `List<string>?` properties (`ClinicalConditionCodes`, `ClinicalEventCodes`, `MedicationCodes`, `AllergyIntoleranceCodes`). Null = skip, empty = clear all.
+- **`NativeInjectorBootStrapper`**: Registered 4 scoped `IBaseRepository<T, Guid>` → `BaseRepository<T, Guid>` entries for `VolunteerClinicalCondition`, `VolunteerClinicalEvent`, `VolunteerMedication`, `VolunteerAllergyIntolerance`.
+- **`VolunteerService`**: Injected 4 clinical repositories. `AddAsync` now creates join entities after volunteer save. `UpdateVolunteerAsync` runs merge logic (add missing, remove absent codes) via `FindAsync` with server-side volunteer filter.
+- **`SyncExportService`**: Added `.Include(v => v.ClinicalEvents)` to volunteer sync query.
+- **`BaseRepository`**: Implemented `FindAsync(Expression<Func<TEntity, bool>>)` for server-side predicate filtering.
+
+**Backward compatible**: Existing callers omitting the new payload fields get `null` (no change to clinical associations).
+
+---
+
+## [0.11.1] - 2026-03-01
+
+### Fixed
+
+#### Session Export — TargetArea Fields and SNOMED Data (`ResearchExportService`)
+
+`Bioteca.Prism.Service/Services/Research/ResearchExportService.cs`
+
+- **EF eager loading**: Added three separate `.Include/.ThenInclude` chains so that `TargetArea.BodyStructure` (SnomedBodyStructure), `TargetArea.Laterality` (SnomedLaterality), and `TargetArea.TopographicalModifiers[].TopographicalModifier` (SnomedTopographicalModifier) are loaded at query time instead of being `null` at serialization.
+- **Enriched session.json projection**: The `targetArea` object written to each `session.json` file inside the exported ZIP now includes fully resolved SNOMED terminology objects (`bodyStructure`, `laterality`, `topographicalModifiers`) alongside the pre-existing raw code fields (`bodyStructureCode`, `lateralityCode`, `topographicalModifierCodes`). The exported ZIP is now self-contained — consumers can interpret anatomical context without a separate SNOMED catalog lookup.
+- **Null guard added to `BodyStructure` projection**: `BodyStructure` is a required navigation in the entity model, but a defensive null check is now present for consistency with the adjacent `Laterality` projection pattern and to prevent a hard export failure on data integrity violations.
+- Backward compatibility: all pre-existing `bodyStructureCode`, `lateralityCode`, and `topographicalModifierCodes` fields remain at the same JSON paths with unchanged types.
+- No new files created; change is confined to `ResearchExportService.cs`.
+
+---
+
 ## [0.11.0] - 2026-03-01
 
 ### Summary

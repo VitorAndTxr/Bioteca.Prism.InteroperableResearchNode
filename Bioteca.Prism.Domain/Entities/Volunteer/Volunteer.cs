@@ -56,11 +56,6 @@ public class Volunteer
     public float? Weight { get; set; }
 
     /// <summary>
-    /// Medical history
-    /// </summary>
-    public string MedicalHistory { get; set; } = string.Empty;
-
-    /// <summary>
     /// Consent status (e.g., Pending, Consented, Withdrawn)
     /// </summary>
     public string ConsentStatus { get; set; } = string.Empty;

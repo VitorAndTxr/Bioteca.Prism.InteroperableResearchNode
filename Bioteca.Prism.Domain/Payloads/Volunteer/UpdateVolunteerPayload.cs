@@ -41,12 +41,27 @@ public class UpdateVolunteerPayload
     public float? Weight { get; set; }
 
     /// <summary>
-    /// Updated medical history (optional)
-    /// </summary>
-    public string? MedicalHistory { get; set; }
-
-    /// <summary>
     /// Updated consent status (optional)
     /// </summary>
     public string? ConsentStatus { get; set; }
+
+    /// <summary>
+    /// Desired SNOMED codes for clinical conditions (null = skip, empty = clear all)
+    /// </summary>
+    public List<string>? ClinicalConditionCodes { get; set; }
+
+    /// <summary>
+    /// Desired SNOMED codes for clinical events (null = skip, empty = clear all)
+    /// </summary>
+    public List<string>? ClinicalEventCodes { get; set; }
+
+    /// <summary>
+    /// Desired SNOMED codes for medications (null = skip, empty = clear all)
+    /// </summary>
+    public List<string>? MedicationCodes { get; set; }
+
+    /// <summary>
+    /// Desired SNOMED codes for allergy/intolerances (null = skip, empty = clear all)
+    /// </summary>
+    public List<string>? AllergyIntoleranceCodes { get; set; }
 }

@@ -56,11 +56,6 @@ public class VolunteerDTO
     public float? Weight { get; set; }
 
     /// <summary>
-    /// Medical history
-    /// </summary>
-    public string MedicalHistory { get; set; } = string.Empty;
-
-    /// <summary>
     /// Consent status
     /// </summary>
     public string ConsentStatus { get; set; } = string.Empty;
@@ -74,4 +69,24 @@ public class VolunteerDTO
     /// Last update timestamp
     /// </summary>
     public DateTime UpdatedAt { get; set; }
+
+    /// <summary>
+    /// Associated clinical condition SNOMED codes
+    /// </summary>
+    public List<string> ClinicalConditionCodes { get; set; } = new();
+
+    /// <summary>
+    /// Associated clinical event SNOMED codes
+    /// </summary>
+    public List<string> ClinicalEventCodes { get; set; } = new();
+
+    /// <summary>
+    /// Associated medication SNOMED codes
+    /// </summary>
+    public List<string> MedicationCodes { get; set; } = new();
+
+    /// <summary>
+    /// Associated allergy/intolerance SNOMED codes
+    /// </summary>
+    public List<string> AllergyIntoleranceCodes { get; set; } = new();
 }

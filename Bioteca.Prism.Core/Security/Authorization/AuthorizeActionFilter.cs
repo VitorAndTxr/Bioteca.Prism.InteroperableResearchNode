@@ -303,6 +303,11 @@ namespace Bioteca.Prism.Core.Security.Authorization
 
             account.Login = claims.FirstOrDefault(c => c.Type.Equals("login")).Value;
 
+            var researcherIdClaim = claims.FirstOrDefault(c => c.Type.Equals("researcherId"));
+            if (researcherIdClaim != null && Guid.TryParse(researcherIdClaim.Value, out Guid researcherId))
+            {
+                account.ResearcherId = researcherId;
+            }
 
             return account;
         }

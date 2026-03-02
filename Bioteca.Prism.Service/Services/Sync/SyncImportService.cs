@@ -560,7 +560,6 @@ public class SyncImportService : ISyncImportService
                     BloodType = GetString(item, "bloodType"),
                     Height = TryGetFloat(item, "height"),
                     Weight = TryGetFloat(item, "weight"),
-                    MedicalHistory = GetString(item, "medicalHistory"),
                     ConsentStatus = GetString(item, "consentStatus"),
                     EnrolledAt = GetDateTime(item, "enrolledAt"),
                     UpdatedAt = updatedAt
@@ -582,7 +581,6 @@ public class SyncImportService : ISyncImportService
                 existing.BloodType = GetString(item, "bloodType");
                 existing.Height = TryGetFloat(item, "height");
                 existing.Weight = TryGetFloat(item, "weight");
-                existing.MedicalHistory = GetString(item, "medicalHistory");
                 existing.ConsentStatus = GetString(item, "consentStatus");
                 existing.UpdatedAt = updatedAt;
 
@@ -665,11 +663,6 @@ public class SyncImportService : ISyncImportService
                         VolunteerId = volunteerId,
                         SnomedCode = GetString(cond, "snomedCode"),
                         ClinicalStatus = GetString(cond, "clinicalStatus"),
-                        OnsetDate = TryGetDateTime(cond, "onsetDate"),
-                        AbatementDate = TryGetDateTime(cond, "abatementDate"),
-                        SeverityCode = TryGetString(cond, "severityCode"),
-                        VerificationStatus = GetString(cond, "verificationStatus"),
-                        ClinicalNotes = GetString(cond, "clinicalNotes"),
                         RecordedBy = GetGuid(cond, "recordedBy"),
                         CreatedAt = GetDateTime(cond, "createdAt"),
                         UpdatedAt = condUpdatedAt
@@ -678,11 +671,6 @@ public class SyncImportService : ISyncImportService
                 else if (condUpdatedAt > condExisting.UpdatedAt)
                 {
                     condExisting.ClinicalStatus = GetString(cond, "clinicalStatus");
-                    condExisting.OnsetDate = TryGetDateTime(cond, "onsetDate");
-                    condExisting.AbatementDate = TryGetDateTime(cond, "abatementDate");
-                    condExisting.SeverityCode = TryGetString(cond, "severityCode");
-                    condExisting.VerificationStatus = GetString(cond, "verificationStatus");
-                    condExisting.ClinicalNotes = GetString(cond, "clinicalNotes");
                     condExisting.UpdatedAt = condUpdatedAt;
                 }
             }

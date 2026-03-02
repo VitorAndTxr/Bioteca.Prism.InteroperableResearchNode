@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "AskUserQuestion",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"D:/Repos/Pessoal/omni-sw/scripts/notify.py\" --hook",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

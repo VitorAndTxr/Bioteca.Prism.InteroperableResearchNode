@@ -106,6 +106,7 @@ namespace Bioteca.Prism.Service.Services.User
 
             if(user.Researcher!= null)
             {
+                claims.Add(new Claim("researcherId", user.Researcher.ResearcherId.ToString()));
                 claims.Add(new Claim("name", user.Researcher.Name));
                 claims.Add(new Claim("email", user.Researcher.Email));
                 claims.Add(new Claim("orcid", user.Researcher.Orcid));

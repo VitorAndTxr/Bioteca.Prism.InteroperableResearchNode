@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using Bioteca.Prism.Core.Interfaces;
 using Bioteca.Prism.Core.Paging;
 using Bioteca.Prism.Domain.DTOs.Paging;
@@ -24,6 +25,11 @@ public class BaseRepository<TEntity, TKey> : IBaseRepository<TEntity, TKey> wher
     public virtual async Task<TEntity?> GetByIdAsync(TKey id)
     {
         return await _dbSet.FindAsync(id);
+    }
+
+    public virtual async Task<List<TEntity>> FindAsync(Expression<Func<TEntity, bool>> predicate)
+    {
+        return await _dbSet.Where(predicate).ToListAsync();
     }
 
     public virtual async Task<List<TEntity>> GetAllAsync()

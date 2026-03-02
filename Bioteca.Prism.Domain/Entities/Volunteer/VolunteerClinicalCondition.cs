@@ -26,31 +26,6 @@ public class VolunteerClinicalCondition
     public string ClinicalStatus { get; set; } = string.Empty;
 
     /// <summary>
-    /// Date when the condition started
-    /// </summary>
-    public DateTime? OnsetDate { get; set; }
-
-    /// <summary>
-    /// Date when the condition was resolved/ended
-    /// </summary>
-    public DateTime? AbatementDate { get; set; }
-
-    /// <summary>
-    /// Severity code (foreign key, optional)
-    /// </summary>
-    public string? SeverityCode { get; set; }
-
-    /// <summary>
-    /// Verification status (unconfirmed, provisional, differential, confirmed, refuted)
-    /// </summary>
-    public string VerificationStatus { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Clinical notes about the condition
-    /// </summary>
-    public string ClinicalNotes { get; set; } = string.Empty;
-
-    /// <summary>
     /// Researcher who recorded this condition
     /// </summary>
     public Guid RecordedBy { get; set; }
@@ -75,11 +50,6 @@ public class VolunteerClinicalCondition
     /// Clinical condition catalog entry
     /// </summary>
     public Clinical.ClinicalCondition ClinicalCondition { get; set; } = null!;
-
-    /// <summary>
-    /// Severity classification (optional)
-    /// </summary>
-    public Snomed.SnomedSeverityCode? Severity { get; set; }
 
     /// <summary>
     /// Medications prescribed to treat this condition

@@ -59,12 +59,19 @@ public class ResearchExportService : IResearchExportService
             .SelectMany(r => r.ResearchVolunteers)
             .Include(rv => rv.Volunteer)
                 .ThenInclude(v => v.ClinicalConditions)
+                    .ThenInclude(cc => cc.ClinicalCondition)
             .Include(rv => rv.Volunteer)
                 .ThenInclude(v => v.ClinicalEvents)
+                    .ThenInclude(ce => ce.ClinicalEvent)
+            .Include(rv => rv.Volunteer)
+                .ThenInclude(v => v.ClinicalEvents)
+                    .ThenInclude(ce => ce.Severity)
             .Include(rv => rv.Volunteer)
                 .ThenInclude(v => v.Medications)
+                    .ThenInclude(m => m.Medication)
             .Include(rv => rv.Volunteer)
                 .ThenInclude(v => v.AllergyIntolerances)
+                    .ThenInclude(a => a.AllergyIntolerance)
             .Include(rv => rv.Volunteer)
                 .ThenInclude(v => v.VitalSigns)
             .ToListAsync(cancellationToken);
@@ -90,9 +97,17 @@ public class ResearchExportService : IResearchExportService
             .Where(s => s.ResearchId == researchId || volunteerIds.Contains(s.VolunteerId))
             .Include(s => s.SessionAnnotations)
             .Include(s => s.ClinicalEvents)
+                .ThenInclude(ce => ce.ClinicalEvent)
+            .Include(s => s.ClinicalEvents)
+                .ThenInclude(ce => ce.Severity)
             .Include(s => s.VitalSigns)
             .Include(s => s.TargetArea)
+                .ThenInclude(ta => ta!.BodyStructure)
+            .Include(s => s.TargetArea)
+                .ThenInclude(ta => ta!.Laterality)
+            .Include(s => s.TargetArea)
                 .ThenInclude(ta => ta!.TopographicalModifiers)
+                    .ThenInclude(tm => tm.TopographicalModifier)
             .Include(s => s.Records)
                 .ThenInclude(r => r.RecordChannels)
             .ToListAsync(cancellationToken);
@@ -153,7 +168,6 @@ public class ResearchExportService : IResearchExportService
                     rv.Volunteer.BloodType,
                     rv.Volunteer.Height,
                     rv.Volunteer.Weight,
-                    rv.Volunteer.MedicalHistory,
                     rv.Volunteer.ConsentStatus,
                     rv.Volunteer.EnrolledAt,
                     rv.Volunteer.UpdatedAt,
@@ -173,9 +187,13 @@ public class ResearchExportService : IResearchExportService
                     v.ClinicalConditions.Select(cc => new
                     {
                         cc.Id, cc.VolunteerId, cc.SnomedCode, cc.ClinicalStatus,
-                        cc.OnsetDate, cc.AbatementDate, cc.SeverityCode,
-                        cc.VerificationStatus, cc.ClinicalNotes, cc.RecordedBy,
-                        cc.CreatedAt, cc.UpdatedAt
+                        cc.RecordedBy, cc.CreatedAt, cc.UpdatedAt,
+                        ClinicalCondition = new
+                        {
+                            cc.ClinicalCondition.SnomedCode,
+                            cc.ClinicalCondition.DisplayName,
+                            cc.ClinicalCondition.Description
+                        }
                     }).ToList());
 
                 WriteJsonEntry(archive, $"{vPath}/clinical_events.json",
@@ -185,7 +203,19 @@ public class ResearchExportService : IResearchExportService
                         ce.SnomedCode, ce.DurationMinutes, ce.SeverityCode,
                         ce.NumericValue, ce.ValueUnit, ce.Characteristics,
                         ce.TargetAreaId, ce.RecordSessionId, ce.RecordedBy,
-                        ce.CreatedAt, ce.UpdatedAt
+                        ce.CreatedAt, ce.UpdatedAt,
+                        ClinicalEvent = new
+                        {
+                            ce.ClinicalEvent.SnomedCode,
+                            ce.ClinicalEvent.DisplayName,
+                            ce.ClinicalEvent.Description
+                        },
+                        Severity = ce.Severity == null ? null : new
+                        {
+                            ce.Severity.Code,
+                            ce.Severity.DisplayName,
+                            ce.Severity.Description
+                        }
                     }).ToList());
 
                 WriteJsonEntry(archive, $"{vPath}/medications.json",
@@ -193,7 +223,14 @@ public class ResearchExportService : IResearchExportService
                     {
                         m.Id, m.VolunteerId, m.MedicationSnomedCode, m.ConditionId,
                         m.Dosage, m.Frequency, m.Route, m.StartDate, m.EndDate,
-                        m.Status, m.Notes, m.RecordedBy, m.CreatedAt, m.UpdatedAt
+                        m.Status, m.Notes, m.RecordedBy, m.CreatedAt, m.UpdatedAt,
+                        Medication = new
+                        {
+                            m.Medication.SnomedCode,
+                            m.Medication.MedicationName,
+                            m.Medication.ActiveIngredient,
+                            m.Medication.AnvisaCode
+                        }
                     }).ToList());
 
                 WriteJsonEntry(archive, $"{vPath}/allergies.json",
@@ -202,7 +239,14 @@ public class ResearchExportService : IResearchExportService
                         a.Id, a.VolunteerId, a.AllergyIntoleranceSnomedCode,
                         a.Criticality, a.ClinicalStatus, a.Manifestations,
                         a.OnsetDate, a.LastOccurrence, a.VerificationStatus,
-                        a.RecordedBy, a.CreatedAt, a.UpdatedAt
+                        a.RecordedBy, a.CreatedAt, a.UpdatedAt,
+                        AllergyIntolerance = new
+                        {
+                            a.AllergyIntolerance.SnomedCode,
+                            a.AllergyIntolerance.Category,
+                            a.AllergyIntolerance.SubstanceName,
+                            a.AllergyIntolerance.Type
+                        }
                     }).ToList());
 
                 WriteJsonEntry(archive, $"{vPath}/vital_signs.json",
@@ -277,9 +321,31 @@ public class ResearchExportService : IResearchExportService
                     {
                         session.TargetArea.Id,
                         session.TargetArea.BodyStructureCode,
+                        BodyStructure = session.TargetArea.BodyStructure == null ? null : new
+                        {
+                            session.TargetArea.BodyStructure.SnomedCode,
+                            session.TargetArea.BodyStructure.DisplayName,
+                            session.TargetArea.BodyStructure.Description,
+                            session.TargetArea.BodyStructure.StructureType,
+                            session.TargetArea.BodyStructure.BodyRegionCode
+                        },
                         session.TargetArea.LateralityCode,
+                        Laterality = session.TargetArea.Laterality == null ? null : new
+                        {
+                            session.TargetArea.Laterality.Code,
+                            session.TargetArea.Laterality.DisplayName,
+                            session.TargetArea.Laterality.Description
+                        },
                         TopographicalModifierCodes = session.TargetArea.TopographicalModifiers
                             .Select(tm => tm.TopographicalModifierCode).ToList(),
+                        TopographicalModifiers = session.TargetArea.TopographicalModifiers
+                            .Select(tm => new
+                            {
+                                tm.TopographicalModifier.Code,
+                                tm.TopographicalModifier.DisplayName,
+                                tm.TopographicalModifier.Category,
+                                tm.TopographicalModifier.Description
+                            }).ToList(),
                         session.TargetArea.CreatedAt,
                         session.TargetArea.UpdatedAt
                     },
@@ -301,7 +367,19 @@ public class ResearchExportService : IResearchExportService
                         ce.SnomedCode, ce.DurationMinutes, ce.SeverityCode,
                         ce.NumericValue, ce.ValueUnit, ce.Characteristics,
                         ce.TargetAreaId, ce.RecordSessionId, ce.RecordedBy,
-                        ce.CreatedAt, ce.UpdatedAt
+                        ce.CreatedAt, ce.UpdatedAt,
+                        ClinicalEvent = new
+                        {
+                            ce.ClinicalEvent.SnomedCode,
+                            ce.ClinicalEvent.DisplayName,
+                            ce.ClinicalEvent.Description
+                        },
+                        Severity = ce.Severity == null ? null : new
+                        {
+                            ce.Severity.Code,
+                            ce.Severity.DisplayName,
+                            ce.Severity.Description
+                        }
                     }).ToList());
 
                 WriteJsonEntry(archive, $"{sPath}/vital_signs.json",

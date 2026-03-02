@@ -8,8 +8,8 @@ This file provides guidance to Claude Code when working with the **Interoperable
 
 **Interoperable Research Node (IRN)** - Core backend component of the PRISM federated framework for biomedical research data. Implements a secure 4-phase handshake protocol for node-to-node communication with cryptographic authentication.
 
-**Current Status**: Phase 4 Complete + Clinical Data Model (28 tables) + Generic Repository Pattern
-**Test Status**: 73/75 tests passing (97.3%)
+**Current Status**: Phase 20 Complete + Session Export SNOMED Enrichment (v0.11.1)
+**Test Status**: 33/102 functional tests passing (68 failures are pre-existing DI registration gap in test host, unrelated to handshake protocol); see `docs/PROJECT_STATUS.md`
 
 ---
 
@@ -267,7 +267,7 @@ docker exec -it irn-redis-node-a redis-cli -a prism-redis-password-node-a
 ## Testing
 
 ```bash
-# Run all tests (73/75 passing - 97.3%)
+# Run all tests (33/102 passing; 68 failures are pre-existing DI gap — see docs/PROJECT_STATUS.md)
 dotnet test Bioteca.Prism.InteroperableResearchNode.Test/*.csproj
 
 # Run specific test suite
@@ -401,11 +401,11 @@ When encountering Portuguese documentation, translate to English while preservin
   - **`PAGINATION_SYSTEM.md`** - Pagination architecture and usage ✅
   - **`RECENT_IMPLEMENTATIONS.md`** - Recent changes and migration guide ✅
 - `docs/testing/` - Testing documentation
-- `docs/PROJECT_STATUS.md` - Implementation status (v0.11.0)
+- `docs/PROJECT_STATUS.md` - Implementation status (v0.11.1)
 
 ### Testing
 - `test-phase4.sh` - End-to-end test script (Phases 1→2→3→4)
-- `Bioteca.Prism.InteroperableResearchNode.Test/` - Integration tests (73/75 passing)
+- `Bioteca.Prism.InteroperableResearchNode.Test/` - Integration tests (33/102 functional passing)
 
 ---
 
@@ -415,9 +415,9 @@ When encountering Portuguese documentation, translate to English while preservin
 - Ensure all containers on same `irn-network`
 - Use separated compose files (persistence + application)
 
-**Test Status** (2025-10-03):
-- 73/75 tests passing (97.3%)
-- 2 failing tests: RSA signature verification (known issue, non-blocking)
+**Test Status** (2026-03-01):
+- 33/102 functional tests passing; 68 failures are pre-existing (DI registration gap: `IMedicationRepository`, `IVitalSignsRepository`, `IVolunteerClinicalConditionRepository` not registered in test host); 2 failures are timing-sensitive Phase 4 tests
+- All core suites (SyncExport, SyncImport, SyncSessionConstraint, Phase4 core) pass with 0 regressions
 
 **Compiler Warnings**:
 - `NodeRegistryService.cs:44` - Async method without await (intentional)
@@ -475,6 +475,7 @@ When encountering Portuguese documentation, translate to English while preservin
 - Generic repository pattern
 - Complete service layer
 - Phase 20: Entity mapping corrections (TargetArea re-parented to RecordSession, N:M topographical modifiers, ClinicalContext JSON replaced by direct FK)
+- v0.11.1: ResearchExportService — EF eager loading for TargetArea SNOMED navigations + enriched session.json projection with resolved SNOMED data
 
 ### In Progress 🚧
 - Phase 5 (Federated Queries): Cross-node data querying

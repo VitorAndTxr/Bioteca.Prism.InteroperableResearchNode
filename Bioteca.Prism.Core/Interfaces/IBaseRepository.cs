@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using Bioteca.Prism.Domain.DTOs.Paging;
 
 namespace Bioteca.Prism.Core.Interfaces;
@@ -11,6 +12,11 @@ public interface IBaseRepository<TEntity, TKey> where TEntity : class
     /// Get an entity by its primary key
     /// </summary>
     Task<TEntity?> GetByIdAsync(TKey id);
+
+    /// <summary>
+    /// Get all entities matching the given predicate
+    /// </summary>
+    Task<List<TEntity>> FindAsync(Expression<Func<TEntity, bool>> predicate);
 
     /// <summary>
     /// Get all entities
